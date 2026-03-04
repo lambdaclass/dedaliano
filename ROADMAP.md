@@ -27,15 +27,17 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 ### Gap analysis by phase
 
-| Phase | Completion | Dev-months remaining | With 3 devs | With 5 devs |
-|---|---|---|---|---|
-| **Phase 1**: one-code design tool | ~25% | 7-10 | 3-4 months | 2-3 months |
-| **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months |
-| **Phase 3**: second code + timber + prestressed | 0% | 8-11 | 3-4 months | 2-3 months |
-| **Phase 4**: full platform | 0% | 25-36 | 8-12 months | 5-7 months |
-| **Phase 5**: global codes + CBFEM | 0% | 12-20 | 4-7 months | 3-4 months |
+| Phase | Completion | Dev-months remaining | With 3 devs | With 5 devs | Claude all-in dev-months |
+|---|---|---|---|---|---|
+| **Phase 1**: one-code design tool | ~25% | 7-10 | 3-4 months | 2-3 months | 4-5 |
+| **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months | 6-9 |
+| **Phase 3**: second code + timber + prestressed | 0% | 8-11 | 3-4 months | 2-3 months | 4-6 |
+| **Phase 4**: full platform | 0% | 25-36 | 8-12 months | 5-7 months | 14-21 |
+| **Phase 5**: global codes + CBFEM | 0% | 12-20 | 4-7 months | 3-4 months | 7-11 |
 
 ### Cumulative timeline
+
+**AI-assisted (human writes code with AI help, ~3x speedup):**
 
 | Milestone | 3 devs | 5 devs | 10 devs |
 |---|---|---|---|
@@ -44,6 +46,16 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 | Phase 3 ships | Month 14 | Month 10 | Month 6 |
 | Phase 4 ships | Month 24 | Month 16 | Month 10 |
 | Phase 5 ships (full platform, ~90% coverage) | Month 30 | Month 20 | Month 13 |
+
+**Claude all-in (Claude generates all code, humans only review):**
+
+| Milestone | 3 devs | 5 devs | 10 devs |
+|---|---|---|---|
+| Phase 1 ships (first revenue) | Month 2 | Month 1 | Month 1 |
+| Phase 2 ships | Month 5 | Month 3 | Month 2 |
+| Phase 3 ships | Month 7 | Month 5 | Month 3 |
+| Phase 4 ships | Month 13 | Month 9 | Month 5 |
+| Phase 5 ships (full platform, ~90% coverage) | Month 17 | Month 12 | Month 7 |
 
 The foundation (solver, rendering, import/export) is the hardest part to get right and it's done. What remains is mostly formula translation (design codes), SaaS infrastructure (collaboration, enterprise), and AI integration — exactly what AI-assisted development is best at.
 
@@ -1058,6 +1070,38 @@ All estimates assume AI-generated code with human review on every PR and commit 
 | 10 developers + reviewers | 5-8 months | 7-10 months |
 
 Phase 1 alone (sellable product) with 3 developers: **2-3 months**.
+
+### Claude all-in estimates
+
+The estimates above assume AI-assisted development where humans write code with AI help (~3x speedup over manual). Below is an aggressive scenario: Claude generates all code autonomously, humans only review and approve. This shifts the bottleneck entirely from writing to reviewing.
+
+**Dev-months comparison:**
+
+| Phase | AI-assisted | Claude all-in | Reduction |
+|---|---|---|---|
+| Phase 1: one-code design tool | 7-10 | 4-5 | ~50% |
+| Phase 2: connections + server + enterprise | 12-18 | 6-9 | ~50% |
+| Phase 3: second code + timber + prestressed | 8-11 | 4-6 | ~50% |
+| Phase 4: full platform | 25-36 | 14-21 | ~45% |
+| Phase 5: global codes + CBFEM | 12-20 | 7-11 | ~45% |
+| **Total** | **64-95** | **35-52** | **~45-50%** |
+
+**Calendar timeline (Claude all-in):**
+
+| Team size | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 (full platform) |
+|---|---|---|---|---|---|
+| 3 developers + reviewers | Month 2 | Month 5 | Month 7 | Month 13 | Month 17 |
+| 5 developers + reviewers | Month 1 | Month 3 | Month 5 | Month 9 | Month 12 |
+| 10 developers + reviewers | Month 1 | Month 2 | Month 3 | Month 5 | Month 7 |
+
+**Why ~50% and not 90%:** Claude can generate code fast, but several bottlenecks are irreducible:
+
+- **SE reviewer bandwidth.** Every design code formula, coefficient table, and edge case must be verified by a structural engineer. A reviewer can only process so many PRs per day regardless of how fast they're generated. This is the binding constraint.
+- **Benchmark validation wall-clock time.** Running generated code against published benchmarks (AISC design examples, Eurocode worked examples, NAFEMS benchmarks) takes real time — setting up test cases, comparing results, investigating discrepancies.
+- **Integration debugging.** When 50 modules connect (solver → design checks → reports → UI), integration bugs emerge that require understanding the full system, not just one formula. This debugging is inherently sequential.
+- **Iterative UX design.** UI/UX for structural engineers requires feedback loops — build, test with users, revise. Claude can generate UI code instantly but can't compress the feedback cycle.
+
+**The real unlock is reviewer count, not dev count.** With Claude all-in, adding more AI-assisted developers has diminishing returns past 5-10. The constraint is how many experienced reviewers (structural engineers + senior software engineers) can process the output. Three great reviewers processing Claude's output beats ten developers writing code with AI assistance.
 
 ### Revenue milestones
 
