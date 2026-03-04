@@ -27,7 +27,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 ### Gap analysis by phase
 
-| Phase | Completion | Dev-months remaining | With 3 devs | With 5 devs | Claude all-in dev-months |
+| Phase | Completion | Dev-months | With 3 devs | With 5 devs | Full AI gen (dev-months) |
 |---|---|---|---|---|---|
 | **Phase 1**: one-code design tool | ~25% | 7-10 | 3-4 months | 2-3 months | 4-5 |
 | **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months | 6-9 |
@@ -37,7 +37,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 ### Cumulative timeline
 
-**AI-assisted (human writes code with AI help, ~3x speedup):**
+**Baseline — AI-assisted development (developers write code with AI assistance):**
 
 | Milestone | 3 devs | 5 devs | 10 devs |
 |---|---|---|---|
@@ -47,7 +47,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 | Phase 4 ships | Month 24 | Month 16 | Month 10 |
 | Phase 5 ships (full platform, ~90% coverage) | Month 30 | Month 20 | Month 13 |
 
-**Claude all-in (Claude generates all code, humans only review):**
+**Accelerated — full AI generation (AI writes all code, engineers review every commit):**
 
 | Milestone | 3 devs | 5 devs | 10 devs |
 |---|---|---|---|
@@ -1071,37 +1071,39 @@ All estimates assume AI-generated code with human review on every PR and commit 
 
 Phase 1 alone (sellable product) with 3 developers: **2-3 months**.
 
-### Claude all-in estimates
+### Accelerated estimates (full AI generation)
 
-The estimates above assume AI-assisted development where humans write code with AI help (~3x speedup over manual). Below is an aggressive scenario: Claude generates all code autonomously, humans only review and approve. This shifts the bottleneck entirely from writing to reviewing.
+The baseline estimates assume developers write code with AI assistance (~3x productivity gain). An alternative model: AI generates all implementation code, with engineers reviewing every commit for correctness, standards compliance, and architectural integrity. Under this model, code generation ceases to be the bottleneck — review throughput is.
 
-**Dev-months comparison:**
+**Effort by phase:**
 
-| Phase | AI-assisted | Claude all-in | Reduction |
-|---|---|---|---|
-| Phase 1: one-code design tool | 7-10 | 4-5 | ~50% |
-| Phase 2: connections + server + enterprise | 12-18 | 6-9 | ~50% |
-| Phase 3: second code + timber + prestressed | 8-11 | 4-6 | ~50% |
-| Phase 4: full platform | 25-36 | 14-21 | ~45% |
-| Phase 5: global codes + CBFEM | 12-20 | 7-11 | ~45% |
-| **Total** | **64-95** | **35-52** | **~45-50%** |
+| Phase | Baseline (dev-months) | Full AI gen (dev-months) |
+|---|---|---|
+| Phase 1: one-code design tool | 7-10 | 4-5 |
+| Phase 2: connections + server + enterprise | 12-18 | 6-9 |
+| Phase 3: second code + timber + prestressed | 8-11 | 4-6 |
+| Phase 4: full platform | 25-36 | 14-21 |
+| Phase 5: global codes + CBFEM | 12-20 | 7-11 |
+| **Total** | **64-95** | **35-52** |
 
-**Calendar timeline (Claude all-in):**
+Phases 1-3 see the largest reduction (~50%) because the work is predominantly formula translation from published standards — well-specified inputs, deterministic outputs, testable against published worked examples (AISC design examples, Eurocode worked examples). Phases 4-5 compress less (~40-45%) because they include nonlinear solvers, mesh generation, and novel element formulations where iterative numerical debugging dominates, plus CBFEM connection modeling which is R&D-intensive with limited prior art.
 
-| Team size | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 (full platform) |
+**Calendar milestones (cumulative, full AI generation):**
+
+| Team size | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
 |---|---|---|---|---|---|
 | 3 developers + reviewers | Month 2 | Month 5 | Month 7 | Month 13 | Month 17 |
 | 5 developers + reviewers | Month 1 | Month 3 | Month 5 | Month 9 | Month 12 |
 | 10 developers + reviewers | Month 1 | Month 2 | Month 3 | Month 5 | Month 7 |
 
-**Why ~50% and not 90%:** Claude can generate code fast, but several bottlenecks are irreducible:
+**Rate-limiting factors.** Four constraints prevent acceleration beyond ~50%, regardless of AI capability:
 
-- **SE reviewer bandwidth.** Every design code formula, coefficient table, and edge case must be verified by a structural engineer. A reviewer can only process so many PRs per day regardless of how fast they're generated. This is the binding constraint.
-- **Benchmark validation wall-clock time.** Running generated code against published benchmarks (AISC design examples, Eurocode worked examples, NAFEMS benchmarks) takes real time — setting up test cases, comparing results, investigating discrepancies.
-- **Integration debugging.** When 50 modules connect (solver → design checks → reports → UI), integration bugs emerge that require understanding the full system, not just one formula. This debugging is inherently sequential.
-- **Iterative UX design.** UI/UX for structural engineers requires feedback loops — build, test with users, revise. Claude can generate UI code instantly but can't compress the feedback cycle.
+1. **Review throughput.** Every design code formula, coefficient table, and failure-mode check must be verified by a structural engineer against the governing standard. A reviewer can process a finite number of PRs per day — generating code faster does not increase this rate.
+2. **Benchmark validation.** Generated code must be tested against published benchmarks (AISC design examples, Eurocode worked examples, NAFEMS verification tests). Setting up test cases, comparing numerical results, and investigating discrepancies is wall-clock work that cannot be parallelized away.
+3. **Integration testing.** When the solver, design checks, report engine, and UI interact across 50+ modules, integration defects emerge that require understanding the full system. This debugging is inherently sequential.
+4. **UX iteration.** Structural engineers have specific workflow expectations. Interface design requires build-test-revise cycles with real users; AI can generate UI code instantly but cannot compress the feedback loop.
 
-**The real unlock is reviewer count, not dev count.** With Claude all-in, adding more AI-assisted developers has diminishing returns past 5-10. The constraint is how many experienced reviewers (structural engineers + senior software engineers) can process the output. Three great reviewers processing Claude's output beats ten developers writing code with AI assistance.
+Under this model, the binding constraint is the number of qualified reviewers (structural engineers and senior software engineers), not the number of developers. Beyond 5-10 developers, adding headcount yields diminishing returns — review capacity determines throughput.
 
 ### Revenue milestones
 
