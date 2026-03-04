@@ -1,5 +1,11 @@
 # Dedaliano Roadmap
 
+## Mission
+
+Own the structural engineering software market vertically — from load determination to calculation report — by building a browser-native platform that is 5-10x cheaper than incumbents, AI-native from day one, and validated against every published benchmark in the industry.
+
+---
+
 ## Current state
 
 Dedaliano is a browser-native 2D + 3D structural analysis application implementing the Direct Stiffness Method from scratch. The solver is written in pure TypeScript with no external linear algebra dependencies. Over 1,050 tests across 31 suites validate the engine against analytical solutions.
@@ -20,65 +26,143 @@ Dedaliano is a browser-native 2D + 3D structural analysis application implementi
 
 ---
 
-## Vision
+## Market strategy
 
-A complete browser-based structural engineering platform covering the full workflow from load determination to calculation report, at 1/5 the cost of incumbent desktop software. The engineer never leaves the tool.
+### The opportunity
 
-### The engineering pipeline
+Structural engineering software is a $7-12B global market. Incumbents charge $2,000-15,000+/yr per seat:
 
-| Phase | What happens | Status |
+| Software | Pricing | Owner |
 |---|---|---|
-| 1. Conceptual design | Select structural system, preliminary sizing, cost estimate | Not covered |
-| 2. Load determination | Dead, live, wind, snow, seismic, combinations per code | Partial (spectral exists; full code-based load generation not built) |
-| 3. Modeling | Nodes, elements, supports, materials, sections, loads | **Done** |
-| 4. Analysis | Linear, P-Delta, buckling, modal, spectral, nonlinear | **Done for 2D**, 3D linear only |
-| 5. Member design | Code-check every member: AISC 360, ACI 318, Eurocode 2/3 | Not covered |
-| 6. Connection design | Beam-column, brace, splice, base plate connections | Not covered |
-| 7. Foundation design | Footings, piles, retaining walls | Not covered |
-| 8. Detailing | Rebar schedules, connection detail sheets | Not covered |
-| 9. Construction drawings | Plans, sections, schedules | Not covered (too large — CAD/BIM engine) |
-| 10. Calculation report | Permit-ready documentation | Not covered |
-| 11. Quantity takeoff | Tons of steel, m3 of concrete, cost estimate | Not covered |
+| ETABS | $5,000-15,600 perpetual + $875-2,730/yr maintenance | CSI (Computers & Structures) |
+| SAP2000 | $4,000-9,000 perpetual + maintenance | CSI |
+| RFEM 6 | EUR 4,750 base + EUR 1,150-2,950 per add-on | Dlubal |
+| STAAD.Pro | $3,210-4,411/yr | Bentley Systems |
+| Robot Structural Analysis | $3,060/yr (bundled with AEC Collection) | Autodesk |
+| IDEA StatiCa | $1,990-5,250/yr | IDEA StatiCa (Hilti) |
+| ADAPT | $5,000+/yr | Trimble |
+| RISA | $2,000-6,000/yr | RISA Technologies |
 
-The minimum complete pipeline is phases 2 through 8 plus 10 and 11. Phase 9 (construction drawings) requires a CAD engine and is out of scope. The target:
+Browser-based competitors are small and growing: SkyCiv ($69-179/month, ~$1.7M ARR), ClearCalcs ($79-149/month, ~$793K ARR). Neither covers the full pipeline.
+
+**83-94% of structural engineering firms have fewer than 20 employees.** These firms cannot afford $50,000-150,000/year in software licenses. A 10-person firm switching from incumbents to Dedaliano All-in-One ($99/month = $1,188/year) saves $30,000-80,000/year.
+
+### Vertical ownership thesis
+
+A structural engineer's workflow has 12 phases. No single tool covers them all today — engineers use 3-5 different programs per project. Each handoff loses data, wastes time, and introduces errors.
+
+| Phase | What happens | Status | Incumbent |
+|---|---|---|---|
+| 1. Conceptual design | Select structural system, preliminary sizing | Not covered | Rules of thumb, spreadsheets |
+| 2. Load determination | Dead, live, wind, snow, seismic per code | Partial | Spreadsheets, ASCE 7 Hazard Tool |
+| 3. Modeling | Nodes, elements, supports, materials, loads | **Done** | ETABS, SAP2000, RFEM, Robot |
+| 4. Analysis | Linear, P-Delta, buckling, modal, spectral | **Done (2D)**, 3D partial | ETABS, SAP2000, RFEM, STAAD |
+| 5. Member design | Code-check every member per design code | Not covered | ETABS, RFEM, RISA, spreadsheets |
+| 6. Connection design | Beam-column, brace, splice, base plate | Not covered | IDEA StatiCa, SteelSmart |
+| 7. Foundation design | Footings, piles, retaining walls | Not covered | Spreadsheets, specialized tools |
+| 8. Detailing | Rebar schedules, connection detail sheets | Not covered | Revit, Tekla |
+| 9. Construction drawings | Plans, sections, schedules | Out of scope | Revit, Tekla (BIM/CAD) |
+| 10. Calculation report | Permit-ready documentation | Not covered | Word, Mathcad, Tedds |
+| 11. Quantity takeoff | Tons of steel, m3 of concrete, cost | Not covered | Spreadsheets |
+| 12. Construction support | RFIs, change orders, field verification | Not covered | Manual process |
+
+**Target: phases 2 through 8 + 10 + 11.** Phase 9 (construction drawings) requires a CAD engine — that's Revit/Tekla territory. We integrate with them via IFC round-trip and live link plugins rather than replacing them.
 
 ```
 Loads → Model → Analysis → Code checks → Connections → Foundations → Report + Quantities
 ```
 
----
+Owning this pipeline means the engineer never leaves Dedaliano except for construction drawings. Every phase generates revenue. Every phase increases switching costs.
 
-## Business model
+### Competitive moat: AI-native architecture
 
-Dedaliano is free and open source (AGPL-3.0). The browser-based solver runs entirely on the client: small and medium models are analyzed locally at no cost.
+Desktop incumbents (ETABS, SAP2000, RFEM, STAAD) are built on C/C++/Fortran codebases from the 1990s-2000s. They cannot easily add AI features. This is the structural advantage:
 
-### Revenue streams
+**AI features that incumbents cannot match:**
 
-**1. Server-side computation.** When a model exceeds what the browser can handle (large 3D structures with thousands of DOFs, eigenvalue problems, long-running nonlinear analyses), the user offloads computation to Dedaliano's servers. The Rust solver compiled as a native binary runs on dedicated hardware. Results are streamed back to the client.
+1. **Auto-sizing optimizer**: describe constraints ("steel moment frame, 4 stories, 30ft bays, AISC 360") and AI proposes initial member sizes, iterates analysis + code checks until all pass with minimal weight. Traditional approach: engineer guesses sizes, runs analysis, adjusts manually over hours
+2. **Natural language model editing**: "add a 20kN point load at midspan of beam B3" or "change all W14 columns to W16" — parsed into model mutations. No menu navigation
+3. **Intelligent load generation**: input building geometry and location, AI determines all applicable load cases (wind, seismic, snow, rain), applies them correctly per code, generates all required combinations. Currently takes engineers hours of manual work per project
+4. **AI design review**: after analysis completes, AI reviews results and flags concerns ("column C7 has 0.98 utilization ratio under seismic, consider upsizing", "drift at story 4 exceeds H/400 limit", "foundation reactions exceed typical bearing capacity for assumed soil")
+5. **Report narration**: AI writes the engineering narrative sections of the calculation report — describing the structural system, justifying design decisions, explaining why certain load combinations govern. Engineers currently spend 25-35% of time on documentation
+6. **Code provision lookup**: engineer asks "what's the minimum reinforcement ratio for this beam per ACI 318-19?" and gets the exact clause, formula, and computed value in context
 
-**2. SaaS product modules.** Connection design, concrete design, and other specialized tools sold as add-on subscriptions.
-
-**3. Education licenses.** Per-student university pricing for the teaching platform.
-
-**4. API access.** Pay-per-solve for developers, BIM integrations, and automation scripts.
+These features are trivial to add in a browser-based, AI-native architecture. They are nearly impossible to retrofit into a 30-year-old desktop C++ application.
 
 ### Pricing
 
 | Tier | Price | Includes |
 |---|---|---|
 | **Free** | $0 | Full analysis (browser-only, small models), section properties, basic load calculator |
-| **Pro** | $49/month | Server compute for large models, reports, full load calculator, unit toggle |
+| **Pro** | $49/month | Server compute for large models, reports, full load calculator, AI assistant, unit toggle |
 | **Steel** | +$39/month | Steel connection design |
 | **Concrete** | +$29/month | Concrete design suite |
-| **All-in-One** | $99/month | Everything |
+| **All-in-One** | $99/month | Everything: analysis + all design modules + AI features + server compute |
 | **Education** | $50-100/student/yr | University site license with auto-grading and LMS integration |
-| **API** | Pay-per-solve | HTTP solver endpoint for developers |
+| **API** | Pay-per-solve | HTTP solver endpoint for developers and integrations |
 
-### Market context
+**Revenue model**: free tier drives adoption; $99/month All-in-One is the target conversion. At $1,188/year vs $5,000-15,000/year for incumbents, the price objection disappears. Revenue scales with users, not with per-seat licenses.
 
-Structural engineering software is a $7-12B global market. Incumbents charge $2,000-15,000+/yr per seat: ETABS ($5,000-15,600 perpetual + $875-2,730/yr maintenance), RFEM 6 (EUR 4,750 base + EUR 1,150-2,950 per add-on), STAAD.Pro ($3,210-4,411/yr), IDEA StatiCa ($1,990-5,250/yr). Browser-based alternatives: SkyCiv ($69-179/month, ~$1.7M ARR), ClearCalcs ($79-149/month, ~$793K ARR).
+### Trust and credibility strategy
 
-83-94% of structural engineering firms have fewer than 20 employees. A 10-person firm switching from incumbents to Dedaliano All-in-One saves $30,000-80,000/year.
+Engineers are conservative. They will not switch from SAP2000/ETABS unless they trust the results. Trust is earned, not claimed.
+
+**Published verification documents:**
+- For every design code module, publish a verification document comparing Dedaliano's results against hand calculations and incumbent software (SAP2000, ETABS, RFEM) for the same problems
+- Format: problem description, hand calculation, Dedaliano result, SAP2000/ETABS result, percent difference
+- Make these freely downloadable — they serve as both quality proof and marketing content
+
+**Benchmark suite:**
+- Run every CSI verification problem (SAP2000/ETABS publish hundreds of verification examples with expected answers)
+- Run every AISC design example from the Steel Construction Manual companion
+- Run every ACI 318 worked example from PCA and other publishers
+- Run NAFEMS standard benchmark problems for FEA validation
+- Publish results publicly with pass/fail status and numerical comparison
+
+**Third-party validation:**
+- Submit the software for review by independent structural engineering professors
+- Seek listing in building department approved software lists where applicable
+- Present benchmark results at industry conferences (NASCC, ACI Convention, SEAOC)
+
+**Marquee clients:**
+- Partner with 5-10 well-known structural engineering firms for beta testing
+- Their public endorsement ("we verified Dedaliano against our SAP2000 models and results match within 0.1%") is worth more than any marketing campaign
+- Offer free All-in-One for 1 year in exchange for a published case study
+
+**Open source advantage:**
+- The solver code is AGPL-3.0 and publicly readable. Any engineer can inspect the stiffness matrix assembly, the eigenvalue solver, the design code check formulas
+- This transparency is impossible for closed-source incumbents. "Don't trust us — read the code" is a powerful message to a skeptical profession
+
+### Distribution and go-to-market
+
+**Content marketing (primary channel):**
+- Technical blog posts solving real structural engineering problems with Dedaliano (SEO for "how to design a steel moment frame", "AISC 360 beam design example", etc.)
+- Video tutorials comparing Dedaliano workflow vs ETABS/SAP2000 for the same problem
+- Every benchmark verification document doubles as a long-form content piece
+- Engineers spend 25-35% of time on documentation — content showing how Dedaliano automates this resonates immediately
+
+**University partnerships:**
+- Target structural analysis and steel/concrete design courses
+- Professors get free accounts. Students learn on Dedaliano. After graduation, they bring it to their firms
+- Dedaliano's DSM wizard already exists and is ideal for teaching — expand to design code teaching modules
+- This is the long-term flywheel: every graduating class creates new potential customers
+
+**Industry conferences:**
+- Present at NASCC (steel), ACI Convention (concrete), SEAOC (seismic), ASCE Structures Congress
+- Live demos comparing speed and accuracy against incumbent software
+- Distribute benchmark verification documents
+- Sponsor student competitions and capstone projects
+
+**Revit/Tekla live link plugins:**
+- Most firms use Revit or Tekla for BIM/drawings. They need analysis software that talks to their BIM tool
+- Build bidirectional sync plugins: send model from Revit → Dedaliano for analysis → send results back to Revit with design data
+- Not just IFC export — a live link that keeps the analytical model and BIM model synchronized
+- This is how ETABS and Robot win deals: they integrate with Revit. We must match this
+
+**Benchmark publications:**
+- Publish benchmark comparison papers in ASCE Journal of Structural Engineering, Engineering Structures, etc.
+- Academic credibility translates directly to practitioner trust
+- "Peer-reviewed verification" is the gold standard in engineering
 
 ---
 
@@ -110,7 +194,7 @@ This approach reduces development timelines by roughly 3x compared to traditiona
 
 ## Phase 1 — Complete design tool for one market (months 1-4, 2-3 devs)
 
-Pick US (AISC 360 + ACI 318) or EU (Eurocode 2 + 3). Build the full pipeline for steel and concrete buildings in that code system. This is the minimum product that replaces incumbent software.
+**Business goal:** ship a sellable product. Pick US (AISC 360 + ACI 318) or EU (Eurocode 2 + 3). Build the full pipeline for steel and concrete buildings in that code system. This is the minimum product that replaces incumbent software for the most common use cases.
 
 **Total: 6-8 dev-months.**
 
@@ -133,7 +217,7 @@ Estimated effort: 1-1.5 dev-months.
 
 ### 1.2 Steel member design — code checking
 
-Check every steel member against the design code. This is what turns Dedaliano from an analysis tool into a design tool. Without it, the engineer runs analysis here and opens another program to check members.
+Check every steel member against the design code. This is what turns Dedaliano from an analysis tool into a design tool. Without it, the engineer runs analysis here and opens another program to check members. **This is the single most important feature for revenue.**
 
 **AISC 360 scope:**
 - Tension members: yielding on gross section, rupture on net section (Chapter D)
@@ -238,13 +322,25 @@ All internal calculations remain in SI (m, kN, kN·m, MPa). Display layer conver
 
 Estimated effort: 0.5 dev-months.
 
+### 1.8 AI assistant (Phase 1 features)
+
+Ship the first AI-native features alongside Phase 1 to differentiate from day one:
+
+- **Intelligent load generation**: user inputs building geometry and location, AI determines all applicable load cases and combinations per code. Saves hours of manual work per project
+- **AI design review**: after analysis + code checks, AI scans results and flags concerns (high utilization, drift limits, bearing capacity issues). First-pass review before human engineer reviews
+- **Report narration**: AI writes the engineering narrative sections of the calculation report — structural system description, design assumptions, governing conditions
+
+These are high-impact, low-risk AI applications. The AI suggests; the engineer reviews and approves. No autonomous decisions on structural safety.
+
+Estimated effort: 1 dev-month.
+
 ---
 
 ## Phase 2 — Connections, server, performance (months 4-8, 3-4 devs)
 
-Close the design loop with connection design. Enable server-side computation and collaboration. Open the API market.
+**Business goal:** close the design loop with connections. Enable server-side computation and collaboration. Open the API and education markets.
 
-**Total: 5-7 dev-months.**
+**Total: 7-10 dev-months.**
 
 ### 2.1 Steel connection design
 
@@ -308,7 +404,7 @@ CRDTs (Conflict-free Replicated Data Types) guarantee convergence by constructio
 | Loads | Add-Wins Set | Both users add loads: both kept |
 | ID generation | Client-ID + Lamport clock | No conflicts by design |
 
-**Library: Yjs.** Most mature CRDT library. Native Y.Map, Y.Array, Y.Text types. Awareness protocol for cursor/presence sharing. UndoManager for per-user undo stacks. Alternatives: Automerge (heavier, cleaner API), Loro (newer Rust/WASM, worth watching).
+**Library: Yjs.** Most mature CRDT library. Native Y.Map, Y.Array, Y.Text types. Awareness protocol for cursor/presence sharing. UndoManager for per-user undo stacks.
 
 **Networking: WebSocket primary, WebRTC optional.** y-websocket for relay through server. y-webrtc for optional lower-latency P2P cursor sync. Both providers on the same Y.Doc — Yjs deduplicates.
 
@@ -320,7 +416,7 @@ Client A <--WebSocket--> Server <--WebSocket--> Client B
 
 **Server: Go.** Accept WebSocket connections, relay Yjs deltas, persist documents to database, check auth tokens. A few hundred lines. Goroutines handle thousands of concurrent connections.
 
-**CRDTs are valuable even with a server** because they enable local-first editing: every edit applies instantly to the local replica (0ms latency), delta sent in background. Without CRDTs, every edit would require a network round trip before the UI updates. Also provides offline editing for free.
+**CRDTs are valuable even with a server** because they enable local-first editing: every edit applies instantly to the local replica (0ms latency), delta sent in background. Also provides offline editing for free.
 
 **What changes in Dedaliano:**
 1. ID generation: replace auto-increment counters with UUIDs or Yjs client-ID + Lamport clock
@@ -362,11 +458,48 @@ Code checks per ACI 318 or Eurocode 2 (footing design) + geotechnical bearing ca
 
 Estimated effort: 0.5-1 dev-months.
 
+### 2.6 Education platform
+
+Interactive problem sets with auto-grading for university courses.
+
+**Features:**
+- Professor defines a structure and reference solution
+- Student solves by hand, enters values (reactions, displacements, internal forces)
+- Tool compares each value against solver's solution: correct/incorrect with expected value and error
+- Quiz mode: hide selected results, student computes them
+- Real-time visualization: change a load and see the moment diagram update
+- LMS integration: Moodle, Canvas, Google Classroom via LTI protocol
+- Embed mode: iframe-friendly `?embed=true` URL parameter, hides toolbar/tabs/panels, shows only viewport with pre-loaded model
+
+**Revenue model:** $50-100/student/year. A 200-student course = $10,000-20,000/year from one department.
+
+Estimated effort: 1-1.5 dev-months.
+
+### 2.7 AI assistant (Phase 2 features)
+
+- **Natural language model editing**: "add a 20kN point load at midspan of beam B3", "change all W14 columns to W16" — parsed into model mutations. No menu navigation
+- **Auto-sizing optimizer**: describe constraints and let AI iterate analysis + code checks to find optimal member sizes
+- **Code provision lookup**: ask "what's the minimum reinforcement ratio for this beam per ACI 318-19?" and get the exact clause, formula, and computed value
+
+Estimated effort: 1 dev-month.
+
+### 2.8 Revit/Tekla live link plugin
+
+Bidirectional sync between Dedaliano and BIM tools:
+- Import analytical model from Revit/Tekla into Dedaliano
+- Run analysis and design in Dedaliano
+- Push results (utilization ratios, reactions, member sizes, reinforcement) back to the BIM model
+- Keep models synchronized as either side changes
+
+Not just IFC export — a live link that reflects changes in real time. This is how ETABS and Robot win deals in firms that use Revit. We must match this integration to compete for those firms.
+
+Estimated effort: 1-1.5 dev-months.
+
 ---
 
 ## Phase 3 — Second market, more materials (months 8-14, 4-5 devs)
 
-Double the addressable market by adding the second code system. Expand to timber and prestressed concrete.
+**Business goal:** double the addressable market with the second code system. Expand to timber and prestressed concrete — underserved niches with high willingness to pay.
 
 **Total: 8-11 dev-months.**
 
@@ -393,24 +526,7 @@ NDS (US) or Eurocode 5 (EU). Residential construction in US/Canada/Scandinavia i
 
 Estimated effort: 1-1.5 dev-months per code.
 
-### 3.3 Education platform
-
-Interactive problem sets with auto-grading for university courses.
-
-**Features:**
-- Professor defines a structure and reference solution
-- Student solves by hand, enters values (reactions, displacements, internal forces)
-- Tool compares each value against solver's solution: correct/incorrect with expected value and error
-- Quiz mode: hide selected results, student computes them
-- Real-time visualization: change a load and see the moment diagram update
-- LMS integration: Moodle, Canvas, Google Classroom via LTI protocol
-- Embed mode: iframe-friendly `?embed=true` URL parameter, hides toolbar/tabs/panels, shows only viewport with pre-loaded model
-
-**Revenue model:** $50-100/student/year. A 200-student course = $10,000-20,000/year from one department.
-
-Estimated effort: 1-1.5 dev-months.
-
-### 3.4 Prestressed and post-tensioned concrete
+### 3.3 Prestressed and post-tensioned concrete
 
 ADAPT (Trimble) charges $5,000+/yr. Every mid-rise and high-rise concrete building uses post-tensioning. Very specialized, very expensive incumbents, very underserved.
 
@@ -423,7 +539,7 @@ ADAPT (Trimble) charges $5,000+/yr. Every mid-rise and high-rise concrete buildi
 
 Estimated effort: 1.5-2 dev-months per code.
 
-### 3.5 Additional connection types
+### 3.4 Additional connection types
 
 Expand from 10 to 20 steel connection types. Add:
 - Stiffened seated connection
@@ -441,9 +557,9 @@ Estimated effort: 1-1.5 dev-months.
 
 ## Phase 4 — Full platform (months 14-22, 5-8 devs)
 
-All remaining materials, analysis types, and domains. This is where revenue from Phases 1-3 funds the team.
+**Business goal:** cover every common structural material and analysis type. Revenue from Phases 1-3 funds the team. After this phase, Dedaliano handles ~80-85% of everything a structural engineer does (the remaining ~15-20% is construction drawings — Revit/Tekla territory).
 
-**Total: 15-22 dev-months.**
+**Total: 18-26 dev-months.**
 
 ### 4.1 Cold-formed steel
 
@@ -477,7 +593,24 @@ This is the single largest expansion in scope. Plate analysis covers reinforced 
 
 Estimated effort: 2-3 dev-months. Hardest item — new element formulations and mesh generation.
 
-### 4.5 Bridge design
+### 4.5 Advanced analysis types
+
+Features that advanced users and seismic engineers expect:
+
+**Nonlinear time history analysis:** direct integration of equations of motion (Newmark-beta, HHT-alpha) with applied ground motion records. Required for performance-based seismic design of tall buildings and critical facilities. Input: acceleration time history (from PEER NGA database). Output: response history, peak inter-story drifts, peak floor accelerations, residual drifts.
+
+**Staged/phased construction analysis:** model construction sequence — pour floor 1, shore, pour floor 2, remove shores, apply finishes. Each stage has different geometry and loads. Critical for post-tensioned concrete, tall buildings, and bridges. Tracks cumulative creep, shrinkage, and relaxation across stages.
+
+**Nonlinear material models:**
+- Fiber analysis for concrete columns: divide cross-section into fibers, each with its own stress-strain curve. Captures concrete cracking, steel yielding, confined vs unconfined concrete behavior. Required for accurate P-M interaction and ductility assessment
+- Concrete cracking and tension stiffening models
+- Steel hardening models (kinematic, isotropic) for cyclic analysis
+
+**Cable and tension structures:** cable elements with large-displacement geometric nonlinearity. Form-finding algorithms (force density method, dynamic relaxation). Applications: suspension bridges, cable-stayed structures, tensile membrane roofs, guy wires.
+
+Estimated effort: 3-4 dev-months total.
+
+### 4.6 Bridge design
 
 AASHTO LRFD (US), Eurocode 1-2 (EU). Bridge load rating for existing bridges, permit load analysis. Government infrastructure market with reliable budgets.
 
@@ -485,7 +618,7 @@ Scope: HL-93 live load model (lane + truck/tandem), distribution factors, fatigu
 
 Estimated effort: 1.5-2 dev-months.
 
-### 4.6 Fire design
+### 4.7 Fire design
 
 Structural fire engineering. Temperature-dependent material properties, fire resistance verification per ISO 834 fire curves. Eurocode fire parts (EN 1992-1-2 for concrete, EN 1993-1-2 for steel, EN 1995-1-2 for timber).
 
@@ -493,7 +626,20 @@ Growing regulatory requirement. Critical for timber/mass timber buildings where 
 
 Estimated effort: 1-1.5 dev-months.
 
-### 4.7 Geotechnical analysis
+### 4.8 Seismic retrofit and rehabilitation
+
+Existing building assessment and retrofit design. Huge market — millions of buildings worldwide need seismic upgrades.
+
+**Scope:**
+- Assessment per ASCE 41 (US) or Eurocode 8-3 (EU): nonlinear static (pushover) analysis for performance evaluation
+- FRP wrapping: flexural and shear strengthening of concrete members with fiber-reinforced polymers
+- Steel jacketing: concrete column strengthening with steel plates
+- Base isolation: isolation bearings (lead-rubber, friction pendulum) — modify support conditions, nonlinear analysis of isolated structure
+- Supplemental damping: viscous dampers, buckling-restrained braces as retrofit elements
+
+Estimated effort: 1.5-2 dev-months.
+
+### 4.9 Geotechnical analysis
 
 Slope stability (method of slices: Bishop, Janbu, Spencer) and retaining wall design (gravity walls, cantilever walls, sheet pile walls). 2D problems that fit Dedaliano's existing 2D viewport.
 
@@ -503,13 +649,13 @@ Deep foundations: single piles (axial capacity from SPT/CPT), pile groups (group
 
 Estimated effort: 1-1.5 dev-months for slope stability, 1-1.5 for deep foundations.
 
-### 4.8 Fatigue analysis
+### 4.10 Fatigue analysis
 
 For bridges, crane girders, offshore structures, wind turbine towers. S-N curves, Miner's rule cumulative damage, stress range counting (rainflow method). AISC 360 Appendix 3, Eurocode 3-1-9.
 
 Estimated effort: 0.5-1 dev-months.
 
-### 4.9 Floor vibration and serviceability
+### 4.11 Floor vibration and serviceability
 
 Footfall analysis, vibration from equipment or pedestrian traffic. Required for hospitals, labs, offices with sensitive equipment. SCI P354 (UK), AISC Design Guide 11 (US).
 
@@ -517,7 +663,7 @@ Natural frequency calculation (already in modal analysis), damping estimation, r
 
 Estimated effort: 0.5 dev-months.
 
-### 4.10 Scaffolding and temporary works
+### 4.12 Scaffolding and temporary works
 
 Formwork, shoring, scaffolding design. Required on every construction site. Usually done poorly or with rules of thumb. High liability. No good browser tool.
 
@@ -525,7 +671,7 @@ Covers: falsework design for concrete pours, scaffold load capacity, bracing req
 
 Estimated effort: 0.5-1 dev-months.
 
-### 4.11 Detailing (partial)
+### 4.13 Detailing (partial)
 
 Full construction drawings are out of scope (CAD engine). Two feasible slices:
 
@@ -537,23 +683,58 @@ Estimated effort: 1.5-2 dev-months.
 
 ---
 
+## Phase 5 — Global code expansion (months 22-30)
+
+**Business goal:** expand from 50-60% to 80-90% of the global structural engineering market by adding the most important regional design codes.
+
+Four code families (AISC/ACI + Eurocode) cover the US, EU, and most countries that adopt either system. But several large markets have their own codes:
+
+| Region | Code | Market size | Priority |
+|---|---|---|---|
+| India | IS 456 (concrete), IS 800 (steel) | ~200,000 structural engineers, fast-growing construction market | High |
+| China | GB 50010 (concrete), GB 50017 (steel) | Largest construction market by volume | High |
+| Japan | AIJ (Architectural Institute of Japan) standards | High seismicity, sophisticated engineering market | Medium |
+| Brazil | NBR 6118 (concrete), NBR 8800 (steel) | Largest Latin American market | Medium |
+| Australia/NZ | AS 3600 (concrete), AS 4100 (steel) | Wealthy market, underserved by incumbents | Medium |
+| Canada | CSA A23.3 (concrete), CSA S16 (steel) | Close to US codes but distinct | Medium |
+| South Korea | KBC (Korean Building Code) | Advanced construction market | Lower |
+
+**Strategy:** each code implementation reuses the same architecture — shared solver, shared UI, only code check functions differ. After the first two code families, adding a new code is primarily a formula translation exercise.
+
+**Indian codes (IS 456 + IS 800):** India has ~200,000 structural engineers and a construction boom. IS codes are based on older British standards but diverging. Most Indian engineers currently use STAAD.Pro or pirated copies of ETABS. Browser-based tool at $49-99/month is transformative for this market.
+
+**Chinese codes (GB 50010 + GB 50017):** China builds more structures annually than any other country. Chinese design codes have unique provisions (seismic intensity vs PGA, different concrete grades, different partial safety factors). Major opportunity but requires Mandarin localization.
+
+**Other codes:** prioritize based on market size, willingness to pay, and similarity to existing implementations. Japanese AIJ codes are the most different from Western codes. Canadian CSA codes are closest to AISC/ACI.
+
+Estimated effort: 1-2 dev-months per code pair (steel + concrete). Faster with each additional code as the pattern is established.
+
+**Total: 8-14 dev-months for 4-5 additional code families.**
+
+---
+
 ## Additional features
 
 ### Conceptual / preliminary design
 
 Span tables and rules of thumb for initial member sizing. Structural system selection guide (moment frames vs braced frames vs shear walls based on height, span, seismicity). Quick cost comparison between steel and concrete framing.
 
+### Nonlinear pushover analysis
+
+Incremental static analysis with monotonically increasing lateral loads. Capacity curve (base shear vs roof displacement) for performance-based seismic design. Extends the existing 2D plastic analysis with a load control algorithm (force-controlled or displacement-controlled arc-length method).
+
 ### Import/export improvements
 
 **DXF layer mapping wizard:** when importing DXF, show a dialog listing all layers and let the user map each to a structural role ("these lines are elements", "these points are supports"). Currently all lines are imported as elements with default properties.
 
-**IFC export:** currently import-only via web-ifc WASM. Adding export enables round-trip BIM interoperability: import from Revit/Tekla, analyze in Dedaliano, export back with results as IFC property sets.
+**IFC round-trip:** currently import-only via web-ifc WASM. Adding export enables round-trip BIM interoperability: import from Revit/Tekla, analyze in Dedaliano, export back with results as IFC property sets.
 
 ### UX and accessibility
 
 - Responsive/mobile: pinch-to-zoom, swipe to pan, long-press for context menu, collapsible panels on small screens
 - Light mode and high contrast theme alongside current dark theme
 - Keyboard accessibility for all toolbar actions
+- Localization: English, Spanish, Portuguese, Mandarin, Hindi (matching global code expansion markets)
 
 ### Visualization improvements
 
@@ -561,10 +742,6 @@ Span tables and rules of thumb for initial member sizing. Structural system sele
 - Animated influence lines: unit load moves along the structure, deformed shape and influence line update in real time
 - SVG export: resolution-independent viewport export for technical reports and papers
 - 3D overlay comparison (superimposing results from different cases, not yet implemented for 3D)
-
-### Wind engineering (simplified)
-
-Pressure coefficient method from design codes (Eurocode 1, ASCE 7) for wind pressures on building facades. Input: building geometry, terrain category, basic wind speed. Output: wind pressure map on each facade, converted to distributed loads. For advanced users: simplified panel method (potential flow) for arbitrary 3D geometries.
 
 ---
 
@@ -578,10 +755,6 @@ Ground structure optimization: start with a dense mesh of candidate bars, remove
 
 Train a small neural network to approximate the solver for a parametric structure family. Drag a slider to change span from 6m to 12m and see the moment diagram update at 60fps. Training data from Dedaliano's own solver. Inference in browser via ONNX Runtime WASM or TensorFlow.js.
 
-### Nonlinear pushover analysis
-
-Incremental static analysis with monotonically increasing lateral loads. Capacity curve (base shear vs roof displacement) for performance-based seismic design. Extends the existing 2D plastic analysis with a load control algorithm (force-controlled or displacement-controlled arc-length method).
-
 ### Digital twin integration
 
 Connect a Dedaliano model to real-time sensor data (strain gauges, accelerometers, displacement transducers). Live stress and displacement overlays. Use cases: structural health monitoring, proof load testing, construction monitoring. Depends on REST API and Rust/WASM solver.
@@ -592,25 +765,52 @@ User defines design variables (section sizes, member topology, support locations
 
 ---
 
+## Defending against incumbent response
+
+When Dedaliano gains traction, incumbents will respond. Anticipate and prepare:
+
+**CSI (ETABS/SAP2000) moving to cloud:** CSI has been slowly building web interfaces. Their advantage is 30 years of verified analysis and design. Their disadvantage is a monolithic C/C++ codebase that is extremely difficult to port to the browser. Our response: move faster. By the time they ship a browser version, we should have feature parity on the design code coverage they offer.
+
+**Dlubal (RFEM) price drops:** Dlubal already has aggressive pricing in some markets. They may match our $99/month. Our response: the free tier. If they match our price, we still have a free tier they can't match without destroying their business model. Also: our AI features create value they cannot replicate without rewriting their software.
+
+**Autodesk bundling:** Autodesk may bundle Robot Structural Analysis more aggressively with their AEC Collection. Our response: Robot is widely considered the weakest analysis tool. Bundling a weak product doesn't make it stronger. Focus on being the best tool, not the bundled tool.
+
+**SkyCiv/ClearCalcs competing:** Other browser-based tools are closest competitors. Our response: cover more of the pipeline (they don't do connections, foundations, or advanced analysis), be open source (they're closed), and push AI features they haven't built.
+
+**Key insight:** incumbents cannot easily add AI-native features to 30-year-old desktop C++ codebases. They cannot easily add real-time collaboration. They cannot easily match browser-native deployment (zero install, works on any device). Our structural advantages compound over time.
+
+---
+
 ## Total effort
 
 All estimates assume AI-generated code with human review on every PR and commit (see Development methodology above).
 
 | Category | Dev-months |
 |---|---|
-| Phase 1: one-code design tool | 6-8 |
-| Phase 2: connections + server | 5-7 |
-| Phase 3: second code + expansion | 8-11 |
-| Phase 4: full platform | 15-22 |
-| **Total** | **34-48** |
+| Phase 1: one-code design tool + AI assistant | 7-10 |
+| Phase 2: connections + server + collaboration + AI | 7-10 |
+| Phase 3: second code + timber + prestressed | 8-11 |
+| Phase 4: full platform (all materials + advanced analysis) | 18-26 |
+| Phase 5: global code expansion (4-5 additional code families) | 8-14 |
+| **Total** | **48-71** |
 
-| Team size | Time to full platform |
-|---|---|
-| 3 developers + reviewers | 1-1.5 years |
-| 5 developers + reviewers | 7-10 months |
-| 10 developers + reviewers | 4-5 months |
+| Team size | Time to Phase 4 complete | Time to Phase 5 complete |
+|---|---|---|
+| 3 developers + reviewers | 14-19 months | 17-24 months |
+| 5 developers + reviewers | 8-11 months | 10-14 months |
+| 10 developers + reviewers | 5-6 months | 6-8 months |
 
 Phase 1 alone (sellable product) with 3 developers: **2-3 months**.
+
+### Revenue milestones
+
+| Milestone | When | Revenue potential |
+|---|---|---|
+| Phase 1 ships | Month 4 | First paying customers. $99/month All-in-One. Target: 50-100 users = $5,000-10,000/month |
+| Phase 2 ships | Month 8 | Connection design adds upsell. Education platform. API. Target: 200-500 users = $20,000-50,000/month |
+| Phase 3 ships | Month 14 | Second code doubles TAM. Timber captures residential market. Target: 500-1,000 users = $50,000-100,000/month |
+| Phase 4 ships | Month 22 | Full platform. Competes with ETABS/SAP2000 head-on. Target: 1,000-5,000 users |
+| Phase 5 ships | Month 30 | Global coverage. India and China markets open. Target: 5,000-20,000 users |
 
 ### The bottleneck: human review
 
@@ -618,4 +818,8 @@ AI generates code fast. The bottleneck is the human review process — expert st
 
 Design codes update every 3-6 years (ACI 318: 2019, AISC 360: 2022, Eurocode: rewriting 2025-2028). This is permanent maintenance — but AI makes updating faster too, since it can diff old and new code provisions and generate the changes for human review.
 
-Four code implementations (AISC 360, ACI 318, Eurocode 2, Eurocode 3) cover 50-60% of global structural engineering. Start there.
+### What we don't build
+
+**Construction drawings (Revit/Tekla territory):** generating plans, sections, and shop drawings requires a full CAD/BIM engine with drafting tools, dimensioning, annotation, sheet management, and print layout. This is a separate product category worth billions of dollars and decades of development. We integrate with these tools via IFC round-trip and live link plugins — we do not replace them. The boundary is clear: Dedaliano does engineering calculations, Revit/Tekla does construction documents.
+
+This means Dedaliano covers ~80-85% of what a structural engineer does. The remaining ~15-20% is BIM modeling and drafting, which we connect to rather than replace. No single tool covers 100% — but owning the engineering calculation pipeline from loads to report is where the intellectual value and the revenue are.
