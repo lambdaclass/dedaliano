@@ -6,6 +6,49 @@ Own the structural engineering software market vertically — from load determin
 
 ---
 
+## Status overview
+
+### What exists today (~25% of Phase 1)
+
+The foundation is built: a working analysis engine, polished UI, and solid infrastructure. But 100% of the revenue-generating code (design checks, connections, load generation, reports) has not been started.
+
+| Done | Not started |
+|---|---|
+| 2D solver — all 8 analysis types, 1,050+ tests | Steel design code checks (AISC 360 / Eurocode 3) |
+| 3D solver — linear static, load combinations | Concrete design code checks (ACI 318 / Eurocode 2) |
+| 100+ steel section catalog | Code-based load determination (wind, seismic, snow) |
+| Cross-section stress (Navier, Jourawski, torsion) | Calculation reports (LaTeX/PDF) |
+| Import/export (JSON, DXF, IFC, Excel, PNG, URL) | Quantity takeoff and cost estimation |
+| 3D rendering (Three.js) | Offline PWA (Service Worker, IndexedDB) |
+| Unit conversion utilities | AI assistant (LLM integration) |
+| Undo/redo, autosave, kinematic analysis | 3D advanced analysis (P-Delta, modal, buckling, etc.) |
+| DSM wizard (9-step educational tool) | Connection design, foundation design |
+| Rust solver (experimental, not connected) | Collaboration, enterprise, API |
+
+### Gap analysis by phase
+
+| Phase | Completion | Dev-months remaining | With 3 devs | With 5 devs |
+|---|---|---|---|---|
+| **Phase 1**: one-code design tool | ~25% | 7-10 | 3-4 months | 2-3 months |
+| **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months |
+| **Phase 3**: second code + timber + prestressed | 0% | 8-11 | 3-4 months | 2-3 months |
+| **Phase 4**: full platform | 0% | 25-36 | 8-12 months | 5-7 months |
+| **Phase 5**: global codes + CBFEM | 0% | 12-20 | 4-7 months | 3-4 months |
+
+### Cumulative timeline
+
+| Milestone | 3 devs | 5 devs | 10 devs |
+|---|---|---|---|
+| Phase 1 ships (first revenue) | Month 4 | Month 3 | Month 2 |
+| Phase 2 ships | Month 10 | Month 7 | Month 4 |
+| Phase 3 ships | Month 14 | Month 10 | Month 6 |
+| Phase 4 ships | Month 24 | Month 16 | Month 10 |
+| Phase 5 ships (full platform, ~90% coverage) | Month 30 | Month 20 | Month 13 |
+
+The foundation (solver, rendering, import/export) is the hardest part to get right and it's done. What remains is mostly formula translation (design codes), SaaS infrastructure (collaboration, enterprise), and AI integration — exactly what AI-assisted development is best at.
+
+---
+
 ## Current state
 
 Dedaliano is a browser-native 2D + 3D structural analysis application implementing the Direct Stiffness Method from scratch. The solver is written in pure TypeScript with no external linear algebra dependencies. Over 1,050 tests across 31 suites validate the engine against analytical solutions.
