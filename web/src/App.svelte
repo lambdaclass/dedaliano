@@ -95,6 +95,11 @@
   }
 
   onMount(() => {
+    // Initialize WASM solver (non-blocking, fallback to JS if it fails)
+    import('./lib/engine/wasm-solver').then(m => m.initSolver()).catch(() => {
+      console.warn('WASM solver unavailable, using JS fallback');
+    });
+
     // Initialize tab manager with current state
     tabManager.init();
 

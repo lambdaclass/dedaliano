@@ -1,316 +1,349 @@
-use crate::model::{Structure, ElementData, Element, Load, DistributedLoad, PointLoad};
+use crate::types::*;
+use crate::element::*;
+use crate::linalg::*;
 use super::dof::DofNumbering;
-use super::sparse::SparseMatrix;
 
-/// Assembles global stiffness matrix and load vector
-pub struct Assembler<'a> {
-    structure: &'a Structure,
-    dof_num: &'a DofNumbering,
+/// Assembly result: global stiffness matrix and force vector.
+pub struct AssemblyResult {
+    pub k: Vec<f64>,       // n_total × n_total stiffness matrix
+    pub f: Vec<f64>,       // n_total force vector
+    pub max_diag_k: f64,   // Maximum diagonal element (for artificial stiffness)
 }
 
-impl<'a> Assembler<'a> {
-    pub fn new(structure: &'a Structure, dof_num: &'a DofNumbering) -> Self {
-        Self { structure, dof_num }
-    }
+/// Assemble global stiffness matrix and force vector for 2D.
+pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResult {
+    let n = dof_num.n_total;
+    let mut k_global = vec![0.0; n * n];
+    let mut f_global = vec![0.0; n];
 
-    /// Assemble global stiffness matrix K and load vector F
-    pub fn assemble(&self) -> Result<(SparseMatrix, Vec<f64>), String> {
-        let n = self.dof_num.total_dofs();
-        let mut triplets: Vec<(usize, usize, f64)> = Vec::new();
-        let mut f_global = vec![0.0; n];
+    // Assemble element stiffness matrices
+    for elem in input.elements.values() {
+        let node_i = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
+        let node_j = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
 
-        // Assemble element stiffness matrices
-        for elem in self.structure.elements.values() {
-            match elem {
-                ElementData::Frame(frame) => {
-                    self.assemble_frame(frame.id, &mut triplets, &mut f_global)?;
-                }
-                ElementData::Truss(truss) => {
-                    self.assemble_truss(truss.id, &mut triplets)?;
-                }
-            }
-        }
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let l = (dx * dx + dy * dy).sqrt();
+        let cos = dx / l;
+        let sin = dy / l;
+        let e = mat.e * 1000.0; // MPa → kN/m²
 
-        // Assemble nodal loads
-        for load in &self.structure.loads {
-            match load {
-                Load::Nodal(nodal) => {
-                    self.assemble_nodal_load(nodal, &mut f_global);
-                }
-                Load::Distributed(dist) => {
-                    self.assemble_distributed_load(dist, &mut f_global)?;
-                }
-                Load::Point(point) => {
-                    self.assemble_point_load(point, &mut f_global)?;
-                }
-            }
-        }
+        let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
-        let k_global = SparseMatrix::from_triplets(n, n, &triplets);
-        Ok((k_global, f_global))
-    }
-
-    fn assemble_frame(
-        &self,
-        elem_id: usize,
-        triplets: &mut Vec<(usize, usize, f64)>,
-        _f_global: &mut [f64],
-    ) -> Result<(), String> {
-        let elem = self.structure.get_element(elem_id)
-            .ok_or_else(|| format!("Element {} not found", elem_id))?;
-
-        let frame = elem.as_frame()
-            .ok_or_else(|| format!("Element {} is not a frame", elem_id))?;
-
-        let (ni, nj) = frame.node_ids();
-        let node_i = self.structure.get_node(ni)
-            .ok_or_else(|| format!("Node {} not found", ni))?;
-        let node_j = self.structure.get_node(nj)
-            .ok_or_else(|| format!("Node {} not found", nj))?;
-
-        let mat = self.structure.get_material(frame.material_id)
-            .ok_or_else(|| format!("Material {} not found", frame.material_id))?;
-        let sec = self.structure.get_section(frame.section_id)
-            .ok_or_else(|| format!("Section {} not found", frame.section_id))?;
-
-        let l = node_i.distance_to(node_j);
-        let angle = node_i.angle_to(node_j);
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        // E in MPa = N/mm² → convert to kN/m² = E * 1000
-        let e_kn_m2 = mat.e * 1000.0;
-
-        // Local stiffness matrix (6x6)
-        let k_local = frame.local_stiffness(e_kn_m2, sec.a, sec.iz, l);
-
-        // Transformation matrix (6x6)
-        let t = frame.transformation_matrix(cos, sin);
-
-        // Global stiffness: K_global = T^T * K_local * T
-        let k_global = transform_matrix(&k_local, &t);
-
-        // Get global DOF indices
-        let dofs = self.dof_num.element_dofs(ni, nj);
-
-        // Add to triplets
-        for (i, &di) in dofs.iter().enumerate() {
-            for (j, &dj) in dofs.iter().enumerate() {
-                let val = k_global[i][j];
-                if val.abs() > 1e-14 {
-                    triplets.push((di, dj, val));
+        if elem.elem_type == "truss" {
+            // Truss: assemble directly in global coordinates
+            let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
+            let ndof = 4; // 2 per node for truss
+            let truss_dofs = [
+                dof_num.global_dof(elem.node_i, 0).unwrap(),
+                dof_num.global_dof(elem.node_i, 1).unwrap(),
+                dof_num.global_dof(elem.node_j, 0).unwrap(),
+                dof_num.global_dof(elem.node_j, 1).unwrap(),
+            ];
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    k_global[truss_dofs[i] * n + truss_dofs[j]] += k_elem[i * ndof + j];
                 }
             }
-        }
+        } else {
+            // Frame element
+            let k_local = frame_local_stiffness_2d(
+                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end,
+            );
+            let t = frame_transform_2d(cos, sin);
+            let k_glob = transform_stiffness(&k_local, &t, 6);
 
-        Ok(())
-    }
-
-    fn assemble_truss(
-        &self,
-        elem_id: usize,
-        triplets: &mut Vec<(usize, usize, f64)>,
-    ) -> Result<(), String> {
-        let elem = self.structure.get_element(elem_id)
-            .ok_or_else(|| format!("Element {} not found", elem_id))?;
-
-        let truss = elem.as_truss()
-            .ok_or_else(|| format!("Element {} is not a truss", elem_id))?;
-
-        let (ni, nj) = truss.node_ids();
-        let node_i = self.structure.get_node(ni)
-            .ok_or_else(|| format!("Node {} not found", ni))?;
-        let node_j = self.structure.get_node(nj)
-            .ok_or_else(|| format!("Node {} not found", nj))?;
-
-        let mat = self.structure.get_material(truss.material_id)
-            .ok_or_else(|| format!("Material {} not found", truss.material_id))?;
-        let sec = self.structure.get_section(truss.section_id)
-            .ok_or_else(|| format!("Section {} not found", truss.section_id))?;
-
-        let l = node_i.distance_to(node_j);
-        let angle = node_i.angle_to(node_j);
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        let e_kn_m2 = mat.e * 1000.0;
-
-        // For truss, we can directly compute global stiffness matrix
-        // K = (EA/L) * [c² cs -c² -cs; cs s² -cs -s²; -c² -cs c² cs; -cs -s² cs s²]
-        let k = e_kn_m2 * sec.a / l;
-        let c2 = cos * cos;
-        let s2 = sin * sin;
-        let cs = cos * sin;
-
-        let k_global = vec![
-            vec![k * c2, k * cs, -k * c2, -k * cs],
-            vec![k * cs, k * s2, -k * cs, -k * s2],
-            vec![-k * c2, -k * cs, k * c2, k * cs],
-            vec![-k * cs, -k * s2, k * cs, k * s2],
-        ];
-
-        // Get global DOF indices (only 2 per node for truss)
-        let dofs_i = vec![
-            self.dof_num.global_dof(ni, 0).unwrap(),
-            self.dof_num.global_dof(ni, 1).unwrap(),
-        ];
-        let dofs_j = vec![
-            self.dof_num.global_dof(nj, 0).unwrap(),
-            self.dof_num.global_dof(nj, 1).unwrap(),
-        ];
-        let dofs = [dofs_i, dofs_j].concat();
-
-        for (i, &di) in dofs.iter().enumerate() {
-            for (j, &dj) in dofs.iter().enumerate() {
-                let val = k_global[i][j];
-                if val.abs() > 1e-14 {
-                    triplets.push((di, dj, val));
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
                 }
             }
-        }
 
-        Ok(())
+            // Assemble element loads (FEF)
+            assemble_element_loads_2d(
+                input, elem, &k_local, &t, l, e, sec, node_i, &elem_dofs, &mut f_global,
+            );
+        }
     }
 
-    fn assemble_nodal_load(&self, load: &crate::model::NodalLoad, f_global: &mut [f64]) {
-        if let Some(idx) = self.dof_num.global_dof(load.node_id, 0) {
-            f_global[idx] += load.fx;
-        }
-        if let Some(idx) = self.dof_num.global_dof(load.node_id, 1) {
-            f_global[idx] += load.fy;
-        }
-        if self.dof_num.dofs_per_node() >= 3 {
-            if let Some(idx) = self.dof_num.global_dof(load.node_id, 2) {
-                f_global[idx] += load.mz;
+    // Assemble nodal loads
+    for load in &input.loads {
+        if let SolverLoad::Nodal(nl) = load {
+            if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) {
+                f_global[d] += nl.fx;
+            }
+            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
+                f_global[d] += nl.fy;
+            }
+            if dof_num.dofs_per_node >= 3 {
+                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) {
+                    f_global[d] += nl.mz;
+                }
             }
         }
     }
 
-    fn assemble_distributed_load(&self, load: &DistributedLoad, f_global: &mut [f64]) -> Result<(), String> {
-        let elem = self.structure.get_element(load.element_id)
-            .ok_or_else(|| format!("Element {} not found for load", load.element_id))?;
-
-        let l = self.structure.element_length(load.element_id)
-            .ok_or_else(|| format!("Could not compute length for element {}", load.element_id))?;
-
-        let angle = self.structure.element_angle(load.element_id).unwrap_or(0.0);
-
-        // Get fixed-end forces in local coordinates
-        let (vi, mi, vj, mj) = load.fixed_end_forces(l);
-
-        // Transform to global coordinates and add to load vector
-        let (ni, nj) = elem.node_ids();
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        // Equivalent nodal loads (negated fixed-end forces)
-        // Local: perpendicular force V becomes Fx and Fy in global
-        if let Some(idx) = self.dof_num.global_dof(ni, 0) {
-            f_global[idx] += -vi * sin; // Fx_i
+    // Add spring stiffness to diagonal
+    for sup in input.supports.values() {
+        if let Some(kx) = sup.kx {
+            if kx > 0.0 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                    k_global[d * n + d] += kx;
+                }
+            }
         }
-        if let Some(idx) = self.dof_num.global_dof(ni, 1) {
-            f_global[idx] += vi * cos; // Fy_i (if load is downward, cos < 0 for inclined)
+        if let Some(ky) = sup.ky {
+            if ky > 0.0 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                    k_global[d * n + d] += ky;
+                }
+            }
         }
-        if let Some(idx) = self.dof_num.global_dof(ni, 2) {
-            f_global[idx] += mi; // Mz_i
+        if let Some(kz) = sup.kz {
+            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                    k_global[d * n + d] += kz;
+                }
+            }
         }
-
-        if let Some(idx) = self.dof_num.global_dof(nj, 0) {
-            f_global[idx] += -vj * sin;
-        }
-        if let Some(idx) = self.dof_num.global_dof(nj, 1) {
-            f_global[idx] += vj * cos;
-        }
-        if let Some(idx) = self.dof_num.global_dof(nj, 2) {
-            f_global[idx] += mj;
-        }
-
-        Ok(())
     }
 
-    fn assemble_point_load(&self, load: &PointLoad, f_global: &mut [f64]) -> Result<(), String> {
-        let elem = self.structure.get_element(load.element_id)
-            .ok_or_else(|| format!("Element {} not found for load", load.element_id))?;
-
-        let l = self.structure.element_length(load.element_id)
-            .ok_or_else(|| format!("Could not compute length for element {}", load.element_id))?;
-
-        let angle = self.structure.element_angle(load.element_id).unwrap_or(0.0);
-
-        let (vi, mi, vj, mj) = load.fixed_end_forces(l);
-
-        let (ni, nj) = elem.node_ids();
-        let cos = angle.cos();
-        let sin = angle.sin();
-
-        if let Some(idx) = self.dof_num.global_dof(ni, 0) {
-            f_global[idx] += -vi * sin;
-        }
-        if let Some(idx) = self.dof_num.global_dof(ni, 1) {
-            f_global[idx] += vi * cos;
-        }
-        if let Some(idx) = self.dof_num.global_dof(ni, 2) {
-            f_global[idx] += mi;
-        }
-
-        if let Some(idx) = self.dof_num.global_dof(nj, 0) {
-            f_global[idx] += -vj * sin;
-        }
-        if let Some(idx) = self.dof_num.global_dof(nj, 1) {
-            f_global[idx] += vj * cos;
-        }
-        if let Some(idx) = self.dof_num.global_dof(nj, 2) {
-            f_global[idx] += mj;
-        }
-
-        Ok(())
-    }
-}
-
-/// Transform local stiffness matrix to global: K_g = T^T * K_l * T
-fn transform_matrix(k_local: &[Vec<f64>], t: &[Vec<f64>]) -> Vec<Vec<f64>> {
-    let n = k_local.len();
-
-    // First: temp = K_l * T
-    let mut temp = vec![vec![0.0; n]; n];
+    // Find max diagonal
+    let mut max_diag = 0.0f64;
     for i in 0..n {
-        for j in 0..n {
-            for k in 0..n {
-                temp[i][j] += k_local[i][k] * t[k][j];
-            }
-        }
+        max_diag = max_diag.max(k_global[i * n + i].abs());
     }
 
-    // Then: K_g = T^T * temp
-    let mut k_global = vec![vec![0.0; n]; n];
-    for i in 0..n {
-        for j in 0..n {
-            for k in 0..n {
-                k_global[i][j] += t[k][i] * temp[k][j];
-            }
-        }
+    AssemblyResult {
+        k: k_global,
+        f: f_global,
+        max_diag_k: max_diag,
     }
-
-    k_global
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn assemble_element_loads_2d(
+    input: &SolverInput,
+    elem: &SolverElement,
+    k_local: &[f64],
+    t: &[f64],
+    l: f64,
+    e: f64,
+    sec: &SolverSection,
+    _node_i: &SolverNode,
+    elem_dofs: &[usize],
+    f_global: &mut [f64],
+) {
+    for load in &input.loads {
+        match load {
+            SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
+                let a = dl.a.unwrap_or(0.0);
+                let b = dl.b.unwrap_or(l);
+                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
-    #[test]
-    fn test_transform_identity() {
-        // Identity transformation should not change matrix
-        let k = vec![
-            vec![1.0, 2.0],
-            vec![2.0, 3.0],
-        ];
-        let t = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-        ];
-        let kg = transform_matrix(&k, &t);
-        assert!((kg[0][0] - 1.0).abs() < 1e-10);
-        assert!((kg[0][1] - 2.0).abs() < 1e-10);
+                let mut fef = if is_full {
+                    let f = fef_distributed_2d(dl.q_i, dl.q_j, l);
+                    f
+                } else {
+                    fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
+                };
+
+                // Adjust for hinges
+                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+
+                // Transform to global and add
+                let fef_global = transform_force(&fef, t, 6);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
+                let px = pl.px.unwrap_or(0.0);
+                let mz = pl.mz.unwrap_or(0.0);
+                let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
+
+                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+
+                let fef_global = transform_force(&fef, t, 6);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
+                let alpha = 12e-6; // Steel default
+                let h = 0.5; // TODO: get from section
+                let mut fef = fef_thermal_2d(
+                    e, sec.a, sec.iz, l,
+                    tl.dt_uniform, tl.dt_gradient, alpha, h,
+                );
+
+                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+
+                let fef_global = transform_force(&fef, t, 6);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Assemble global stiffness matrix and force vector for 3D.
+pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyResult {
+    let n = dof_num.n_total;
+    let mut k_global = vec![0.0; n * n];
+    let mut f_global = vec![0.0; n];
+    let left_hand = input.left_hand.unwrap_or(false);
+
+    for elem in input.elements.values() {
+        let node_i = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
+        let node_j = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let e = mat.e * 1000.0;
+        let g = e / (2.0 * (1.0 + mat.nu));
+
+        let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+
+        if elem.elem_type == "truss" {
+            // 3D truss: direct global assembly
+            let ea_l = e * sec.a / l;
+            let dir = [dx / l, dy / l, dz / l];
+            let _truss_dofs_per_node = 3.min(dof_num.dofs_per_node);
+
+            for a in 0..2 {
+                for b in 0..2 {
+                    let sign = if a == b { 1.0 } else { -1.0 };
+                    let node_a = if a == 0 { elem.node_i } else { elem.node_j };
+                    let node_b = if b == 0 { elem.node_i } else { elem.node_j };
+                    for i in 0..3 {
+                        for j in 0..3 {
+                            if let (Some(&da), Some(&db)) = (
+                                dof_num.map.get(&(node_a, i)),
+                                dof_num.map.get(&(node_b, j)),
+                            ) {
+                                k_global[da * n + db] += sign * ea_l * dir[i] * dir[j];
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // 3D frame element
+            let (ex, ey, ez) = compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle,
+                left_hand,
+            );
+
+            let k_local = frame_local_stiffness_3d(
+                e, sec.a, sec.iy, sec.iz, sec.j, l, g,
+                elem.hinge_start, elem.hinge_end,
+            );
+            let t = frame_transform_3d(&ex, &ey, &ez);
+            let k_glob = transform_stiffness(&k_local, &t, 12);
+
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                }
+            }
+
+            // Assemble 3D element loads
+            assemble_element_loads_3d(input, elem, &t, l, &elem_dofs, &mut f_global);
+        }
+    }
+
+    // Assemble 3D nodal loads
+    for load in &input.loads {
+        if let SolverLoad3D::Nodal(nl) = load {
+            let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
+            for (i, &f) in forces.iter().enumerate() {
+                if i < dof_num.dofs_per_node {
+                    if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) {
+                        f_global[d] += f;
+                    }
+                }
+            }
+        }
+    }
+
+    // Add 3D spring stiffness
+    for sup in input.supports.values() {
+        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        for (i, ks) in springs.iter().enumerate() {
+            if let Some(k) = ks {
+                if *k > 0.0 && i < dof_num.dofs_per_node {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                        k_global[d * n + d] += k;
+                    }
+                }
+            }
+        }
+    }
+
+    let mut max_diag = 0.0f64;
+    for i in 0..n {
+        max_diag = max_diag.max(k_global[i * n + i].abs());
+    }
+
+    AssemblyResult {
+        k: k_global,
+        f: f_global,
+        max_diag_k: max_diag,
+    }
+}
+
+fn assemble_element_loads_3d(
+    input: &SolverInput3D,
+    elem: &SolverElement3D,
+    t: &[f64],
+    l: f64,
+    elem_dofs: &[usize],
+    f_global: &mut [f64],
+) {
+    for load in &input.loads {
+        match load {
+            SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
+                let fef = fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l);
+                let fef_global = transform_force(&fef, t, 12);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
+                // Y-direction point load
+                let fef_y = fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
+                let mut fef = [0.0; 12];
+                fef[1] = fef_y[1];   // fy_i
+                fef[5] = fef_y[2];   // mz_i
+                fef[7] = fef_y[4];   // fy_j
+                fef[11] = fef_y[5];  // mz_j
+
+                // Z-direction point load
+                let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
+                fef[2] = fef_z[1];    // fz_i
+                fef[4] = -fef_z[2];   // my_i (negated for θy convention)
+                fef[8] = fef_z[4];    // fz_j
+                fef[10] = -fef_z[5];  // my_j
+
+                let fef_global = transform_force(&fef, t, 12);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            _ => {}
+        }
     }
 }

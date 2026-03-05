@@ -1,0 +1,423 @@
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// ==================== 2D Input Types ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverNode {
+    pub id: usize,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverMaterial {
+    pub id: usize,
+    pub e: f64,  // MPa
+    pub nu: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSection {
+    pub id: usize,
+    pub a: f64,  // m²
+    pub iz: f64, // m⁴
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverElement {
+    pub id: usize,
+    #[serde(rename = "type")]
+    pub elem_type: String, // "frame" or "truss"
+    pub node_i: usize,
+    pub node_j: usize,
+    pub material_id: usize,
+    pub section_id: usize,
+    pub hinge_start: bool,
+    pub hinge_end: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSupport {
+    pub id: usize,
+    pub node_id: usize,
+    #[serde(rename = "type")]
+    pub support_type: String,
+    #[serde(default)]
+    pub kx: Option<f64>,
+    #[serde(default)]
+    pub ky: Option<f64>,
+    #[serde(default)]
+    pub kz: Option<f64>,
+    #[serde(default)]
+    pub dx: Option<f64>,
+    #[serde(default)]
+    pub dy: Option<f64>,
+    #[serde(default)]
+    pub drz: Option<f64>,
+    #[serde(default)]
+    pub angle: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverNodalLoad {
+    pub node_id: usize,
+    pub fx: f64,
+    pub fy: f64,
+    pub mz: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverDistributedLoad {
+    pub element_id: usize,
+    #[serde(rename = "qI")]
+    pub q_i: f64,
+    #[serde(rename = "qJ")]
+    pub q_j: f64,
+    #[serde(default)]
+    pub a: Option<f64>,
+    #[serde(default)]
+    pub b: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverPointLoadOnElement {
+    pub element_id: usize,
+    pub a: f64,
+    pub p: f64,
+    #[serde(default)]
+    pub px: Option<f64>,
+    #[serde(default)]
+    pub mz: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverThermalLoad {
+    pub element_id: usize,
+    pub dt_uniform: f64,
+    pub dt_gradient: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum SolverLoad {
+    #[serde(rename = "nodal")]
+    Nodal(SolverNodalLoad),
+    #[serde(rename = "distributed")]
+    Distributed(SolverDistributedLoad),
+    #[serde(rename = "pointOnElement")]
+    PointOnElement(SolverPointLoadOnElement),
+    #[serde(rename = "thermal")]
+    Thermal(SolverThermalLoad),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverInput {
+    pub nodes: HashMap<String, SolverNode>,
+    pub materials: HashMap<String, SolverMaterial>,
+    pub sections: HashMap<String, SolverSection>,
+    pub elements: HashMap<String, SolverElement>,
+    pub supports: HashMap<String, SolverSupport>,
+    pub loads: Vec<SolverLoad>,
+}
+
+// ==================== 3D Input Types ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverNode3D {
+    pub id: usize,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSection3D {
+    pub id: usize,
+    #[serde(default)]
+    pub name: Option<String>,
+    pub a: f64,
+    pub iy: f64,
+    pub iz: f64,
+    pub j: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverElement3D {
+    pub id: usize,
+    #[serde(rename = "type")]
+    pub elem_type: String,
+    pub node_i: usize,
+    pub node_j: usize,
+    pub material_id: usize,
+    pub section_id: usize,
+    pub hinge_start: bool,
+    pub hinge_end: bool,
+    #[serde(default)]
+    pub local_yx: Option<f64>,
+    #[serde(default)]
+    pub local_yy: Option<f64>,
+    #[serde(default)]
+    pub local_yz: Option<f64>,
+    #[serde(default)]
+    pub roll_angle: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSupport3D {
+    pub node_id: usize,
+    pub rx: bool,
+    pub ry: bool,
+    pub rz: bool,
+    pub rrx: bool,
+    pub rry: bool,
+    pub rrz: bool,
+    #[serde(default)]
+    pub kx: Option<f64>,
+    #[serde(default)]
+    pub ky: Option<f64>,
+    #[serde(default)]
+    pub kz: Option<f64>,
+    #[serde(default)]
+    pub krx: Option<f64>,
+    #[serde(default)]
+    pub kry: Option<f64>,
+    #[serde(default)]
+    pub krz: Option<f64>,
+    #[serde(default)]
+    pub dx: Option<f64>,
+    #[serde(default)]
+    pub dy: Option<f64>,
+    #[serde(default)]
+    pub dz: Option<f64>,
+    #[serde(default)]
+    pub drx: Option<f64>,
+    #[serde(default)]
+    pub dry: Option<f64>,
+    #[serde(default)]
+    pub drz: Option<f64>,
+    #[serde(default)]
+    pub normal_x: Option<f64>,
+    #[serde(default)]
+    pub normal_y: Option<f64>,
+    #[serde(default)]
+    pub normal_z: Option<f64>,
+    #[serde(default)]
+    pub is_inclined: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverNodalLoad3D {
+    pub node_id: usize,
+    pub fx: f64,
+    pub fy: f64,
+    pub fz: f64,
+    pub mx: f64,
+    pub my: f64,
+    pub mz: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverDistributedLoad3D {
+    pub element_id: usize,
+    #[serde(rename = "qYI")]
+    pub q_yi: f64,
+    #[serde(rename = "qYJ")]
+    pub q_yj: f64,
+    #[serde(rename = "qZI")]
+    pub q_zi: f64,
+    #[serde(rename = "qZJ")]
+    pub q_zj: f64,
+    #[serde(default)]
+    pub a: Option<f64>,
+    #[serde(default)]
+    pub b: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverPointLoad3D {
+    pub element_id: usize,
+    pub a: f64,
+    pub py: f64,
+    pub pz: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverThermalLoad3D {
+    pub element_id: usize,
+    pub dt_uniform: f64,
+    pub dt_gradient_y: f64,
+    pub dt_gradient_z: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum SolverLoad3D {
+    #[serde(rename = "nodal")]
+    Nodal(SolverNodalLoad3D),
+    #[serde(rename = "distributed")]
+    Distributed(SolverDistributedLoad3D),
+    #[serde(rename = "pointOnElement")]
+    PointOnElement(SolverPointLoad3D),
+    #[serde(rename = "thermal")]
+    Thermal(SolverThermalLoad3D),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverInput3D {
+    pub nodes: HashMap<String, SolverNode3D>,
+    pub materials: HashMap<String, SolverMaterial>,
+    pub sections: HashMap<String, SolverSection3D>,
+    pub elements: HashMap<String, SolverElement3D>,
+    pub supports: HashMap<String, SolverSupport3D>,
+    pub loads: Vec<SolverLoad3D>,
+    #[serde(default)]
+    pub left_hand: Option<bool>,
+}
+
+// ==================== Advanced Analysis Input Types ====================
+
+/// Modal analysis input: solver input + material densities.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModalInput {
+    pub solver: SolverInput,
+    pub densities: HashMap<String, f64>, // materialId → density (kg/m³)
+}
+
+/// Spectral analysis input (self-contained, no cross-module deps).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralInput {
+    pub solver: SolverInput,
+    pub modes: Vec<SpectralModeInput>,
+    pub densities: HashMap<String, f64>,
+    pub spectrum: DesignSpectrum,
+    pub direction: String, // "X" or "Y"
+    #[serde(default)]
+    pub rule: Option<String>, // "SRSS" or "CQC"
+    #[serde(default)]
+    pub xi: Option<f64>,
+    #[serde(default)]
+    pub importance_factor: Option<f64>,
+    #[serde(default)]
+    pub reduction_factor: Option<f64>,
+    #[serde(default)]
+    pub total_mass: Option<f64>,
+}
+
+/// Mode shape data passed into spectral analysis.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralModeInput {
+    pub frequency: f64,
+    pub period: f64,
+    pub omega: f64,
+    pub displacements: Vec<SpectralModeDisp>,
+    pub participation_x: f64,
+    pub participation_y: f64,
+    pub effective_mass_x: f64,
+    pub effective_mass_y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralModeDisp {
+    pub node_id: usize,
+    pub ux: f64,
+    pub uy: f64,
+    pub rz: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesignSpectrum {
+    pub name: String,
+    pub points: Vec<SpectrumPoint>,
+    #[serde(default)]
+    pub in_g: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectrumPoint {
+    pub period: f64,
+    pub sa: f64,
+}
+
+/// Plastic analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlasticInput {
+    pub solver: SolverInput,
+    pub sections: HashMap<String, PlasticSectionData>,
+    pub materials: HashMap<String, PlasticMaterialData>,
+    #[serde(default)]
+    pub max_hinges: Option<usize>,
+    #[serde(default)]
+    pub mp_overrides: Option<HashMap<String, f64>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlasticSectionData {
+    pub a: f64,
+    pub iz: f64,
+    pub material_id: usize,
+    #[serde(default)]
+    pub b: Option<f64>,
+    #[serde(default)]
+    pub h: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlasticMaterialData {
+    #[serde(default)]
+    pub fy: Option<f64>, // Yield stress (MPa)
+}
+
+/// Moving loads analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovingLoadInput {
+    pub solver: SolverInput,
+    pub train: LoadTrain,
+    #[serde(default)]
+    pub step: Option<f64>,
+    #[serde(default)]
+    pub path_element_ids: Option<Vec<usize>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadTrain {
+    pub name: String,
+    pub axles: Vec<Axle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Axle {
+    pub offset: f64,
+    pub weight: f64,
+}

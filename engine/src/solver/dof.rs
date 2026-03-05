@@ -1,172 +1,195 @@
 use std::collections::HashMap;
-use crate::model::{Structure, DofConstraint, ElementData};
+use crate::types::*;
 
-/// DOF numbering scheme
-/// Free DOFs are numbered first (0 to n_free-1)
-/// Restrained DOFs are numbered after (n_free to n_total-1)
-#[derive(Debug, Clone)]
+/// DOF numbering: maps (node_id, local_dof) → global equation index.
+/// Free DOFs are numbered first (0..n_free-1), restrained DOFs after.
 pub struct DofNumbering {
-    /// Maps (node_id, local_dof) -> global_dof_index
-    node_dof_map: HashMap<(usize, usize), usize>,
-    /// Number of free DOFs
-    n_free: usize,
-    /// Total number of DOFs
-    n_total: usize,
-    /// DOFs per node (3 for frames, 2 for trusses)
-    dofs_per_node: usize,
-    /// Sorted node IDs for consistent ordering
-    node_order: Vec<usize>,
+    pub map: HashMap<(usize, usize), usize>,
+    pub n_free: usize,
+    pub n_total: usize,
+    pub dofs_per_node: usize,
+    pub node_order: Vec<usize>,
 }
 
 impl DofNumbering {
-    pub fn new(structure: &Structure) -> Self {
-        // Determine DOFs per node based on element types
-        let has_frames = structure.elements.values()
-            .any(|e| matches!(e, ElementData::Frame(_)));
-        let dofs_per_node = if has_frames { 3 } else { 2 };
+    /// Build DOF numbering for a 2D structure.
+    pub fn build_2d(input: &SolverInput) -> Self {
+        // Determine DOFs per node: 3 for frames, 2 for all-truss
+        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        let dofs_per_node = if has_frame { 3 } else { 2 };
 
-        // Sort nodes for consistent ordering
-        let mut node_order: Vec<usize> = structure.nodes.keys().copied().collect();
-        node_order.sort();
+        // Sort nodes by ID for deterministic ordering
+        let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
+        node_ids.sort();
 
-        let mut node_dof_map = HashMap::new();
-        let mut free_dof_idx = 0;
-        let mut restrained_dofs = Vec::new();
+        // Build support lookup: node_id → support
+        let mut support_map: HashMap<usize, &SolverSupport> = HashMap::new();
+        for s in input.supports.values() {
+            support_map.insert(s.node_id, s);
+        }
 
-        // First pass: assign free DOFs
-        for &node_id in &node_order {
-            let support = structure.get_support_at_node(node_id);
+        // Classify DOFs as free or restrained
+        let mut free_dofs = Vec::new();
+        let mut fixed_dofs = Vec::new();
 
+        for &node_id in &node_ids {
             for local_dof in 0..dofs_per_node {
-                let is_restrained = if let Some(sup) = support {
-                    match local_dof {
-                        0 => sup.ux.is_restrained(),
-                        1 => sup.uy.is_restrained(),
-                        2 => sup.rz.is_restrained(),
-                        _ => false,
-                    }
+                let is_fixed = if let Some(sup) = support_map.get(&node_id) {
+                    is_dof_restrained_2d(sup, local_dof)
                 } else {
                     false
                 };
 
-                if is_restrained {
-                    restrained_dofs.push((node_id, local_dof));
+                if is_fixed {
+                    fixed_dofs.push((node_id, local_dof));
                 } else {
-                    node_dof_map.insert((node_id, local_dof), free_dof_idx);
-                    free_dof_idx += 1;
+                    free_dofs.push((node_id, local_dof));
                 }
             }
         }
 
-        let n_free = free_dof_idx;
+        let n_free = free_dofs.len();
+        let n_total = free_dofs.len() + fixed_dofs.len();
 
-        // Second pass: assign restrained DOFs
-        for (node_id, local_dof) in restrained_dofs {
-            node_dof_map.insert((node_id, local_dof), free_dof_idx);
-            free_dof_idx += 1;
+        let mut map = HashMap::new();
+        for (i, &(node_id, local_dof)) in free_dofs.iter().enumerate() {
+            map.insert((node_id, local_dof), i);
+        }
+        for (i, &(node_id, local_dof)) in fixed_dofs.iter().enumerate() {
+            map.insert((node_id, local_dof), n_free + i);
         }
 
-        let n_total = free_dof_idx;
-
-        Self {
-            node_dof_map,
+        DofNumbering {
+            map,
             n_free,
             n_total,
             dofs_per_node,
-            node_order,
+            node_order: node_ids,
         }
     }
 
-    pub fn free_dofs(&self) -> usize {
-        self.n_free
-    }
+    /// Build DOF numbering for a 3D structure.
+    pub fn build_3d(input: &SolverInput3D) -> Self {
+        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        let dofs_per_node = if has_frame { 6 } else { 3 };
 
-    pub fn total_dofs(&self) -> usize {
-        self.n_total
-    }
+        let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
+        node_ids.sort();
 
-    pub fn dofs_per_node(&self) -> usize {
-        self.dofs_per_node
-    }
+        let mut support_map: HashMap<usize, &SolverSupport3D> = HashMap::new();
+        for s in input.supports.values() {
+            support_map.insert(s.node_id, s);
+        }
 
-    /// Get global DOF index for a node's local DOF
-    pub fn global_dof(&self, node_id: usize, local_dof: usize) -> Option<usize> {
-        self.node_dof_map.get(&(node_id, local_dof)).copied()
-    }
+        let mut free_dofs = Vec::new();
+        let mut fixed_dofs = Vec::new();
 
-    /// Get all global DOF indices for a node
-    pub fn node_dofs(&self, node_id: usize) -> Vec<usize> {
-        (0..self.dofs_per_node)
-            .filter_map(|d| self.global_dof(node_id, d))
-            .collect()
-    }
+        for &node_id in &node_ids {
+            for local_dof in 0..dofs_per_node {
+                let is_fixed = if let Some(sup) = support_map.get(&node_id) {
+                    is_dof_restrained_3d(sup, local_dof)
+                } else {
+                    false
+                };
 
-    /// Get global DOF indices for an element
-    pub fn element_dofs(&self, node_i: usize, node_j: usize) -> Vec<usize> {
-        let mut dofs = Vec::with_capacity(self.dofs_per_node * 2);
-        for d in 0..self.dofs_per_node {
-            if let Some(idx) = self.global_dof(node_i, d) {
-                dofs.push(idx);
+                if is_fixed {
+                    fixed_dofs.push((node_id, local_dof));
+                } else {
+                    free_dofs.push((node_id, local_dof));
+                }
             }
         }
-        for d in 0..self.dofs_per_node {
-            if let Some(idx) = self.global_dof(node_j, d) {
-                dofs.push(idx);
+
+        let n_free = free_dofs.len();
+        let n_total = free_dofs.len() + fixed_dofs.len();
+
+        let mut map = HashMap::new();
+        for (i, &(node_id, local_dof)) in free_dofs.iter().enumerate() {
+            map.insert((node_id, local_dof), i);
+        }
+        for (i, &(node_id, local_dof)) in fixed_dofs.iter().enumerate() {
+            map.insert((node_id, local_dof), n_free + i);
+        }
+
+        DofNumbering {
+            map,
+            n_free,
+            n_total,
+            dofs_per_node,
+            node_order: node_ids,
+        }
+    }
+
+    /// Get global DOF index for (node_id, local_dof)
+    pub fn global_dof(&self, node_id: usize, local_dof: usize) -> Option<usize> {
+        self.map.get(&(node_id, local_dof)).copied()
+    }
+
+    /// Get all DOFs for an element (node_i, node_j)
+    pub fn element_dofs(&self, node_i: usize, node_j: usize) -> Vec<usize> {
+        let mut dofs = Vec::with_capacity(2 * self.dofs_per_node);
+        for local in 0..self.dofs_per_node {
+            if let Some(&d) = self.map.get(&(node_i, local)) {
+                dofs.push(d);
+            }
+        }
+        for local in 0..self.dofs_per_node {
+            if let Some(&d) = self.map.get(&(node_j, local)) {
+                dofs.push(d);
             }
         }
         dofs
     }
+}
 
-    /// Check if a DOF is free
-    pub fn is_free(&self, global_dof: usize) -> bool {
-        global_dof < self.n_free
+fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
+    // Check if this DOF has a spring (springs are free DOFs with stiffness added)
+    let has_spring = match local_dof {
+        0 => sup.kx.unwrap_or(0.0) > 0.0,
+        1 => sup.ky.unwrap_or(0.0) > 0.0,
+        2 => sup.kz.unwrap_or(0.0) > 0.0,
+        _ => false,
+    };
+
+    // Springs are NOT restrained — they're free DOFs with added stiffness
+    if has_spring && sup.support_type == "spring" {
+        return false;
     }
 
-    /// Get displacement value for a node's DOF from solution vector
-    pub fn get_displacement(&self, u: &[f64], node_id: usize, local_dof: usize) -> f64 {
-        if local_dof >= self.dofs_per_node {
-            return 0.0;
-        }
-        self.global_dof(node_id, local_dof)
-            .map(|idx| u.get(idx).copied().unwrap_or(0.0))
-            .unwrap_or(0.0)
-    }
-
-    /// Get reaction value for a node's DOF from reaction vector
-    pub fn get_reaction(&self, r: &[f64], node_id: usize, local_dof: usize, n_free: usize) -> f64 {
-        if local_dof >= self.dofs_per_node {
-            return 0.0;
-        }
-        self.global_dof(node_id, local_dof)
-            .filter(|&idx| idx >= n_free)
-            .map(|idx| r.get(idx - n_free).copied().unwrap_or(0.0))
-            .unwrap_or(0.0)
+    match sup.support_type.as_str() {
+        "fixed" => true,
+        "pinned" => local_dof == 0 || local_dof == 1, // ux, uy fixed; rz free
+        "rollerX" => local_dof == 1,  // uy fixed (free to slide in X)
+        "rollerY" => local_dof == 0,  // ux fixed (free to slide in Y)
+        "inclinedRoller" => local_dof == 1, // Constrained normal to surface
+        "spring" => false,  // All spring DOFs are free (stiffness added to K)
+        _ => false,
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::Structure;
+fn is_dof_restrained_3d(sup: &SolverSupport3D, local_dof: usize) -> bool {
+    // Check for spring stiffness
+    let has_spring = match local_dof {
+        0 => sup.kx.unwrap_or(0.0) > 0.0,
+        1 => sup.ky.unwrap_or(0.0) > 0.0,
+        2 => sup.kz.unwrap_or(0.0) > 0.0,
+        3 => sup.krx.unwrap_or(0.0) > 0.0,
+        4 => sup.kry.unwrap_or(0.0) > 0.0,
+        5 => sup.krz.unwrap_or(0.0) > 0.0,
+        _ => false,
+    };
 
-    #[test]
-    fn test_simple_beam_dofs() {
-        let mut s = Structure::new("Test");
-        let n1 = s.add_node(0.0, 0.0);
-        let n2 = s.add_node(6.0, 0.0);
-        let mat = s.add_steel();
-        let sec = s.add_section("Test", 0.01, 0.0001);
-        s.add_frame(n1, n2, mat, sec);
-        s.add_pinned_support(n1);
-        s.add_roller_x(n2);
+    if has_spring {
+        return false;
+    }
 
-        let dof = DofNumbering::new(&s);
-
-        // n1: ux=restrained, uy=restrained, rz=free
-        // n2: ux=free, uy=restrained, rz=free
-        // Free DOFs: n1.rz, n2.ux, n2.rz = 3
-        // Restrained: n1.ux, n1.uy, n2.uy = 3
-        assert_eq!(dof.free_dofs(), 3);
-        assert_eq!(dof.total_dofs(), 6);
+    match local_dof {
+        0 => sup.rx,
+        1 => sup.ry,
+        2 => sup.rz,
+        3 => sup.rrx,
+        4 => sup.rry,
+        5 => sup.rrz,
+        _ => false,
     }
 }
