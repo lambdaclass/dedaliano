@@ -2,6 +2,7 @@ pub mod types;
 pub mod linalg;
 pub mod element;
 pub mod solver;
+pub mod postprocess;
 
 use wasm_bindgen::prelude::*;
 
@@ -97,6 +98,178 @@ pub fn solve_moving_loads_2d(json: &str) -> Result<String, JsValue> {
     let results = solver::moving_loads::solve_moving_loads_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Kinematic Analysis ====================
+
+/// Analyze 2D kinematic stability. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn analyze_kinematics_2d(json: &str) -> Result<String, JsValue> {
+    let input: types::SolverInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::kinematic::analyze_kinematics_2d(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Analyze 3D kinematic stability. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn analyze_kinematics_3d(json: &str) -> Result<String, JsValue> {
+    let input: types::SolverInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::kinematic::analyze_kinematics_3d(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Diagrams ====================
+
+/// Compute 2D diagrams (moment, shear, axial). JSON: { input: SolverInput, results: AnalysisResults }
+#[wasm_bindgen]
+pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
+    #[derive(serde::Deserialize)]
+    struct Input {
+        input: types::SolverInput,
+        results: types::AnalysisResults,
+    }
+    let data: Input = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let diagrams = postprocess::diagrams::compute_diagrams_2d(&data.input, &data.results);
+    serde_json::to_string(&diagrams)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Compute 3D diagrams. JSON: AnalysisResults3D
+#[wasm_bindgen]
+pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
+    let results: types::AnalysisResults3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let diagrams = postprocess::diagrams_3d::compute_diagrams_3d(&results);
+    serde_json::to_string(&diagrams)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Compute deformed shape for one element. JSON wrapper.
+#[wasm_bindgen]
+pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Input {
+        node_ix: f64, node_iy: f64,
+        node_jx: f64, node_jy: f64,
+        u_ix: f64, u_iy: f64, r_iz: f64,
+        u_jx: f64, u_jy: f64, r_jz: f64,
+        scale: f64,
+        length: f64,
+        hinge_start: bool,
+        hinge_end: bool,
+        #[serde(default)]
+        ei: Option<f64>,
+        #[serde(default)]
+        load_qi: Option<f64>,
+        #[serde(default)]
+        load_qj: Option<f64>,
+        #[serde(default)]
+        load_points: Vec<(f64, f64)>,
+        #[serde(default)]
+        dist_loads: Vec<(f64, f64, f64, f64)>,
+    }
+    let d: Input = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::diagrams::compute_deformed_shape(
+        d.node_ix, d.node_iy, d.node_jx, d.node_jy,
+        d.u_ix, d.u_iy, d.r_iz, d.u_jx, d.u_jy, d.r_jz,
+        d.scale, d.length, d.hinge_start, d.hinge_end,
+        d.ei, d.load_qi, d.load_qj,
+        &d.load_points, &d.dist_loads,
+    );
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Combinations + Envelope ====================
+
+/// Combine 2D results with factors. JSON: CombinationInput
+#[wasm_bindgen]
+pub fn combine_results_2d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::combinations::CombinationInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    match postprocess::combinations::combine_results(&input) {
+        Some(result) => serde_json::to_string(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e))),
+        None => Ok("null".to_string()),
+    }
+}
+
+/// Combine 3D results with factors. JSON: CombinationInput3D
+#[wasm_bindgen]
+pub fn combine_results_3d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::combinations::CombinationInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    match postprocess::combinations::combine_results_3d(&input) {
+        Some(result) => serde_json::to_string(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e))),
+        None => Ok("null".to_string()),
+    }
+}
+
+/// Compute 2D envelope. JSON: array of AnalysisResults
+#[wasm_bindgen]
+pub fn compute_envelope_2d(json: &str) -> Result<String, JsValue> {
+    let results: Vec<types::AnalysisResults> = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    match postprocess::combinations::compute_envelope(&results) {
+        Some(env) => serde_json::to_string(&env)
+            .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e))),
+        None => Ok("null".to_string()),
+    }
+}
+
+/// Compute 3D envelope. JSON: array of AnalysisResults3D
+#[wasm_bindgen]
+pub fn compute_envelope_3d(json: &str) -> Result<String, JsValue> {
+    let results: Vec<types::AnalysisResults3D> = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    match postprocess::combinations::compute_envelope_3d(&results) {
+        Some(env) => serde_json::to_string(&env)
+            .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e))),
+        None => Ok("null".to_string()),
+    }
+}
+
+// ==================== Influence Lines ====================
+
+/// Compute influence line. JSON: InfluenceLineInput
+#[wasm_bindgen]
+pub fn compute_influence_line(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::influence::InfluenceLineInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::influence::compute_influence_line(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Section Stress ====================
+
+/// Compute 2D section stress. JSON: SectionStressInput
+#[wasm_bindgen]
+pub fn compute_section_stress_2d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::section_stress::SectionStressInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::section_stress::compute_section_stress_2d(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Compute 3D section stress. JSON: SectionStressInput3D
+#[wasm_bindgen]
+pub fn compute_section_stress_3d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::section_stress_3d::SectionStressInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::section_stress_3d::compute_section_stress_3d(&input);
+    serde_json::to_string(&result)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 

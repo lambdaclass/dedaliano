@@ -9,6 +9,7 @@ pub mod modal;
 pub mod spectral;
 pub mod plastic;
 pub mod moving_loads;
+pub mod kinematic;
 
 pub use dof::*;
 pub use assembly::*;
@@ -19,3 +20,4 @@ pub use modal::*;
 pub use spectral::*;
 pub use plastic::*;
 pub use moving_loads::*;
+pub use kinematic::*;

@@ -314,7 +314,7 @@ pub(crate) fn compute_internal_forces_2d(
                 }
             }
 
-            // Add fixed-end forces from element loads
+            // Add fixed-end forces from element loads (f = K*u + FEF)
             let (mut total_qi, mut total_qj) = (0.0, 0.0);
             let mut point_loads_info = Vec::new();
             let mut dist_loads_info = Vec::new();
