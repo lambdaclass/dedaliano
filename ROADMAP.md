@@ -165,17 +165,28 @@ These features are trivial to add in a browser-based, AI-native architecture. Th
 
 | Tier | Price | Includes |
 |---|---|---|
-| **Free** | $0 | Full analysis (browser-only, small models), section properties, load calculator, DSM wizard |
-| **Pro** | $50/month | Everything: all design modules (steel, concrete, timber, connections), server compute, reports, AI assistant, unit toggle, API access, education features |
+| **Free** | $0 | Full analysis (unlimited elements, all analysis types), steel + concrete design checks, load determination, plates/shells, section properties, DSM wizard, unit toggle |
+| **Pro** | $50/month | Everything in Free + calculation reports (PDF/LaTeX), server compute for large models, AI assistant, project save/export, connections (Phase 2), collaboration (Phase 2), API access |
 
 Two tiers. No add-ons, no per-module pricing, no enterprise negotiation. Every Pro user gets the full platform. This eliminates purchase friction ("which modules do I need?") and simplifies the sales conversation to one question: free or $50/month.
 
-**Revenue model**: free tier drives adoption and SEO traffic; $50/month Pro is the single conversion target. At $600/year vs $5,000-15,000/year for incumbents, the price objection disappears. A 10-person firm switching from ETABS to Dedaliano saves $44,000-144,000/year. Revenue scales with users, not with per-seat licenses.
+The free tier is deliberately generous — more capable than what most competitors charge for. The goal is maximum adoption: every structural engineer in the world should be able to run a full analysis, check every member against the design code, and determine all loads without paying anything. This makes every SEO landing page a fully functional tool, not a teaser.
 
-**Freemium conversion mechanics:**
-- Free tier: up to 50 elements, 3 load cases, 1 load combination, no code checks, no reports, no server compute. Enough to evaluate the tool and teach students, not enough to run a real project
-- Pro paywall triggers: model exceeds 50 elements, user requests code checks, user generates a report, user needs server compute. These are natural boundaries — the engineer hits them when they need Dedaliano for real work
-- No time limits or trial periods. The free tier is permanent. This removes the "I'll try it later" objection and keeps the tool installed/bookmarked
+**Revenue model**: free tier drives adoption, SEO traffic, and word of mouth; $50/month Pro is the single conversion target. At $600/year vs $5,000-15,000/year for incumbents, the price objection disappears. A 10-person firm switching from ETABS to Dedaliano saves $44,000-144,000/year. Revenue scales with users, not with per-seat licenses.
+
+**Paywall triggers — natural moments when free users need Pro:**
+- **Calculation reports.** The engineer has designed the structure for free. Now they need to submit a permit-ready PDF to the building department. This is the highest-conversion trigger because the report is the deliverable — the thing the client or authority actually sees. $50/month to generate unlimited reports is trivial compared to the value of a stamped calculation package.
+- **Server compute.** Models beyond ~500 elements slow down in the browser. Firms working on real multi-story buildings need server-side solving. The free tier handles small structures (houses, simple frames); Pro handles everything else.
+- **AI assistant.** Auto-sizing, intelligent load generation, design review, report narration. Saves hours per project. Engineers try it once and don't go back.
+- **Project save/export.** Free users can work in the browser but can't persist projects to the cloud or export to JSON/IFC. The moment they want to save and return tomorrow, they need Pro.
+- **Collaboration + connections.** Phase 2 features are Pro-only from launch.
+
+**Why this works better than restricting analysis:**
+- SkyCiv and ClearCalcs paywall analysis features. This means their SEO landing pages are teasers — the engineer arrives, can't run their actual calculation, and leaves. Dedaliano's landing pages let the engineer run the real calculation with the real engine. They get the answer, trust the tool, and convert when they need the report.
+- Every free user is a walking referral. "I used this free tool to check my beam — it matched my hand calc exactly." That sentence, repeated thousands of times in engineering offices, is worth more than any ad campaign.
+- Students and academics use the free tier for years. When they graduate and join firms, they bring Dedaliano with them. The university pipeline runs on a generous free tier.
+
+**No time limits or trial periods.** The free tier is permanent. This removes the "I'll try it later" objection and keeps the tool installed/bookmarked.
 
 **Churn prevention:**
 - Firm-specific report templates: once a firm configures their header, logo, disclaimer text, and preferred detail level, they won't recreate this elsewhere
