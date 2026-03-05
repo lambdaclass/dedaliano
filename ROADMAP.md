@@ -165,8 +165,8 @@ These features are trivial to add in a browser-based, AI-native architecture. Th
 
 | Tier | Price | Includes |
 |---|---|---|
-| **Free** | $0 | Full analysis (unlimited elements, all analysis types), steel + concrete design checks, load determination, plates/shells, section properties, DSM wizard, unit toggle |
-| **Pro** | $50/month | Everything in Free + calculation reports (PDF/LaTeX), server compute for large models, AI assistant, project save/export, connections (Phase 2), collaboration (Phase 2), API access |
+| **Free** | $0 | Full analysis (unlimited elements, all analysis types), steel + concrete design checks, load determination, plates/shells, section properties, DSM wizard, unit toggle, local storage (localStorage/IndexedDB) |
+| **Pro** | $50/month | Everything in Free + calculation reports (PDF/LaTeX), server compute for large models, AI assistant, cloud storage + sync, connections (Phase 2), collaboration (Phase 2), API access |
 
 Two tiers. No add-ons, no per-module pricing, no enterprise negotiation. Every Pro user gets the full platform. This eliminates purchase friction ("which modules do I need?") and simplifies the sales conversation to one question: free or $50/month.
 
@@ -178,7 +178,7 @@ The free tier is deliberately generous — more capable than what most competito
 - **Calculation reports.** The engineer has designed the structure for free. Now they need to submit a permit-ready PDF to the building department. This is the highest-conversion trigger because the report is the deliverable — the thing the client or authority actually sees. $50/month to generate unlimited reports is trivial compared to the value of a stamped calculation package.
 - **Server compute.** Models beyond ~500 elements slow down in the browser. Firms working on real multi-story buildings need server-side solving. The free tier handles small structures (houses, simple frames); Pro handles everything else.
 - **AI assistant.** Auto-sizing, intelligent load generation, design review, report narration. Saves hours per project. Engineers try it once and don't go back.
-- **Project save/export.** Free users can work in the browser but can't persist projects to the cloud or export to JSON/IFC. The moment they want to save and return tomorrow, they need Pro.
+- **Cloud storage + sync.** Free users save projects to localStorage/IndexedDB — works fine on one device. Pro unlocks cloud storage: access projects from any browser, sync across devices, share with colleagues. The moment a firm has two engineers on the same project, they need Pro.
 - **Collaboration + connections.** Phase 2 features are Pro-only from launch.
 
 **Why this works better than restricting analysis:**
