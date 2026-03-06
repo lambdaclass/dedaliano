@@ -79,6 +79,50 @@ pub fn solve_spectral_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve 3D P-Delta analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
+    let input: types::SolverInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::pdelta::solve_pdelta_3d(&input, max_iter, tolerance)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D buckling analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
+    let input: types::SolverInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::buckling::solve_buckling_3d(&input, num_modes)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D modal analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_modal_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
+    let input: types::ModalInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::modal::solve_modal_3d(&input.solver, &input.densities, num_modes)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D spectral analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_spectral_3d(json: &str) -> Result<String, JsValue> {
+    let input: types::SpectralInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::spectral::solve_spectral_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 /// Solve 2D plastic analysis. JSON in → JSON out.
 #[wasm_bindgen]
 pub fn solve_plastic_2d(json: &str) -> Result<String, JsValue> {

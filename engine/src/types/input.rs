@@ -364,6 +364,62 @@ pub struct SpectrumPoint {
     pub sa: f64,
 }
 
+/// 3D spectral analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralInput3D {
+    pub solver: SolverInput3D,
+    pub modes: Vec<SpectralModeInput3D>,
+    pub densities: HashMap<String, f64>,
+    pub spectrum: DesignSpectrum,
+    pub direction: String, // "X", "Y", or "Z"
+    #[serde(default)]
+    pub rule: Option<String>,
+    #[serde(default)]
+    pub xi: Option<f64>,
+    #[serde(default)]
+    pub importance_factor: Option<f64>,
+    #[serde(default)]
+    pub reduction_factor: Option<f64>,
+    #[serde(default)]
+    pub total_mass: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralModeInput3D {
+    pub frequency: f64,
+    pub period: f64,
+    pub omega: f64,
+    pub displacements: Vec<SpectralModeDisp3D>,
+    pub participation_x: f64,
+    pub participation_y: f64,
+    pub participation_z: f64,
+    pub effective_mass_x: f64,
+    pub effective_mass_y: f64,
+    pub effective_mass_z: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralModeDisp3D {
+    pub node_id: usize,
+    pub ux: f64,
+    pub uy: f64,
+    pub uz: f64,
+    pub rx: f64,
+    pub ry: f64,
+    pub rz: f64,
+}
+
+/// 3D modal analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModalInput3D {
+    pub solver: SolverInput3D,
+    pub densities: HashMap<String, f64>,
+}
+
 /// Plastic analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -2,7 +2,8 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
-use super::linear::{build_displacements_2d, compute_internal_forces_2d};
+use super::linear::{build_displacements_2d, compute_internal_forces_2d,
+    build_displacements_3d, compute_internal_forces_3d};
 
 /// P-Delta analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -185,6 +186,153 @@ fn compute_reactions_from_u(
         }
 
         reactions.push(Reaction { node_id: sup.node_id, rx, ry, mz });
+    }
+    reactions
+}
+
+/// P-Delta analysis result for 3D structures.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PDeltaResult3D {
+    pub results: AnalysisResults3D,
+    pub iterations: usize,
+    pub converged: bool,
+    pub is_stable: bool,
+    pub b2_factor: f64,
+    pub linear_results: AnalysisResults3D,
+}
+
+/// Solve 3D P-Delta (second-order) analysis.
+pub fn solve_pdelta_3d(
+    input: &SolverInput3D,
+    max_iter: usize,
+    tolerance: f64,
+) -> Result<PDeltaResult3D, String> {
+    let dof_num = DofNumbering::build_3d(input);
+    if dof_num.n_free == 0 {
+        return Err("No free DOFs".into());
+    }
+
+    let linear_results = super::linear::solve_3d(input)?;
+
+    let asm = assemble_3d(input, &dof_num);
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let f_f = extract_subvec(&asm.f, &free_idx);
+
+    let mut u_prev = vec![0.0; n];
+    for d in &linear_results.displacements {
+        let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+        for (i, &val) in vals.iter().enumerate() {
+            if let Some(&idx) = dof_num.map.get(&(d.node_id, i)) { u_prev[idx] = val; }
+        }
+    }
+
+    let mut converged = false;
+    let mut iterations = 0;
+    let mut u_current = u_prev.clone();
+
+    for iter in 0..max_iter {
+        iterations = iter + 1;
+
+        let mut k_total = asm.k.clone();
+        super::geometric_stiffness::add_geometric_stiffness_3d(input, &dof_num, &u_current, &mut k_total);
+
+        let k_ff = extract_submatrix(&k_total, n, &free_idx, &free_idx);
+
+        let u_f = {
+            let mut k_work = k_ff.clone();
+            match cholesky_solve(&mut k_work, &f_f, nf) {
+                Some(u) => u,
+                None => {
+                    let mut k_work = k_ff;
+                    let mut f_work = f_f.clone();
+                    match lu_solve(&mut k_work, &mut f_work, nf) {
+                        Some(u) => u,
+                        None => {
+                            return Ok(PDeltaResult3D {
+                                results: linear_results.clone(),
+                                iterations,
+                                converged: false,
+                                is_stable: false,
+                                b2_factor: f64::INFINITY,
+                                linear_results,
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
+        let mut u_new = vec![0.0; n];
+        for i in 0..nf { u_new[i] = u_f[i]; }
+
+        let mut diff_norm = 0.0;
+        let mut u_norm = 0.0;
+        for i in 0..nf {
+            diff_norm += (u_new[i] - u_current[i]).powi(2);
+            u_norm += u_new[i].powi(2);
+        }
+        diff_norm = diff_norm.sqrt();
+        u_norm = u_norm.sqrt();
+
+        u_current = u_new;
+
+        if u_norm > 1e-20 && diff_norm / u_norm < tolerance {
+            converged = true;
+            break;
+        }
+    }
+
+    let mut max_ratio = 0.0f64;
+    let u_linear_f = extract_subvec(&u_prev, &free_idx);
+    let u_pdelta_f = extract_subvec(&u_current, &free_idx);
+    for i in 0..nf {
+        if u_linear_f[i].abs() > 1e-12 {
+            max_ratio = max_ratio.max((u_pdelta_f[i] / u_linear_f[i]).abs());
+        }
+    }
+
+    let displacements = build_displacements_3d(&dof_num, &u_current);
+    let element_forces = compute_internal_forces_3d(input, &dof_num, &u_current);
+    let reactions = compute_reactions_from_u_3d(input, &dof_num, &asm, &u_current);
+
+    Ok(PDeltaResult3D {
+        results: AnalysisResults3D { displacements, reactions, element_forces },
+        iterations,
+        converged,
+        is_stable: converged && max_ratio < 100.0,
+        b2_factor: max_ratio,
+        linear_results,
+    })
+}
+
+fn compute_reactions_from_u_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    asm: &AssemblyResult,
+    u: &[f64],
+) -> Vec<Reaction3D> {
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let mut reactions = Vec::new();
+
+    for sup in input.supports.values() {
+        let mut r = [0.0f64; 6];
+        for i in 0..6 {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                if d >= nf {
+                    let mut val = -asm.f[d];
+                    for j in 0..n { val += asm.k[d * n + j] * u[j]; }
+                    r[i] = val;
+                }
+            }
+        }
+        reactions.push(Reaction3D {
+            node_id: sup.node_id,
+            fx: r[0], fy: r[1], fz: r[2], mx: r[3], my: r[4], mz: r[5],
+        });
     }
     reactions
 }

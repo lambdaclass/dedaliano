@@ -2,7 +2,7 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
-use super::geometric_stiffness::build_kg_from_forces_2d;
+use super::geometric_stiffness::{build_kg_from_forces_2d, build_kg_from_forces_3d};
 
 /// Buckling analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -156,4 +156,130 @@ pub fn solve_buckling_2d(
         n_dof: nf,
         element_data,
     })
+}
+
+/// 3D buckling analysis result.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BucklingResult3D {
+    pub modes: Vec<BucklingMode3D>,
+    pub n_dof: usize,
+    pub element_data: Vec<ElementBucklingData3D>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BucklingMode3D {
+    pub load_factor: f64,
+    pub displacements: Vec<Displacement3D>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementBucklingData3D {
+    pub element_id: usize,
+    pub axial_force: f64,
+    pub critical_force: f64,
+    pub k_effective: f64,
+    pub effective_length: f64,
+    pub length: f64,
+    pub slenderness_y: f64,
+    pub slenderness_z: f64,
+}
+
+/// Solve 3D buckling analysis.
+pub fn solve_buckling_3d(
+    input: &SolverInput3D,
+    num_modes: usize,
+) -> Result<BucklingResult3D, String> {
+    let linear = super::linear::solve_3d(input)?;
+    let dof_num = DofNumbering::build_3d(input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    if nf == 0 { return Err("No free DOFs".into()); }
+
+    let kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
+
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let asm = assemble_3d(input, &dof_num);
+    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+
+    let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
+    let mut neg_kg_ff = vec![0.0; nf * nf];
+    for i in 0..nf * nf { neg_kg_ff[i] = -kg_ff_raw[i]; }
+
+    let has_compression = linear.element_forces.iter().any(|ef| {
+        (ef.n_start + ef.n_end) / 2.0 < -1e-6
+    });
+    if !has_compression {
+        return Err("No compressed elements — buckling not applicable".into());
+    }
+
+    let result = solve_generalized_eigen(&neg_kg_ff, &k_ff, nf, 200)
+        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+
+    let num_modes = num_modes.min(nf);
+    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
+    for (idx, &mu) in result.values.iter().enumerate() {
+        if mu > 1e-12 {
+            mode_pairs.push((1.0 / mu, idx));
+        }
+    }
+    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+    let mut modes = Vec::new();
+    for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
+        let mut u_mode = vec![0.0; n];
+        let mut max_disp = 0.0f64;
+        for i in 0..nf {
+            u_mode[i] = result.vectors[i * nf + idx];
+            max_disp = max_disp.max(u_mode[i].abs());
+        }
+        if max_disp > 1e-20 {
+            for i in 0..nf { u_mode[i] /= max_disp; }
+        }
+        let displacements = super::linear::build_displacements_3d(&dof_num, &u_mode);
+        modes.push(BucklingMode3D { load_factor: lambda, displacements });
+    }
+
+    if modes.is_empty() {
+        return Err("No positive buckling load factors found".into());
+    }
+
+    let lambda_cr = modes[0].load_factor;
+    let mut element_data = Vec::new();
+    for ef in &linear.element_forces {
+        let n_avg = (ef.n_start + ef.n_end) / 2.0;
+        if n_avg >= -1e-6 { continue; }
+        let elem = input.elements.values().find(|e| e.id == ef.element_id).unwrap();
+        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let l = ef.length;
+        let pcr = lambda_cr * n_avg.abs();
+        let e = mat.e * 1000.0;
+
+        let ry = if sec.a > 1e-20 { (sec.iy / sec.a).sqrt() } else { 0.0 };
+        let rz = if sec.a > 1e-20 { (sec.iz / sec.a).sqrt() } else { 0.0 };
+        let k_eff = if pcr > 1e-6 {
+            let le = std::f64::consts::PI * (e * sec.iy.min(sec.iz) / pcr).sqrt();
+            le / l
+        } else { 1.0 };
+        let le = k_eff * l;
+        let slenderness_y = if ry > 1e-12 { le / ry } else { 0.0 };
+        let slenderness_z = if rz > 1e-12 { le / rz } else { 0.0 };
+
+        element_data.push(ElementBucklingData3D {
+            element_id: ef.element_id,
+            axial_force: n_avg,
+            critical_force: pcr,
+            k_effective: k_eff,
+            effective_length: le,
+            length: l,
+            slenderness_y,
+            slenderness_z,
+        });
+    }
+
+    Ok(BucklingResult3D { modes, n_dof: nf, element_data })
 }

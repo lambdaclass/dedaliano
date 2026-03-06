@@ -220,3 +220,190 @@ pub fn build_kg_from_forces_2d(
     }
     k_g
 }
+
+/// Build 3D geometric stiffness matrix from element forces.
+pub fn build_kg_from_forces_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    element_forces: &[ElementForces3D],
+) -> Vec<f64> {
+    let n = dof_num.n_total;
+    let mut k_g = vec![0.0; n * n];
+    let left_hand = input.left_hand.unwrap_or(false);
+
+    for ef in element_forces {
+        let elem = input.elements.values().find(|e| e.id == ef.element_id).unwrap();
+        let node_i = input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+
+        let axial_force = (ef.n_start + ef.n_end) / 2.0;
+
+        if elem.elem_type == "truss" {
+            // 3D truss Kg: P/L * [[G,-G],[-G,G]] where G_ij = δ_ij - dir_i*dir_j
+            let dir = [dx / l, dy / l, dz / l];
+            let p_over_l = axial_force / l;
+            let mut kg_local = [0.0; 36]; // 6×6 (3 DOFs per node)
+            for i in 0..3 {
+                for j in 0..3 {
+                    let g = if i == j { 1.0 } else { 0.0 } - dir[i] * dir[j];
+                    let val = p_over_l * g;
+                    kg_local[i * 6 + j] = val;         // II block
+                    kg_local[(i+3) * 6 + (j+3)] = val; // JJ block
+                    kg_local[i * 6 + (j+3)] = -val;    // IJ block
+                    kg_local[(i+3) * 6 + j] = -val;    // JI block
+                }
+            }
+            let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
+                .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
+                .collect();
+            for i in 0..6 {
+                for j in 0..6 {
+                    k_g[truss_dofs[i] * n + truss_dofs[j]] += kg_local[i * 6 + j];
+                }
+            }
+        } else {
+            // 3D frame Kg (Przemieniecki): P/(30L) coefficient
+            let (ex, ey, ez) = crate::element::compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, left_hand,
+            );
+            let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
+
+            let p = axial_force;
+            let coeff = p / (30.0 * l);
+
+            // 12×12 local Kg — transverse DOFs only
+            // Y-Z plane (DOFs 1,5,7,11): same as 2D transverse
+            // X-Z plane (DOFs 2,4,8,10): same coefficients, sign flips on θy coupling
+            let mut kg_local = vec![0.0; 144];
+
+            // Y-Z bending plane (v, θz at each node): DOFs 1,5,7,11
+            let yz = [(1,1,36.0), (1,5,3.0*l), (1,7,-36.0), (1,11,3.0*l),
+                       (5,1,3.0*l), (5,5,4.0*l*l), (5,7,-3.0*l), (5,11,-l*l),
+                       (7,1,-36.0), (7,5,-3.0*l), (7,7,36.0), (7,11,-3.0*l),
+                       (11,1,3.0*l), (11,5,-l*l), (11,7,-3.0*l), (11,11,4.0*l*l)];
+            for &(r, c, val) in &yz {
+                kg_local[r * 12 + c] = val * coeff;
+            }
+
+            // X-Z bending plane (w, θy at each node): DOFs 2,4,8,10
+            // Same magnitudes, but θy coupling signs flip (θy = -dw/dx convention)
+            let xz = [(2,2,36.0), (2,4,-3.0*l), (2,8,-36.0), (2,10,-3.0*l),
+                       (4,2,-3.0*l), (4,4,4.0*l*l), (4,8,3.0*l), (4,10,-l*l),
+                       (8,2,-36.0), (8,4,3.0*l), (8,8,36.0), (8,10,3.0*l),
+                       (10,2,-3.0*l), (10,4,-l*l), (10,8,3.0*l), (10,10,4.0*l*l)];
+            for &(r, c, val) in &xz {
+                kg_local[r * 12 + c] = val * coeff;
+            }
+
+            // Transform to global: Kg_global = T^T * Kg_local * T
+            let kg_global = transform_stiffness(&kg_local, &t, 12);
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    k_g[elem_dofs[i] * n + elem_dofs[j]] += kg_global[i * ndof + j];
+                }
+            }
+        }
+    }
+    k_g
+}
+
+/// Add 3D geometric stiffness from current displacements.
+pub fn add_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_global: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let left_hand = input.left_hand.unwrap_or(false);
+
+    for elem in input.elements.values() {
+        let node_i = input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let e = mat.e * 1000.0;
+
+        if elem.elem_type == "truss" {
+            let dir = [dx / l, dy / l, dz / l];
+            let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
+            let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();
+            let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
+            let axial_force = e * sec.a / l * delta;
+            let p_over_l = axial_force / l;
+
+            let mut kg_local = [0.0; 36];
+            for i in 0..3 {
+                for j in 0..3 {
+                    let g = if i == j { 1.0 } else { 0.0 } - dir[i] * dir[j];
+                    let val = p_over_l * g;
+                    kg_local[i * 6 + j] = val;
+                    kg_local[(i+3) * 6 + (j+3)] = val;
+                    kg_local[i * 6 + (j+3)] = -val;
+                    kg_local[(i+3) * 6 + j] = -val;
+                }
+            }
+            let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
+                .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
+                .collect();
+            for i in 0..6 {
+                for j in 0..6 {
+                    k_global[truss_dofs[i] * n + truss_dofs[j]] += kg_local[i * 6 + j];
+                }
+            }
+        } else {
+            let (ex, ey, ez) = crate::element::compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, left_hand,
+            );
+            let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
+            let u_local = transform_displacement(&u_global, &t, 12);
+
+            // Axial force from local displacements
+            let axial_force = e * sec.a / l * (u_local[6] - u_local[0]);
+
+            let p = axial_force;
+            let coeff = p / (30.0 * l);
+
+            let mut kg_local = vec![0.0; 144];
+            let yz = [(1,1,36.0), (1,5,3.0*l), (1,7,-36.0), (1,11,3.0*l),
+                       (5,1,3.0*l), (5,5,4.0*l*l), (5,7,-3.0*l), (5,11,-l*l),
+                       (7,1,-36.0), (7,5,-3.0*l), (7,7,36.0), (7,11,-3.0*l),
+                       (11,1,3.0*l), (11,5,-l*l), (11,7,-3.0*l), (11,11,4.0*l*l)];
+            for &(r, c, val) in &yz { kg_local[r * 12 + c] = val * coeff; }
+
+            let xz = [(2,2,36.0), (2,4,-3.0*l), (2,8,-36.0), (2,10,-3.0*l),
+                       (4,2,-3.0*l), (4,4,4.0*l*l), (4,8,3.0*l), (4,10,-l*l),
+                       (8,2,-36.0), (8,4,3.0*l), (8,8,36.0), (8,10,3.0*l),
+                       (10,2,-3.0*l), (10,4,-l*l), (10,8,3.0*l), (10,10,4.0*l*l)];
+            for &(r, c, val) in &xz { kg_local[r * 12 + c] = val * coeff; }
+
+            let kg_global = transform_stiffness(&kg_local, &t, 12);
+            let ndof = elem_dofs.len();
+            for i in 0..ndof {
+                for j in 0..ndof {
+                    k_global[elem_dofs[i] * n + elem_dofs[j]] += kg_global[i * ndof + j];
+                }
+            }
+        }
+    }
+}
