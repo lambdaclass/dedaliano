@@ -582,7 +582,7 @@ fn compute_internal_forces_3d(
             }
         }
 
-        // Add FEF from element loads
+        // Subtract FEF from element loads (f = K*u - FEF)
         let (mut q_yi_total, mut q_yj_total) = (0.0, 0.0);
         let (mut q_zi_total, mut q_zj_total) = (0.0, 0.0);
         let mut dist_loads_y = Vec::new();
