@@ -120,6 +120,7 @@ fn validation_rigid_body_3d_frame_6_zero_eigenvalues() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IZ, iz: IZ, j: 5e-5, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems = HashMap::new();

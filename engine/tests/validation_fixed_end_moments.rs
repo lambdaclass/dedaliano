@@ -285,7 +285,7 @@ fn validation_fem_settlement() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = std::collections::HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {

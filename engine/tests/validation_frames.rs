@@ -199,7 +199,7 @@ fn validation_fixed_fixed_settlement() {
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = std::collections::HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = std::collections::HashMap::new();
     for i in 0..n {
         elems_map.insert((i + 1).to_string(), SolverElement {
@@ -294,7 +294,7 @@ fn validation_cantilever_tip_spring() {
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = std::collections::HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = std::collections::HashMap::new();
     for (id, _, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {

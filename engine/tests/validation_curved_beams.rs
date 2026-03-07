@@ -32,6 +32,7 @@ fn make_arch_input(
     let mut secs_map = HashMap::new();
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: sec_a, iy: sec_iy, iz: sec_iz, j: sec_j, cw: None,
+        as_y: None, as_z: None,
     });
     let mut sups_map = HashMap::new();
     for (i, (nid, dofs)) in supports.iter().enumerate() {

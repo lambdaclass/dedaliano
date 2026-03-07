@@ -76,6 +76,7 @@ fn make_3d_continuous_beam(
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     // Build nodes
@@ -416,6 +417,7 @@ fn validation_3d_continuous_elastic_support() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     for i in 0..n_nodes {
@@ -666,6 +668,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: 2.0 * IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     for i in 0..n_nodes {

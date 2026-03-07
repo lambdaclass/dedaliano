@@ -748,7 +748,7 @@ mod tests {
         materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200000.0, nu: 0.3 });
 
         let mut sections = HashMap::new();
-        sections.insert("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 8.33e-6 });
+        sections.insert("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 8.33e-6, as_y: None });
 
         let mut elements = HashMap::new();
         elements.insert("1".to_string(), SolverElement {

@@ -75,7 +75,7 @@ fn validation_foundation_winkler_central_load() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -152,7 +152,7 @@ fn validation_foundation_stiffness_effect() {
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
         let mut secs_map = HashMap::new();
-        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
         let mut elems_map = HashMap::new();
         for (id, t, ni, nj, mi, si, hs, he) in &elems {
             elems_map.insert(id.to_string(), SolverElement {
@@ -223,7 +223,7 @@ fn validation_foundation_rigid_limit() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -292,7 +292,7 @@ fn validation_foundation_winkler_udl_symmetric() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -366,7 +366,7 @@ fn validation_foundation_localized_deflection() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -441,7 +441,7 @@ fn validation_foundation_mixed_boundary() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -520,7 +520,7 @@ fn validation_foundation_stiff_beam_uniform() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: iz_stiff });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: iz_stiff, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -598,7 +598,7 @@ fn validation_foundation_equilibrium() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {

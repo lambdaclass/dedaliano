@@ -49,6 +49,7 @@ fn make_warping_beam(
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A_SEC, iy: IY, iz: IZ, j: J_SEC,
         cw: if use_warping { Some(CW) } else { None },
+        as_y: None, as_z: None,
     });
 
     let mut elems_map = HashMap::new();
@@ -234,10 +235,12 @@ fn validation_warping_mixed_model() {
     let mut secs_map = HashMap::new();
     secs_map.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A_SEC, iy: IY, iz: IZ, j: J_SEC, cw: Some(CW),
+        as_y: None, as_z: None,
     });
     // Section 2: without warping
     secs_map.insert("2".to_string(), SolverSection3D {
         id: 2, name: None, a: A_SEC, iy: IY, iz: IZ, j: J_SEC, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems_map = HashMap::new();

@@ -198,7 +198,7 @@ fn validation_condensation_prescribed() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -258,7 +258,7 @@ fn validation_condensation_mixed_supports() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {

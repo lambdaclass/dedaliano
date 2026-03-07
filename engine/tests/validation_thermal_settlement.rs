@@ -195,7 +195,7 @@ fn validation_settlement_ss_roller() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     elems_map.insert("1".to_string(), SolverElement {
         id: 1, elem_type: "frame".to_string(),
@@ -246,7 +246,7 @@ fn validation_settlement_propped_cantilever() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     elems_map.insert("1".to_string(), SolverElement {
         id: 1, elem_type: "frame".to_string(),
@@ -292,7 +292,7 @@ fn validation_settlement_fixed_fixed() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
 
     let mut elems_map = HashMap::new();
     for i in 0..n {
@@ -387,7 +387,7 @@ fn validation_thermal_settlement_superposition() {
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
         let mut secs_map = HashMap::new();
-        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
 
         let mut elems_map = HashMap::new();
         for i in 0..n {

@@ -379,7 +379,7 @@ mod tests {
         }
         let mut secs_map = HashMap::new();
         for (id, a, iz) in secs {
-            secs_map.insert(id.to_string(), SolverSection { id, a, iz });
+            secs_map.insert(id.to_string(), SolverSection { id, a, iz, as_y: None });
         }
         let mut elems_map = HashMap::new();
         for (id, t, ni, nj, mi, si, hs, he) in elems {

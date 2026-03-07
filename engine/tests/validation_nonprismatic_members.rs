@@ -74,8 +74,8 @@ fn validation_nonprismatic_stepped_beam() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ }); // stiffer
-    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ }); // standard
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None }); // stiffer
+    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None }); // standard
     for i in 0..n {
         let sec_id = if i < n / 2 { 1 } else { 2 };
         elems.insert(
@@ -147,7 +147,7 @@ fn validation_nonprismatic_tapered_cantilever() {
         let i_val = i0 * (1.0 + x_mid / l);
         secs.insert(
             (i + 1).to_string(),
-            SolverSection { id: i + 1, a: A, iz: i_val },
+            SolverSection { id: i + 1, a: A, iz: i_val, as_y: None },
         );
         elems.insert(
             (i + 1).to_string(),
@@ -228,7 +228,7 @@ fn validation_nonprismatic_haunched() {
         let i_val = i_mid + (i_haunch - i_mid) * t * t;
         secs.insert(
             (i + 1).to_string(),
-            SolverSection { id: i + 1, a: A, iz: i_val },
+            SolverSection { id: i + 1, a: A, iz: i_val, as_y: None },
         );
         elems.insert(
             (i + 1).to_string(),
@@ -304,8 +304,8 @@ fn validation_nonprismatic_convergence() {
                 SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
             );
         }
-        secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ });
-        secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ });
+        secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None });
+        secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None });
         for i in 0..n {
             let sec_id = if i < n / 2 { 1 } else { 2 };
             elems.insert(
@@ -383,8 +383,8 @@ fn validation_nonprismatic_stepped_column() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ });
-    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None });
+    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None });
 
     let mut nodes_map = std::collections::HashMap::new();
     for &(id, x, y) in &nodes {
@@ -524,7 +524,7 @@ fn validation_nonprismatic_composite_materials() {
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_steel, nu: 0.3 });
     mats.insert("2".to_string(), SolverMaterial { id: 2, e: e_aluminum, nu: 0.33 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = std::collections::HashMap::new();
     for i in 0..n {
         let mat_id = if i < n / 2 { 1 } else { 2 };
@@ -586,8 +586,8 @@ fn validation_nonprismatic_gradual_vs_abrupt() {
     let mut secs1 = std::collections::HashMap::new();
     let mut mats1 = std::collections::HashMap::new();
     mats1.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
-    secs1.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ });
-    secs1.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ });
+    secs1.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None });
+    secs1.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None });
 
     for i in 0..=n {
         nodes1.insert(

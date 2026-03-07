@@ -303,7 +303,7 @@ fn assemble_tangent_stiffness(
             };
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end,
+                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end, 0.0,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -456,7 +456,7 @@ fn compute_global_internal_forces(
             let u_local = transform_displacement(&u_global, &t, 6);
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end,
+                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end, 0.0,
             );
 
             // f_local = k_local * u_local

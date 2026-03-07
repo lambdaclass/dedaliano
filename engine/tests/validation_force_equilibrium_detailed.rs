@@ -207,38 +207,16 @@ fn equilibrium_horizontal_portal_lateral_load() {
     let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
     assert_close(sum_ry, 0.0, 1e-4, "Portal lateral: sum(Ry) = 0");
 
-    // Moment equilibrium about base node 1:
-    // H acts at height h at node 2, so moment = H * h (CCW)
-    // Reactions at node 1: Rx_1, Ry_1, Mz_1 (all at origin, so Rx and Ry have no arm about node 1)
-    // Reactions at node 4 (at x=w, y=0): Rx_4*0 + Ry_4*w + Mz_4
-    // Equilibrium: Mz_1 + Ry_4 * w + Mz_4 + H * h = 0
-    // Note: The lateral load creates a positive (CCW) moment about node 1, but the sign
-    // depends on the load direction. H is applied in +x direction at y=h.
-    // Moment about node 1 = H * h (CCW if +x at +y)
-    // So: Mz_1 + Ry_4*w + Mz_4 = -H*h
+    // Global moment equilibrium about node 1 (at origin (0,0)):
+    // Applied: H in +x at node 2 (0, h). Moment about origin = H * (-h) = -H*h.
+    // Reactions at node 1 (0,0): only Mz_1 contributes (Rx_1 and Ry_1 have zero arms).
+    // Reactions at node 4 (w,0): Ry_4 * w + Mz_4 (Rx_4 at y=0 has no moment arm).
+    // Equilibrium: -H*h + Mz_1 + Mz_4 + Ry_4 * w = 0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    eprintln!("R1: rx={:.4}, ry={:.4}, mz={:.4}", r1.rx, r1.ry, r1.mz);
-    eprintln!("R4: rx={:.4}, ry={:.4}, mz={:.4}", r4.rx, r4.ry, r4.mz);
-    eprintln!("Portal: h={}, w={}, lateral={}", h, w, lateral);
-    // Global moment equilibrium about node 1 (at origin (0,0)):
-    // Applied: H in +x at node 2 (0, h). Moment about (0,0) = H * h (CCW = +? or -?)
-    // Reactions at node 1 (0,0): only Mz_1 contributes (Rx_1 and Ry_1 have zero arms)
-    // Reactions at node 4 (w,0): Ry_4 * w (Ry_4 upward at x=w creates CCW moment = +Ry_4*w if Ry_4>0)
-    //                            Rx_4 * 0 (at y=0, no moment arm)
-    //                            Mz_4 directly
-    // Sum of all moments about (0,0) = 0:
-    // Applied moment + Reaction moments = 0
-    // H * h + Mz_1 + Mz_4 + Ry_4 * w = 0 ... OR
-    // -H * h + Mz_1 + Mz_4 + Ry_4 * w = 0
-    // Test both:
-    let residual_a = lateral * h + r1.mz + r4.mz + r4.ry * w;
-    let residual_b = -lateral * h + r1.mz + r4.mz + r4.ry * w;
-    eprintln!("residual_a (H*h + ...): {:.6}", residual_a);
-    eprintln!("residual_b (-H*h + ...): {:.6}", residual_b);
-    let moment_residual = if residual_a.abs() < residual_b.abs() { residual_a } else { residual_b };
+    let moment_residual = -lateral * h + r1.mz + r4.mz + r4.ry * w;
     assert!(
-        moment_residual.abs() < 1.0,
+        moment_residual.abs() < 1e-3,
         "Portal lateral: moment equilibrium about node 1, residual = {:.6}",
         moment_residual,
     );
@@ -337,9 +315,9 @@ fn equilibrium_element_moment_shear_relationship() {
 
 // ═══════════════════════════════════════════════════════════════
 // 8. Joint equilibrium at internal node — continuous beam
-//    Two-span continuous beam. At the middle support (pinned),
-//    m_end of left element + m_start of right element = 0
-//    (no moment reaction at a pinned internal support).
+//    Two-span continuous beam. At the middle support (pinned/roller),
+//    m_end of left element = m_start of right element
+//    (moment continuity: no moment reaction at a pinned internal support).
 // ═══════════════════════════════════════════════════════════════
 
 #[test]

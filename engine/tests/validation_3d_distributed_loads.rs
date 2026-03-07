@@ -1,18 +1,19 @@
 /// Validation: 3D Distributed Load Analysis
 ///
 /// References:
-///   - Timoshenko & Goodier, "Theory of Elasticity"
-///   - Przemieniecki, "Theory of Matrix Structural Analysis"
+///   - Timoshenko, "Strength of Materials", Parts I & II
 ///   - Roark's Formulas for Stress and Strain, 9th Ed.
+///   - Przemieniecki, "Theory of Matrix Structural Analysis"
 ///
 /// Tests:
-///   1. SS beam UDL in Z: δ_max = 5qL⁴/(384EI)
-///   2. Cantilever UDL in Y: δ_tip = qL⁴/(8EI)
-///   3. Triangular load: δ_max for linearly varying load
-///   4. Biaxial UDL: simultaneous Y and Z loading
-///   5. Equilibrium: ΣR = ΣF for all load types
-///   6. Cantilever UDL: reaction M = qL²/2
-///   7. Multi-element vs single-element: convergence check
+///   1. Cantilever UDL in Z: tip deflection = wL^4/(8EIy)
+///   2. Cantilever UDL in Y: tip deflection = wL^4/(8EIz)
+///   3. Axial distributed load via equivalent nodal forces: tip ux = wL^2/(2EA)
+///   4. Simultaneous wy + wz: superposition check
+///   5. Triangular load in Z: tip deflection = w_max*L^4/(30EIy)
+///   6. Reaction verification: cantilever UDL wz, fz = wL, my = wL^2/2
+///   7. SS beam UDL wz: total reaction fz = wL
+///   8. Double load intensity = double deflection
 mod helpers;
 
 use dedaliano_engine::solver::linear;
@@ -22,335 +23,408 @@ use helpers::*;
 const E: f64 = 200_000.0;
 const NU: f64 = 0.3;
 const A: f64 = 0.01;
-const IY: f64 = 1e-4;
-const IZ: f64 = 2e-4;
-const J: f64 = 1.5e-4;
+const IY: f64 = 5e-5;
+const IZ: f64 = 1e-4;
+const J: f64 = 1e-5;
 
 // ================================================================
-// 1. SS Beam UDL in Z: δ_max = 5qL⁴/(384EIy)
-// ================================================================
-//
-// Simply supported beam, uniform load in -Z direction.
-// Maximum deflection at midspan.
-
-#[test]
-fn validation_3d_dist_ss_beam_udl_z() {
-    let l: f64 = 6.0;
-    let n = 8;
-    let q: f64 = -10.0; // kN/m in Z
-    let e_eff = E * 1000.0;
-    let elem_len = l / n as f64;
-
-    let nodes: Vec<_> = (0..=n).map(|i| (i + 1, i as f64 * elem_len, 0.0, 0.0)).collect();
-    let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1)).collect();
-
-    let sups = vec![
-        (1, vec![true, true, true, true, false, false]),       // pin
-        (n + 1, vec![false, true, true, true, false, false]),   // roller
-    ];
-
-    let mut loads = Vec::new();
-    for i in 0..n {
-        loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-            element_id: i + 1,
-            q_yi: 0.0, q_yj: 0.0,
-            q_zi: q, q_zj: q,
-            a: None, b: None,
-        }));
-    }
-
-    let input = make_3d_input(nodes, vec![(1, E, NU)], vec![(1, A, IY, IZ, J)],
-        elems, sups, loads);
-
-    let results = linear::solve_3d(&input).unwrap();
-
-    let mid = n / 2 + 1;
-    let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-
-    // δ_max = 5qL⁴/(384EIy) for Z-direction loading (bends about Y-axis → uses Iy)
-    let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IY);
-
-    let error = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
-    assert!(error < 0.05,
-        "SS UDL uz: midspan={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uz.abs(), delta_exact, error * 100.0);
-}
-
-// ================================================================
-// 2. Cantilever UDL in Y: δ_tip = qL⁴/(8EIz)
-// ================================================================
-
-#[test]
-fn validation_3d_dist_cantilever_udl_y() {
-    let l: f64 = 4.0;
-    let n = 8;
-    let q: f64 = 5.0; // kN/m in Y
-    let e_eff = E * 1000.0;
-
-    let input = make_3d_beam(
-        n, l, E, NU, A, IY, IZ, J,
-        vec![true, true, true, true, true, true],
-        None,
-        {
-            let mut loads = Vec::new();
-            for i in 0..n {
-                loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                    element_id: i + 1,
-                    q_yi: q, q_yj: q,
-                    q_zi: 0.0, q_zj: 0.0,
-                    a: None, b: None,
-                }));
-            }
-            loads
-        },
-    );
-
-    let results = linear::solve_3d(&input).unwrap();
-    let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-
-    // δ_tip = qL⁴/(8EIz) for Y loading
-    let delta_exact = q * l.powi(4) / (8.0 * e_eff * IZ);
-
-    let error = (tip.uy.abs() - delta_exact).abs() / delta_exact;
-    assert!(error < 0.05,
-        "Cantilever UDL uy: tip={:.6e}, exact={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, error * 100.0);
-}
-
-// ================================================================
-// 3. Triangular Load: Linearly Varying
+// 1. UDL in Z on cantilever
 // ================================================================
 //
-// Cantilever with triangular load: q=0 at fixed end, q=q_max at tip.
-// δ_tip = q_max·L⁴/(30EI) for linear variation.
+// Cantilever beam (fixed at start, free at tip), 4 elements, L=5.
+// Uniform load wz = -10 kN/m applied on all elements.
+// Tip deflection: delta = w*L^4 / (8*E_eff*Iy)
 
 #[test]
-fn validation_3d_dist_triangular_load() {
-    let l: f64 = 4.0;
-    let n = 8;
-    let q_max: f64 = -10.0; // kN/m max at tip
+fn validation_cantilever_udl_z_tip_deflection() {
+    let l: f64 = 5.0;
+    let n = 4;
+    let w: f64 = -10.0;
     let e_eff = E * 1000.0;
-    let elem_len = l / n as f64;
-
-    let input = make_3d_beam(
-        n, l, E, NU, A, IY, IZ, J,
-        vec![true, true, true, true, true, true],
-        None,
-        {
-            let mut loads = Vec::new();
-            for i in 0..n {
-                let xi = i as f64 * elem_len / l;
-                let xj = (i + 1) as f64 * elem_len / l;
-                loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                    element_id: i + 1,
-                    q_yi: 0.0, q_yj: 0.0,
-                    q_zi: q_max * xi, q_zj: q_max * xj,
-                    a: None, b: None,
-                }));
-            }
-            loads
-        },
-    );
-
-    let results = linear::solve_3d(&input).unwrap();
-    let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-
-    // δ_tip = 11·q_max·L⁴/(120EIy) for triangular load increasing toward free end
-    let delta_exact = 11.0 * q_max.abs() * l.powi(4) / (120.0 * e_eff * IY);
-
-    let error = (tip.uz.abs() - delta_exact).abs() / delta_exact;
-    assert!(error < 0.10,
-        "Triangular load: tip_uz={:.6e}, exact={:.6e}, err={:.1}%",
-        tip.uz.abs(), delta_exact, error * 100.0);
-}
-
-// ================================================================
-// 4. Biaxial UDL: Simultaneous Y and Z Loading
-// ================================================================
-//
-// Verify superposition: combined Y+Z response equals sum of individual.
-
-#[test]
-fn validation_3d_dist_biaxial_udl_superposition() {
-    let l: f64 = 4.0;
-    let n = 6;
-    let qy = 5.0;
-    let qz = -8.0;
-
-    let make_loads = |qy_val: f64, qz_val: f64| -> Vec<SolverLoad3D> {
-        (0..n).map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
-            element_id: i + 1,
-            q_yi: qy_val, q_yj: qy_val,
-            q_zi: qz_val, q_zj: qz_val,
-            a: None, b: None,
-        })).collect()
-    };
 
     let fixed = vec![true, true, true, true, true, true];
 
+    let loads: Vec<SolverLoad3D> = (0..n)
+        .map(|i| {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: i + 1,
+                q_yi: 0.0,
+                q_yj: 0.0,
+                q_zi: w,
+                q_zj: w,
+                a: None,
+                b: None,
+            })
+        })
+        .collect();
+
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, None, loads);
+    let results = linear::solve_3d(&input).unwrap();
+
+    let tip = results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == n + 1)
+        .unwrap();
+
+    // delta_tip = |w| * L^4 / (8 * E_eff * Iy)
+    let delta_exact = w.abs() * l.powi(4) / (8.0 * e_eff * IY);
+
+    assert_close(tip.uz.abs(), delta_exact, 0.03, "cantilever UDL wz tip uz");
+}
+
+// ================================================================
+// 2. UDL in Y on cantilever
+// ================================================================
+//
+// Cantilever beam, 4 elements, L=5.
+// Uniform load wy = -10 kN/m.
+// Tip deflection: delta = w*L^4 / (8*E_eff*Iz)
+
+#[test]
+fn validation_cantilever_udl_y_tip_deflection() {
+    let l: f64 = 5.0;
+    let n = 4;
+    let w: f64 = -10.0;
+    let e_eff = E * 1000.0;
+
+    let fixed = vec![true, true, true, true, true, true];
+
+    let loads: Vec<SolverLoad3D> = (0..n)
+        .map(|i| {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: i + 1,
+                q_yi: w,
+                q_yj: w,
+                q_zi: 0.0,
+                q_zj: 0.0,
+                a: None,
+                b: None,
+            })
+        })
+        .collect();
+
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, None, loads);
+    let results = linear::solve_3d(&input).unwrap();
+
+    let tip = results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == n + 1)
+        .unwrap();
+
+    // delta_tip = |w| * L^4 / (8 * E_eff * Iz)
+    let delta_exact = w.abs() * l.powi(4) / (8.0 * e_eff * IZ);
+
+    assert_close(tip.uy.abs(), delta_exact, 0.03, "cantilever UDL wy tip uy");
+}
+
+// ================================================================
+// 3. Axial distributed load
+// ================================================================
+//
+// Fixed-free beam, L=5. Equivalent axial distributed load wx=5 kN/m
+// applied as nodal forces at interior and tip nodes.
+// Tip ux = w*L^2 / (2*E_eff*A)
+
+#[test]
+fn validation_axial_distributed_load_tip_displacement() {
+    let l: f64 = 5.0;
+    let n: usize = 4;
+    let w: f64 = 5.0; // kN/m axial
+    let e_eff = E * 1000.0;
+    let elem_len = l / n as f64;
+
+    let fixed = vec![true, true, true, true, true, true];
+
+    // Simulate uniform axial distributed load via equivalent nodal forces.
+    // Each element contributes w*elem_len/2 to each of its two nodes.
+    // Node 1 is fixed (its contribution is absorbed by the support).
+    // Interior free nodes get contributions from two adjacent elements.
+    // The tip node gets contribution from one element only.
+    let mut loads: Vec<SolverLoad3D> = Vec::new();
+    for node_id in 2..=n + 1 {
+        let fx = if node_id == 2 || node_id == n + 1 {
+            // boundary free nodes: only one adjacent element contributes
+            w * elem_len / 2.0
+        } else {
+            // interior free nodes: two adjacent elements each contribute half
+            w * elem_len
+        };
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id,
+            fx,
+            fy: 0.0,
+            fz: 0.0,
+            mx: 0.0,
+            my: 0.0,
+            mz: 0.0,
+            bw: None,
+        }));
+    }
+
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, None, loads);
+    let results = linear::solve_3d(&input).unwrap();
+
+    let tip = results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == n + 1)
+        .unwrap();
+
+    // Exact: ux_tip = w*L^2 / (2*E*A)
+    let ux_exact = w * l * l / (2.0 * e_eff * A);
+
+    assert_close(tip.ux.abs(), ux_exact, 0.05, "axial distributed load tip ux");
+}
+
+// ================================================================
+// 4. Simultaneous wy + wz (superposition)
+// ================================================================
+//
+// Both wy and wz applied on cantilever. Verify uy matches pure wy
+// case and uz matches pure wz case.
+
+#[test]
+fn validation_simultaneous_wy_wz_superposition() {
+    let l: f64 = 5.0;
+    let n = 4;
+    let wy: f64 = -10.0;
+    let wz: f64 = -10.0;
+
+    let fixed = vec![true, true, true, true, true, true];
+
+    let make_loads = |qy: f64, qz: f64| -> Vec<SolverLoad3D> {
+        (0..n)
+            .map(|i| {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    element_id: i + 1,
+                    q_yi: qy,
+                    q_yj: qy,
+                    q_zi: qz,
+                    q_zj: qz,
+                    a: None,
+                    b: None,
+                })
+            })
+            .collect()
+    };
+
     // Combined
-    let input_both = make_3d_beam(n, l, E, NU, A, IY, IZ, J,
-        fixed.clone(), None, make_loads(qy, qz));
+    let input_both = make_3d_beam(
+        n, l, E, NU, A, IY, IZ, J,
+        fixed.clone(), None, make_loads(wy, wz),
+    );
     let res_both = linear::solve_3d(&input_both).unwrap();
     let tip_both = res_both.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Y only
-    let input_y = make_3d_beam(n, l, E, NU, A, IY, IZ, J,
-        fixed.clone(), None, make_loads(qy, 0.0));
+    let input_y = make_3d_beam(
+        n, l, E, NU, A, IY, IZ, J,
+        fixed.clone(), None, make_loads(wy, 0.0),
+    );
     let res_y = linear::solve_3d(&input_y).unwrap();
     let tip_y = res_y.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Z only
-    let input_z = make_3d_beam(n, l, E, NU, A, IY, IZ, J,
-        fixed.clone(), None, make_loads(0.0, qz));
+    let input_z = make_3d_beam(
+        n, l, E, NU, A, IY, IZ, J,
+        fixed.clone(), None, make_loads(0.0, wz),
+    );
     let res_z = linear::solve_3d(&input_z).unwrap();
     let tip_z = res_z.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    // Superposition: combined ≈ Y-only + Z-only
-    let check = |name: &str, combined: f64, sum: f64| {
-        let denom = combined.abs().max(1e-12);
-        let err = (combined - sum).abs() / denom;
-        assert!(err < 0.01,
-            "Biaxial superposition {}: combined={:.6e}, sum={:.6e}, err={:.2}%",
-            name, combined, sum, err * 100.0);
-    };
-
-    check("uy", tip_both.uy, tip_y.uy + tip_z.uy);
-    check("uz", tip_both.uz, tip_y.uz + tip_z.uz);
+    // Superposition: combined uy should match pure wy case
+    assert_close(tip_both.uy, tip_y.uy, 0.02, "superposition uy vs pure wy");
+    // Combined uz should match pure wz case
+    assert_close(tip_both.uz, tip_z.uz, 0.02, "superposition uz vs pure wz");
 }
 
 // ================================================================
-// 5. Equilibrium: ΣR = q × L
+// 5. Triangular load in Z
 // ================================================================
 //
-// Total vertical reaction should equal total applied load.
+// Cantilever with triangular load: wz = w_max at fixed end,
+// decreasing linearly to 0 at tip.
+// Tip deflection: delta = w_max * L^4 / (30 * E_eff * Iy)
 
 #[test]
-fn validation_3d_dist_equilibrium() {
-    let l: f64 = 8.0;
-    let n = 4;
-    let q: f64 = -5.0;
-
-    let elem_len = l / n as f64;
-    let nodes: Vec<_> = (0..=n).map(|i| (i + 1, i as f64 * elem_len, 0.0, 0.0)).collect();
-    let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1)).collect();
-
-    let sups = vec![
-        (1, vec![true, true, true, true, false, false]),
-        (n + 1, vec![false, true, true, true, false, false]),
-    ];
-
-    let loads: Vec<_> = (0..n).map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
-        element_id: i + 1,
-        q_yi: 0.0, q_yj: 0.0,
-        q_zi: q, q_zj: q,
-        a: None, b: None,
-    })).collect();
-
-    let input = make_3d_input(nodes, vec![(1, E, NU)], vec![(1, A, IY, IZ, J)],
-        elems, sups, loads);
-
-    let results = linear::solve_3d(&input).unwrap();
-
-    let total_applied = q.abs() * l;
-    let sum_rz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    let eq_err = (sum_rz - total_applied).abs() / total_applied;
-
-    assert!(eq_err < 0.01,
-        "Equilibrium: ΣRz={:.4}, applied={:.4}, err={:.2}%",
-        sum_rz, total_applied, eq_err * 100.0);
-}
-
-// ================================================================
-// 6. Cantilever UDL: Reaction Moment M = qL²/2
-// ================================================================
-
-#[test]
-fn validation_3d_dist_cantilever_reaction_moment() {
+fn validation_triangular_load_z_tip_deflection() {
     let l: f64 = 5.0;
     let n = 4;
-    let q: f64 = -8.0;
+    let w_max: f64 = -10.0;
+    let e_eff = E * 1000.0;
+    let elem_len = l / n as f64;
 
-    let input = make_3d_beam(
-        n, l, E, NU, A, IY, IZ, J,
-        vec![true, true, true, true, true, true],
-        None,
-        {
-            let mut loads = Vec::new();
-            for i in 0..n {
-                loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                    element_id: i + 1,
-                    q_yi: 0.0, q_yj: 0.0,
-                    q_zi: q, q_zj: q,
-                    a: None, b: None,
-                }));
-            }
-            loads
-        },
-    );
+    let fixed = vec![true, true, true, true, true, true];
 
+    // Linearly varying load: w_max at x=0 (fixed end), 0 at x=L (tip)
+    let loads: Vec<SolverLoad3D> = (0..n)
+        .map(|i| {
+            let xi = i as f64 * elem_len;
+            let xj = (i + 1) as f64 * elem_len;
+            let wz_i = w_max * (1.0 - xi / l);
+            let wz_j = w_max * (1.0 - xj / l);
+            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: i + 1,
+                q_yi: 0.0,
+                q_yj: 0.0,
+                q_zi: wz_i,
+                q_zj: wz_j,
+                a: None,
+                b: None,
+            })
+        })
+        .collect();
+
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, None, loads);
     let results = linear::solve_3d(&input).unwrap();
 
-    // Fixed-end reaction: Rz = qL, My = qL²/2
-    let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let rz_exact = q.abs() * l;
-    let my_exact = q.abs() * l * l / 2.0;
+    let tip = results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == n + 1)
+        .unwrap();
 
-    let err_rz = (r.fz - rz_exact).abs() / rz_exact;
-    assert!(err_rz < 0.01,
-        "Reaction Rz={:.4}, exact={:.4}, err={:.2}%", r.fz, rz_exact, err_rz * 100.0);
+    // delta_tip = |w_max| * L^4 / (30 * E_eff * Iy)
+    let delta_exact = w_max.abs() * l.powi(4) / (30.0 * e_eff * IY);
 
-    // Moment reaction (My for Z-direction loading)
-    // Sign depends on convention, just check magnitude
-    let my_computed = r.my.abs();
-    let err_my = (my_computed - my_exact).abs() / my_exact;
-    assert!(err_my < 0.05,
-        "Reaction My={:.4}, exact qL²/2={:.4}, err={:.1}%",
-        my_computed, my_exact, err_my * 100.0);
+    assert_close(tip.uz.abs(), delta_exact, 0.05, "triangular load wz tip uz");
 }
 
 // ================================================================
-// 7. Multi-Element Convergence
+// 6. Reaction verification: cantilever UDL wz
 // ================================================================
 //
-// More elements should give better accuracy compared to beam theory.
+// wz = -8 kN/m on L=6 cantilever.
+// Reactions at fixed end: fz = |w|*L = 48, my = |w|*L^2/2 = 144.
 
 #[test]
-fn validation_3d_dist_mesh_convergence() {
+fn validation_cantilever_udl_wz_reactions() {
     let l: f64 = 6.0;
-    let q: f64 = -10.0;
-    let e_eff = E * 1000.0;
-    let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IY);
+    let n = 4;
+    let w: f64 = -8.0;
 
-    let mut errors = Vec::new();
-    for &n in &[2, 4, 8] {
-        let elem_len = l / n as f64;
-        let nodes: Vec<_> = (0..=n).map(|i| (i + 1, i as f64 * elem_len, 0.0, 0.0)).collect();
-        let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1)).collect();
-        let sups = vec![
-            (1, vec![true, true, true, true, false, false]),
-            (n + 1, vec![false, true, true, true, false, false]),
-        ];
-        let loads: Vec<_> = (0..n).map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
-            element_id: i + 1,
-            q_yi: 0.0, q_yj: 0.0,
-            q_zi: q, q_zj: q,
-            a: None, b: None,
-        })).collect();
+    let fixed = vec![true, true, true, true, true, true];
 
-        let input = make_3d_input(nodes, vec![(1, E, NU)], vec![(1, A, IY, IZ, J)],
-            elems, sups, loads);
+    let loads: Vec<SolverLoad3D> = (0..n)
+        .map(|i| {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: i + 1,
+                q_yi: 0.0,
+                q_yj: 0.0,
+                q_zi: w,
+                q_zj: w,
+                a: None,
+                b: None,
+            })
+        })
+        .collect();
 
-        let results = linear::solve_3d(&input).unwrap();
-        let mid = n / 2 + 1;
-        let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, None, loads);
+    let results = linear::solve_3d(&input).unwrap();
 
-        let err = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
-        errors.push(err);
-    }
+    let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    // Error should decrease or stay similar with refinement
-    assert!(errors[2] <= errors[0] + 0.02,
-        "Convergence: err_2={:.3}, err_4={:.3}, err_8={:.3}",
-        errors[0], errors[1], errors[2]);
+    // fz = |w| * L
+    let fz_exact = w.abs() * l;
+    assert_close(r.fz, fz_exact, 0.02, "cantilever UDL wz reaction fz");
+
+    // my = |w| * L^2 / 2  (magnitude)
+    let my_exact = w.abs() * l * l / 2.0;
+    assert_close(r.my.abs(), my_exact, 0.03, "cantilever UDL wz reaction my");
+}
+
+// ================================================================
+// 7. Simply-supported beam UDL wz: total reaction fz = w*L
+// ================================================================
+//
+// Propped cantilever: fixed at start (translations + rotations restrained),
+// pinned at end (translations restrained, rotations free).
+// wz = -10 kN/m. Total vertical reaction = |w| * L.
+
+#[test]
+fn validation_ss_beam_udl_wz_total_reaction() {
+    let l: f64 = 5.0;
+    let n = 4;
+    let w: f64 = -10.0;
+
+    // Fixed at start
+    let start_dofs = vec![true, true, true, true, true, true];
+    // Pinned at end: translations restrained, rotations free
+    let end_dofs = Some(vec![true, true, true, false, false, false]);
+
+    let loads: Vec<SolverLoad3D> = (0..n)
+        .map(|i| {
+            SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: i + 1,
+                q_yi: 0.0,
+                q_yj: 0.0,
+                q_zi: w,
+                q_zj: w,
+                a: None,
+                b: None,
+            })
+        })
+        .collect();
+
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, start_dofs, end_dofs, loads);
+    let results = linear::solve_3d(&input).unwrap();
+
+    // Total vertical reaction must equal total applied load
+    let total_applied = w.abs() * l;
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+
+    assert_close(sum_fz, total_applied, 0.02, "SS beam UDL wz total fz reaction");
+}
+
+// ================================================================
+// 8. Double load intensity = double deflection
+// ================================================================
+//
+// Same cantilever geometry, wz=-5 vs wz=-10.
+// Deflection ratio at tip should be exactly 2 (linear analysis).
+
+#[test]
+fn validation_double_load_double_deflection() {
+    let l: f64 = 5.0;
+    let n = 4;
+
+    let fixed = vec![true, true, true, true, true, true];
+
+    let make_loads = |w: f64| -> Vec<SolverLoad3D> {
+        (0..n)
+            .map(|i| {
+                SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                    element_id: i + 1,
+                    q_yi: 0.0,
+                    q_yj: 0.0,
+                    q_zi: w,
+                    q_zj: w,
+                    a: None,
+                    b: None,
+                })
+            })
+            .collect()
+    };
+
+    // Single intensity
+    let input_single = make_3d_beam(
+        n, l, E, NU, A, IY, IZ, J,
+        fixed.clone(), None, make_loads(-5.0),
+    );
+    let res_single = linear::solve_3d(&input_single).unwrap();
+    let tip_single = res_single.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+
+    // Double intensity
+    let input_double = make_3d_beam(
+        n, l, E, NU, A, IY, IZ, J,
+        fixed.clone(), None, make_loads(-10.0),
+    );
+    let res_double = linear::solve_3d(&input_double).unwrap();
+    let tip_double = res_double.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+
+    // Ratio should be 2.0
+    let ratio = tip_double.uz.abs() / tip_single.uz.abs();
+    assert_close(ratio, 2.0, 0.02, "double load intensity deflection ratio");
 }

@@ -51,7 +51,7 @@ fn make_winkler_beam(
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, _, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {

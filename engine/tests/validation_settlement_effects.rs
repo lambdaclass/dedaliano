@@ -46,7 +46,7 @@ fn validation_settlement_fixed_fixed() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -111,7 +111,7 @@ fn validation_settlement_propped() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -169,7 +169,7 @@ fn validation_settlement_continuous() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..total_n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -230,7 +230,7 @@ fn validation_settlement_no_external_loads() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -291,7 +291,7 @@ fn validation_settlement_equal() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -350,7 +350,7 @@ fn validation_settlement_proportional() {
         let mut mats = std::collections::HashMap::new();
         mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
         let mut secs = std::collections::HashMap::new();
-        secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+        secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
         let mut elems = std::collections::HashMap::new();
         for i in 0..n {
             elems.insert((i + 1).to_string(), SolverElement {
@@ -409,7 +409,7 @@ fn validation_settlement_plus_load() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {
@@ -471,7 +471,7 @@ fn validation_settlement_rotation() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         elems.insert((i + 1).to_string(), SolverElement {

@@ -65,7 +65,7 @@ fn validation_settlement_fixed_fixed() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -149,7 +149,7 @@ fn validation_settlement_propped_cantilever() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -226,7 +226,7 @@ fn validation_settlement_continuous_two_span() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -310,7 +310,7 @@ fn validation_settlement_plus_load() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -383,7 +383,7 @@ fn validation_prescribed_rotation() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -451,7 +451,7 @@ fn validation_prescribed_axial() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -516,7 +516,7 @@ fn validation_settlement_portal_frame() {
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = HashMap::new();
     for &(id, t, ni, nj, mi, si, hs, he) in &elems {
         elems_map.insert(id.to_string(), SolverElement {
@@ -607,7 +607,7 @@ fn validation_settlement_superposition() {
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
         let mut secs_map = HashMap::new();
-        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
         let mut elems_map = HashMap::new();
         for (id, t, ni, nj, mi, si, hs, he) in &elems {
             elems_map.insert(id.to_string(), SolverElement {

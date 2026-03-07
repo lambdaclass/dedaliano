@@ -325,6 +325,7 @@ fn support_settlement_changes_reactions() {
             id: 1,
             a: A,
             iz: IZ,
+            as_y: None,
         },
     );
 

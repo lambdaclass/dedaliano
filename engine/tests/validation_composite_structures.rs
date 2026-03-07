@@ -129,9 +129,9 @@ fn validation_composite_tapered_beam() {
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     // 3 sections: large, medium, small
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ }); // near fixed
-    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ });       // middle
-    secs.insert("3".to_string(), SolverSection { id: 3, a: A, iz: 0.5 * IZ }); // near tip
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None }); // near fixed
+    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None });       // middle
+    secs.insert("3".to_string(), SolverSection { id: 3, a: A, iz: 0.5 * IZ, as_y: None }); // near tip
     let mut elems = std::collections::HashMap::new();
     for i in 0..n {
         let sec_id = if i < n / 3 { 1 } else if i < 2 * n / 3 { 2 } else { 3 };

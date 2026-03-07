@@ -182,8 +182,8 @@ fn validation_geom_weakest_governs() {
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs = std::collections::HashMap::new();
-    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ / 2.0 }); // weak
-    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ }); // normal
+    secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ / 2.0, as_y: None }); // weak
+    secs.insert("2".to_string(), SolverSection { id: 2, a: A, iz: IZ, as_y: None }); // normal
     let mut elems = std::collections::HashMap::new();
     elems.insert("1".to_string(), SolverElement {
         id: 1, elem_type: "frame".to_string(), node_i: 1, node_j: 2,

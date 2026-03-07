@@ -278,7 +278,7 @@ fn assemble_frame_corotational(
     // Natural stiffness K_nat (3x3) = P^T * K_local * P
     // where P maps natural to full local: d_local = P * d_natural
     // P = [[1,0,0],[0,0,0],[0,1,0],[-1,0,0],[0,0,0],[0,0,1]]
-    let k_local = frame_local_stiffness_2d(e, a, iz, l0, elem.hinge_start, elem.hinge_end);
+    let k_local = frame_local_stiffness_2d(e, a, iz, l0, elem.hinge_start, elem.hinge_end, 0.0);
 
     let p_mat: [[f64; 3]; 6] = [
         [1.0, 0.0, 0.0],
@@ -627,7 +627,7 @@ fn compute_corotational_forces(
             let d_local = [0.0, 0.0, theta_i_local, d_axial, 0.0, theta_j_local];
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l0, elem.hinge_start, elem.hinge_end,
+                e, sec.a, sec.iz, l0, elem.hinge_start, elem.hinge_end, 0.0,
             );
 
             // f_local = K_local * d_local
@@ -712,7 +712,7 @@ mod tests {
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
 
         let mut sections = HashMap::new();
-        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4 });
+        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None });
 
         let mut elements = HashMap::new();
         elements.insert("1".into(), SolverElement {
@@ -800,7 +800,7 @@ mod tests {
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
 
         let mut sections = HashMap::new();
-        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 0.0 });
+        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 0.0, as_y: None });
 
         let mut elements = HashMap::new();
         elements.insert("1".into(), SolverElement {
@@ -863,7 +863,7 @@ mod tests {
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
 
         let mut sections = HashMap::new();
-        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4 });
+        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None });
 
         let mut elements = HashMap::new();
         elements.insert("1".into(), SolverElement {
@@ -909,7 +909,7 @@ mod tests {
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
 
         let mut sections = HashMap::new();
-        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4 });
+        sections.insert("1".into(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None });
 
         let mut elements = HashMap::new();
         elements.insert("1".into(), SolverElement {

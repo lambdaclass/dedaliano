@@ -28,7 +28,7 @@ const J: f64 = 1.5e-4;
 fn validation_prz_stiffness_symmetry() {
     // A 12×12 stiffness matrix must be symmetric: k[i][j] = k[j][i]
     let l = 3.0;
-    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false);
+    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
 
     assert_eq!(k.len(), 144, "3D stiffness should be 12×12 = 144 entries");
 
@@ -57,7 +57,7 @@ fn validation_prz_stiffness_symmetry() {
 fn validation_prz_stiffness_diagonal_positive() {
     // All diagonal entries should be non-negative (positive for non-degenerate)
     let l = 4.0;
-    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false);
+    let k = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
 
     for i in 0..12 {
         assert!(
@@ -99,7 +99,7 @@ fn validation_prz_patch_test_axial() {
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: NU });
     let mut secs_map = std::collections::HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
     let mut elems_map = std::collections::HashMap::new();
     for i in 0..n {
         elems_map.insert((i + 1).to_string(), SolverElement {
@@ -242,8 +242,8 @@ fn validation_prz_hinge_stiffness() {
     // Compare: k with hinge_start=true should have zero rotational coupling at node i
     let l = 4.0;
 
-    let k_full = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false);
-    let k_hinged = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, true, false);
+    let k_full = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, false, false, 0.0, 0.0);
+    let k_hinged = frame_local_stiffness_3d(E_EFF, A, IY, IZ, J, l, G, true, false, 0.0, 0.0);
 
     // With hinge at start: DOFs 4 (θy1) and 5 (θz1) should have zero rows/columns
     // (Torsion DOF 3 = θx1 may or may not be released depending on implementation)

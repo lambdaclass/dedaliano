@@ -88,6 +88,7 @@ fn validation_inclined_roller_45_degrees() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -158,6 +159,7 @@ fn validation_inclined_roller_normal_y_is_standard_roller() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -243,6 +245,7 @@ fn validation_inclined_support_global_equilibrium() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems = HashMap::new();
@@ -323,6 +326,7 @@ fn validation_inclined_support_displacement_direction() {
     let mut secs = HashMap::new();
     secs.insert("1".to_string(), SolverSection3D {
         id: 1, name: None, a: A, iy: IY, iz: IZ, j: J, cw: None,
+        as_y: None, as_z: None,
     });
 
     let mut elems = HashMap::new();

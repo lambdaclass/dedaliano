@@ -146,8 +146,14 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
             }
         } else {
             // Frame element
+            let phi = if let Some(as_y) = sec.as_y {
+                let g = e / (2.0 * (1.0 + mat.nu));
+                12.0 * e * sec.iz / (g * as_y * l * l)
+            } else {
+                0.0
+            };
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end,
+                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -393,11 +399,21 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
 
             let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
 
+            // Compute Timoshenko shear parameters for each bending plane
+            let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+                let l2 = l * l;
+                let py = sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0);
+                let pz = sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0);
+                (py, pz)
+            } else {
+                (0.0, 0.0)
+            };
+
             if has_cw && dof_num.dofs_per_node >= 7 {
                 // Warping element: 14×14 stiffness
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
                 );
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 14);
@@ -415,7 +431,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 // Non-warping element in a warping model: 12×12 math mapped via DOF_MAP_12_TO_14
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
                 );
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -434,7 +450,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 // Standard 6-DOF-per-node path
                 let k_local = frame_local_stiffness_3d(
                     e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                    elem.hinge_start, elem.hinge_end,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
                 );
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
@@ -847,7 +863,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
                 diag_vals[truss_dofs[i]] += k_elem[i * 4 + i];
             }
         } else {
-            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end);
+            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, 0.0);
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -1006,7 +1022,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
             if has_cw && dof_num.dofs_per_node >= 7 {
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end,
+                    elem.hinge_start, elem.hinge_end, 0.0, 0.0,
                 );
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 14);
@@ -1026,7 +1042,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                 }
                 assemble_element_loads_3d_warping(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else if dof_num.dofs_per_node >= 7 {
-                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end);
+                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end, 0.0, 0.0);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
 
@@ -1044,7 +1060,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                 }
                 assemble_element_loads_3d_mapped(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else {
-                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end);
+                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end, 0.0, 0.0);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
                 let ndof = elem_dofs.len();

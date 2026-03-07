@@ -59,7 +59,7 @@ fn make_stepped_ss_beam(
     for (s, &iz) in seg_iz.iter().enumerate() {
         secs_map.insert(
             (s + 1).to_string(),
-            SolverSection { id: s + 1, a: A, iz },
+            SolverSection { id: s + 1, a: A, iz, as_y: None },
         );
     }
 
@@ -155,7 +155,7 @@ fn make_stepped_cantilever(
     for (s, &iz) in seg_iz.iter().enumerate() {
         secs_map.insert(
             (s + 1).to_string(),
-            SolverSection { id: s + 1, a: A, iz },
+            SolverSection { id: s + 1, a: A, iz, as_y: None },
         );
     }
 
@@ -367,8 +367,8 @@ fn validation_stepped_beam_reaction_redistribution() {
     let mut mats_map = HashMap::new();
 
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
-    secs_map.insert("2".to_string(), SolverSection { id: 2, a: A, iz: 4.0 * IZ }); // stiffer right half
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
+    secs_map.insert("2".to_string(), SolverSection { id: 2, a: A, iz: 4.0 * IZ, as_y: None }); // stiffer right half
 
     let elem_len = l / n_per as f64;
     for i in 0..=total_elems {

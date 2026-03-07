@@ -319,8 +319,8 @@ fn validation_stiffmod_mixed_cross_sections() {
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
 
     let mut secs_map = HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: iz1 });
-    secs_map.insert("2".to_string(), SolverSection { id: 2, a: A, iz: iz2 });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: iz1, as_y: None });
+    secs_map.insert("2".to_string(), SolverSection { id: 2, a: A, iz: iz2, as_y: None });
 
     let mut elems_map = HashMap::new();
     for i in 0..n {

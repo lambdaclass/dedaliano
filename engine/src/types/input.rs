@@ -25,6 +25,8 @@ pub struct SolverSection {
     pub id: usize,
     pub a: f64,  // m²
     pub iz: f64, // m⁴
+    #[serde(default)]
+    pub as_y: Option<f64>,  // m², shear area for Timoshenko beam (enables shear deformation)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +156,10 @@ pub struct SolverSection3D {
     pub j: f64,
     #[serde(default)]
     pub cw: Option<f64>,
+    #[serde(default)]
+    pub as_y: Option<f64>,  // m², shear area for Y-bending (Timoshenko)
+    #[serde(default)]
+    pub as_z: Option<f64>,  // m², shear area for Z-bending (Timoshenko)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

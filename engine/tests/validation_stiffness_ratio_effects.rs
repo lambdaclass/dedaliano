@@ -289,7 +289,7 @@ fn validation_stiffness_parallel_springs() {
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
     let mut secs_map = std::collections::HashMap::new();
-    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+    secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
 
     let mut nodes_map = std::collections::HashMap::new();
     for (id, x, y) in &nodes {
@@ -370,7 +370,7 @@ fn validation_stiffness_spring_effect() {
         let mut mats_map = std::collections::HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
         let mut secs_map = std::collections::HashMap::new();
-        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ });
+        secs_map.insert("1".to_string(), SolverSection { id: 1, a: A, iz: IZ, as_y: None });
 
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,

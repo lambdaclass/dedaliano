@@ -503,8 +503,14 @@ pub(crate) fn compute_internal_forces_2d(
             let t = crate::element::frame_transform_2d(cos, sin);
             let u_local = transform_displacement(&u_global, &t, 6);
 
+            let phi = if let Some(as_y) = sec.as_y {
+                let g = e / (2.0 * (1.0 + mat.nu));
+                12.0 * e * sec.iz / (g * as_y * l * l)
+            } else {
+                0.0
+            };
             let k_local = crate::element::frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end,
+                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
             );
 
             // f_local = K_local * u_local
@@ -663,6 +669,16 @@ pub(crate) fn compute_internal_forces_3d(
             left_hand,
         );
 
+        // Compute Timoshenko shear parameters for each bending plane
+        let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+            let l2 = l * l;
+            let py = sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0);
+            let pz = sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0);
+            (py, pz)
+        } else {
+            (0.0, 0.0)
+        };
+
         // Determine element size and compute f_local
         let (f_local, ndof_elem) = if has_cw && dof_num.dofs_per_node >= 7 {
             // Warping element: 14×14
@@ -671,7 +687,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u_global, &t, 14);
             let k_local = element::frame_local_stiffness_3d_warping(
                 e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                elem.hinge_start, elem.hinge_end,
+                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
             );
             let mut fl = vec![0.0; 14];
             for i in 0..14 {
@@ -690,7 +706,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u12, &t, 12);
             let k_local = element::frame_local_stiffness_3d(
                 e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                elem.hinge_start, elem.hinge_end,
+                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
             );
             let mut fl = vec![0.0; 12];
             for i in 0..12 {
@@ -706,7 +722,7 @@ pub(crate) fn compute_internal_forces_3d(
             let u_local = transform_displacement(&u_global, &t, 12);
             let k_local = element::frame_local_stiffness_3d(
                 e, sec.a, sec.iy, sec.iz, sec.j, l, g,
-                elem.hinge_start, elem.hinge_end,
+                elem.hinge_start, elem.hinge_end, phi_y, phi_z,
             );
             let mut fl = vec![0.0; 12];
             for i in 0..12 {
