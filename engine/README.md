@@ -27,7 +27,7 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 
 ## Validation Test Suite
 
-**1587 validation tests across 205 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`tests/BENCHMARK_TRACKING.md`](tests/BENCHMARK_TRACKING.md) for detailed status of each benchmark.
+**1587 validation tests across 205 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
 
 ### Industry Standards and Design Codes
 
