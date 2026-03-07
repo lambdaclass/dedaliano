@@ -427,6 +427,17 @@ pub fn compute_influence_line(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Compute 3D influence line. JSON: InfluenceLineInput3D
+#[wasm_bindgen]
+pub fn compute_influence_line_3d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::influence::InfluenceLineInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::influence::compute_influence_line_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Section Stress ====================
 
 /// Compute 2D section stress. JSON: SectionStressInput
@@ -445,6 +456,30 @@ pub fn compute_section_stress_3d(json: &str) -> Result<String, JsValue> {
     let input: postprocess::section_stress_3d::SectionStressInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = postprocess::section_stress_3d::compute_section_stress_3d(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Harmonic Analysis ====================
+
+/// Solve 2D harmonic (frequency response) analysis. JSON: HarmonicInput
+#[wasm_bindgen]
+pub fn solve_harmonic_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::harmonic::HarmonicInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::harmonic::solve_harmonic_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D harmonic (frequency response) analysis. JSON: HarmonicInput3D
+#[wasm_bindgen]
+pub fn solve_harmonic_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::harmonic::HarmonicInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::harmonic::solve_harmonic_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&result)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
