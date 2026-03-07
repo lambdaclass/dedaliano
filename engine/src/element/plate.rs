@@ -592,6 +592,101 @@ pub fn plate_pressure_load(
     f
 }
 
+/// Compute the 18-element thermal load vector in **global** coordinates
+/// for a plate element subjected to uniform temperature change and/or
+/// through-thickness temperature gradient.
+///
+/// # Arguments
+/// * `coords` – 3 node positions in 3D global space
+/// * `e` – Young's modulus (kN/m²)
+/// * `nu` – Poisson's ratio
+/// * `t` – shell thickness (m)
+/// * `alpha` – coefficient of thermal expansion (1/°C)
+/// * `dt_uniform` – uniform temperature change (°C)
+/// * `dt_gradient` – temperature gradient through thickness (°C, positive = top hotter)
+///
+/// Thermal loading produces:
+/// - Membrane forces from uniform temperature: N_T = E*α*ΔT*t / (1-ν)
+/// - Bending moments from gradient: M_T = E*α*ΔT_grad*t² / (12*(1-ν))
+///
+/// The FEF is derived from: f_thermal = integral(B^T * D * ε_thermal * dA)
+pub fn plate_thermal_load(
+    coords: &[[f64; 3]; 3],
+    e: f64,
+    nu: f64,
+    t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
+) -> Vec<f64> {
+    let (ex, ey, _ez) = local_axes(coords);
+    let p = project_to_2d(coords, &ex, &ey);
+    let area = twice_area(&p).abs() / 2.0;
+
+    let mut f_local = vec![0.0; 18];
+
+    // Membrane thermal forces: uniform temperature produces isotropic strain
+    // ε_th = α * ΔT in all directions.
+    // Resultant force per unit length: N_T = D_mem * ε_th
+    // where D_mem * [ε, ε, 0]^T = E*t/(1-ν) * [ε, ε, 0]^T (for plane stress + isotropic strain)
+    // N_T = E * t * α * ΔT / (1 - ν) per unit length, applied as body force.
+    if dt_uniform.abs() > 1e-15 {
+        let n_thermal = e * t * alpha * dt_uniform / (1.0 - nu);
+
+        // CST approach: f = A * B^T * [N_T, N_T, 0]^T
+        let (b_cst, _) = cst_b_matrix(&p);
+        let sigma = [n_thermal, n_thermal, 0.0];
+        for i in 0..6 {
+            let mut val = 0.0;
+            for k in 0..3 {
+                val += b_cst[k * 6 + i] * sigma[k];
+            }
+            f_local[MEM_DOFS[i]] += area * val;
+        }
+    }
+
+    // Bending thermal moments: temperature gradient produces curvature
+    // κ_th = α * ΔT_grad / t in all directions.
+    // Resultant moment per unit length: M_T = D_bend * κ_th
+    // M_T = E * t² * α * ΔT_grad / (12 * (1 - ν))
+    if dt_gradient.abs() > 1e-15 {
+        let m_thermal = e * t * t * alpha * dt_gradient / (12.0 * (1.0 - nu));
+        let g = dkt_geometry(&p);
+
+        // Integrate B_dkt^T * [M_T, M_T, 0]^T over the element
+        let gauss_pts: [(f64, f64); 3] = [
+            (1.0 / 6.0, 1.0 / 6.0),
+            (2.0 / 3.0, 1.0 / 6.0),
+            (1.0 / 6.0, 2.0 / 3.0),
+        ];
+        let gauss_w = 1.0 / 3.0;
+
+        let kappa_th = [m_thermal, m_thermal, 0.0];
+
+        for gp in &gauss_pts {
+            let b = dkt_b_matrix(&p, &g, gp.0, gp.1);
+            for i in 0..9 {
+                let mut val = 0.0;
+                for k in 0..3 {
+                    val += b[k * 9 + i] * kappa_th[k];
+                }
+                f_local[BEND_DOFS[i]] += gauss_w * area * val;
+            }
+        }
+    }
+
+    // Transform to global coordinates
+    let t_mat = plate_transform_3d(coords);
+    let n = 18;
+    let mut f_global = vec![0.0; n];
+    for i in 0..n {
+        for j in 0..n {
+            f_global[i] += t_mat[j * n + i] * f_local[j]; // T^T
+        }
+    }
+    f_global
+}
+
 /// Compute the 18×18 lumped mass matrix (row-major flat vector).
 ///
 /// mass per node = ρ · A · t / 3 applied to translational DOFs only.

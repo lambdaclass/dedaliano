@@ -536,6 +536,33 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
             }
         }
+        // Plate thermal loads
+        if let SolverLoad3D::PlateThermal(tl) = load {
+            if let Some(plate) = input.plates.values().find(|p| p.id == tl.element_id) {
+                let n0 = input.nodes.values().find(|nd| nd.id == plate.nodes[0]).unwrap();
+                let n1 = input.nodes.values().find(|nd| nd.id == plate.nodes[1]).unwrap();
+                let n2 = input.nodes.values().find(|nd| nd.id == plate.nodes[2]).unwrap();
+                let coords = [
+                    [n0.x, n0.y, n0.z],
+                    [n1.x, n1.y, n1.z],
+                    [n2.x, n2.y, n2.z],
+                ];
+                let mat = input.materials.values().find(|m| m.id == plate.material_id).unwrap();
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(12e-6);
+                let f_th = crate::element::plate_thermal_load(
+                    &coords, e, nu, plate.thickness, alpha,
+                    tl.dt_uniform, tl.dt_gradient,
+                );
+                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+                for (i, &dof) in plate_dofs.iter().enumerate() {
+                    if i < f_th.len() {
+                        f_global[dof] += f_th[i];
+                    }
+                }
+            }
+        }
     }
 
     // Add 3D spring stiffness

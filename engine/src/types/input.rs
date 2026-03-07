@@ -295,6 +295,20 @@ pub enum SolverLoad3D {
     Thermal(SolverThermalLoad3D),
     #[serde(rename = "pressure")]
     Pressure(SolverPressureLoad),
+    #[serde(rename = "plateThermal")]
+    PlateThermal(SolverPlateThermalLoad),
+}
+
+/// Plate thermal load: uniform temperature change and/or through-thickness gradient.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverPlateThermalLoad {
+    pub element_id: usize,
+    pub dt_uniform: f64,
+    #[serde(default)]
+    pub dt_gradient: f64,
+    #[serde(default)]
+    pub alpha: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
