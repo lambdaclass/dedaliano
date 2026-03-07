@@ -91,6 +91,64 @@ Today the engine is already competitive in the first program's linear and second
 
 ---
 
+## World-Class Parity Tiers
+
+The sections below describe current capability and current gaps. This section answers a different question:
+
+- If the current gap list were completed, what solver-layer capabilities would still matter to become truly world-class?
+
+### Tier 1 — Must-Have for World-Class Solver Status
+
+| Topic | Why It Matters |
+|-------|----------------|
+| Nonlinear solution controls | Arc-length, displacement control, line search, adaptive stepping, and restart behavior are required for difficult nonlinear equilibrium paths and post-buckling robustness |
+| Fiber / section-based beam-column elements | Distinguishes basic member nonlinearity from serious spread-plasticity analysis for steel and reinforced concrete frames |
+| Constraint technology | MPCs, rigid links, diaphragms, tied DOFs, connector elements, and eccentric connectivity are essential for real building models |
+| Initial imperfections and initial state modeling | Out-of-plumbness, residual stress, prestrain/preload, and initial stress fields are essential for realistic stability and nonlinear analysis |
+| Robust shell technology | High-quality quads, thick shells, curved shells, mixed interpolation, and distortion tolerance are required to move beyond a good triangle-based shell core |
+| Performance and scale | Large-model sparse performance, conditioning, eigensolver robustness, and server-scale solve paths are part of solver quality, not just infrastructure |
+
+### Tier 2 — Important for Commercial Parity
+
+| Topic | Why It Matters |
+|-------|----------------|
+| Contact / gap / compression-only / tension-only support elements | Needed for uplift, bearings, staged contact, and practical nonlinear support behavior |
+| Advanced mass and damping modeling | Consistent/lumped mass options, eccentric mass, diaphragm mass, and robust damping choices are necessary for strong dynamics workflows |
+| 3D time history | Required for complete dynamic and nonlinear seismic capability |
+| 3D staged construction | Required for bridge, erection, and phased 3D structural workflows |
+| Better soil-structure interaction | p-y, t-z, q-z, nonlinear spring families, and pile abstraction matter for foundation and infrastructure parity |
+| More complete prestress / post-tension behavior | General tendon modeling, staged stressing, losses, and time-dependent coupling are needed for strong PT workflows |
+| Model reduction / condensation / substructuring | Important for larger models and more sophisticated engineering workflows |
+| Rigid end offsets / panel zones / joint modeling | Common in commercial building analysis and often decisive for practical model fidelity |
+
+### Tier 3 — Specialized but High-Value
+
+| Topic | Why It Matters |
+|-------|----------------|
+| Creep / shrinkage coupled response | Important for concrete, prestress, and long-term deformation prediction |
+| Fire / temperature-dependent nonlinear response | Important for performance-based fire design and resilience workflows |
+| Fatigue / cyclic degradation / hysteretic damage | Important for bridges, seismic assessment, and repeated-load problems |
+| Cable-net / membrane / tensile-surface technology | Important for long-span and tensile structures beyond standard cable members |
+| Bridge-specific staged and moving-load nonlinear workflows | Important for infrastructure parity rather than only building parity |
+| Explicit instability / post-buckling tooling | Important for advanced research-grade and high-end nonlinear workflows |
+| Probabilistic / sensitivity / reliability analysis | Important for risk-informed and optimization workflows |
+| Fracture / damage mechanics | Important for advanced concrete and steel deterioration/failure studies |
+
+### Recommended Order After Current Gap List
+
+If the goal is "best solver" rather than "feature checklist completeness", the highest-leverage order after the current roadmap gaps is:
+
+1. Nonlinear solution controls
+2. Constraint technology
+3. Fiber / section-based beam-column elements
+4. Initial imperfections / initial state modeling
+5. Shell upgrade
+6. Performance / scale
+
+This order improves solver class faster than expanding sideways into more specialized engineering modules.
+
+---
+
 ## Industry Standards & Design Codes
 
 ### AISC 360-22 (46 tests across 5 files)
