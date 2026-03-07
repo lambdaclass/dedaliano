@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { unitLabel } from '../../lib/utils/units';
+  import { t } from '../../lib/i18n';
 
   let showConfig = $state(false);
   let showGridSub = $state(false);
@@ -25,12 +26,12 @@
 
 <div class="toolbar-section" data-tour="config-section">
   <button class="section-toggle" onclick={() => showConfig = !showConfig}>
-    {showConfig ? '▾' : '▸'} Configuración
+    {showConfig ? '▾' : '▸'} {t('config.title')}
   </button>
   {#if showConfig}
   <div class="config-children">
     <button class="sub-toggle" onclick={() => showGridSub = !showGridSub}>
-      {showGridSub ? '▾' : '▸'} Grilla
+      {showGridSub ? '▾' : '▸'} {t('config.grid')}
     </button>
     {#if showGridSub}
       {@const is3D = uiStore.analysisMode === '3d'}
@@ -39,21 +40,21 @@
         <label class="checkbox-item">
           <input type="checkbox" checked={is3D ? uiStore.showAxes3D : uiStore.showAxes}
             onchange={(e) => { if (is3D) uiStore.showAxes3D = e.currentTarget.checked; else uiStore.showAxes = e.currentTarget.checked; }} />
-          <span>Mostrar ejes</span>
+          <span>{t('config.showAxes')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" checked={gridVisible}
             onchange={(e) => { if (is3D) uiStore.showGrid3D = e.currentTarget.checked; else uiStore.showGrid = e.currentTarget.checked; }} />
-          <span>Mostrar grilla</span>
+          <span>{t('config.showGrid')}</span>
         </label>
         <div style="opacity: {gridVisible ? 1 : 0.4}; pointer-events: {gridVisible ? 'auto' : 'none'}; display: flex; flex-direction: column; gap: 0.35rem;">
           <label class="checkbox-item">
             <input type="checkbox" checked={is3D ? uiStore.snapToGrid3D : uiStore.snapToGrid}
               onchange={(e) => { if (is3D) uiStore.snapToGrid3D = e.currentTarget.checked; else uiStore.snapToGrid = e.currentTarget.checked; }} />
-            <span>Snap grilla nodos</span>
+            <span>{t('config.snapGrid')}</span>
           </label>
           <div class="input-group">
-            <label>{is3D ? 'Grilla xz (m)' : `Grilla (${ul('length')})`}:</label>
+            <label>{is3D ? t('config.gridSizeXZ') : `${t('config.gridSize')} (${ul('length')})`}:</label>
             <input
               type="number"
               value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
@@ -67,7 +68,7 @@
     {/if}
 
     <button class="sub-toggle" onclick={() => showStructureSub = !showStructureSub}>
-      {showStructureSub ? '▾' : '▸'} Modelo
+      {showStructureSub ? '▾' : '▸'} {t('config.model')}
     </button>
     {#if showStructureSub}
       {@const is3Dm = uiStore.analysisMode === '3d'}
@@ -75,25 +76,25 @@
         <label class="checkbox-item">
           <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
             onchange={(e) => { if (is3Dm) uiStore.showNodeLabels3D = e.currentTarget.checked; else uiStore.showNodeLabels = e.currentTarget.checked; }} />
-          <span>IDs de nodos</span>
+          <span>{t('config.nodeIds')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" checked={is3Dm ? uiStore.showElementLabels3D : uiStore.showElementLabels}
             onchange={(e) => { if (is3Dm) uiStore.showElementLabels3D = e.currentTarget.checked; else uiStore.showElementLabels = e.currentTarget.checked; }} />
-          <span>IDs de elementos</span>
+          <span>{t('config.elementIds')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" checked={is3Dm ? uiStore.showLengths3D : uiStore.showLengths}
             onchange={(e) => { if (is3Dm) uiStore.showLengths3D = e.currentTarget.checked; else uiStore.showLengths = e.currentTarget.checked; }} />
-          <span>Longitudes</span>
+          <span>{t('config.lengths')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" checked={is3Dm ? uiStore.showLoads3D : uiStore.showLoads}
             onchange={(e) => { if (is3Dm) uiStore.showLoads3D = e.currentTarget.checked; else uiStore.showLoads = e.currentTarget.checked; }} />
-          <span>Mostrar cargas</span>
+          <span>{t('config.showLoads')}</span>
         </label>
         <div class="input-group">
-          <label>Unidades:</label>
+          <label>{t('config.units')}:</label>
           <select bind:value={uiStore.unitSystem}>
             <option value="SI">SI (kN, m)</option>
             <option value="Imperial">Imperial (kip, ft)</option>
@@ -102,24 +103,24 @@
         {#if is3Dm}
           <div class="input-group">
             <select bind:value={uiStore.momentStyle3D}>
-              <option value="double-arrow">Momentos: flechas doble punta</option>
-              <option value="curved">Momentos: flechas curvas</option>
+              <option value="double-arrow">{t('config.momentsDoubleArrow')}</option>
+              <option value="curved">{t('config.momentsCurved')}</option>
             </select>
           </div>
           <div class="input-group">
             <select bind:value={uiStore.renderMode3D}>
-              <option value="wireframe">Modelo de barras simples</option>
-              <option value="solid">Modelo de barras gruesas</option>
-              <option value="sections">Modelo con secciones</option>
+              <option value="wireframe">{t('config.wireframe')}</option>
+              <option value="solid">{t('config.solid')}</option>
+              <option value="sections">{t('config.sections')}</option>
             </select>
           </div>
         {:else}
           <div class="input-group">
-            <label>Color:</label>
+            <label>{t('config.color')}:</label>
             <select bind:value={uiStore.elementColorMode}>
-              <option value="uniform">Uniforme</option>
-              <option value="byMaterial">Por Material</option>
-              <option value="bySection">Por Sección</option>
+              <option value="uniform">{t('config.uniform')}</option>
+              <option value="byMaterial">{t('config.byMaterial')}</option>
+              <option value="bySection">{t('config.bySection')}</option>
             </select>
           </div>
         {/if}
@@ -127,38 +128,38 @@
     {/if}
 
     <button class="sub-toggle" onclick={() => showResultsSub = !showResultsSub}>
-      {showResultsSub ? '▾' : '▸'} Resultados
+      {showResultsSub ? '▾' : '▸'} {t('config.resultsSection')}
     </button>
     {#if showResultsSub}
       <div class="sub-content">
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={resultsStore.showDiagramValues} />
-          <span>Mostrar valores</span>
+          <span>{t('config.showValues')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
-          <span>Mostrar reacciones</span>
+          <span>{t('config.showReactions')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={uiStore.hideLoadsWithDiagram} />
-          <span>Ocultar cargas con diagrama</span>
+          <span>{t('config.hideLoadsWithDiagram')}</span>
         </label>
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={uiStore.showPrimarySelector} />
-          <span>Mostrar selector principal</span>
+          <span>{t('config.showPrimarySelector')}</span>
         </label>
         <label class="checkbox-item" class:checkbox-disabled={!uiStore.showPrimarySelector}>
           <input type="checkbox" bind:checked={uiStore.showSecondarySelector}
                  disabled={!uiStore.showPrimarySelector} />
-          <span>Mostrar selector secundario</span>
+          <span>{t('config.showSecondarySelector')}</span>
         </label>
       </div>
     {/if}
 
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
-      title="Recalcula automáticamente al editar la estructura">
-      Cálculo en tiempo real — {uiStore.liveCalc ? 'Activado' : 'Desactivado'}
+      title={t('config.liveCalcTooltip')}>
+      {t('config.liveCalc')} — {uiStore.liveCalc ? t('config.liveCalcOn') : t('config.liveCalcOff')}
     </button>
   </div>
   {/if}

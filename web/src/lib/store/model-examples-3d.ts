@@ -1,6 +1,7 @@
 // 3D Example structures for Dedaliano
 import type { ExampleAPI } from './model-examples-2d';
 import type { LoadCaseType } from './model.svelte';
+import { t } from '../i18n';
 
 /** Extended API for 3D examples (adds 3D load methods) */
 export interface ExampleAPI3D extends ExampleAPI {
@@ -12,7 +13,7 @@ export interface ExampleAPI3D extends ExampleAPI {
 export function load3DExample(name: string, api: ExampleAPI3D): boolean {
   switch (name) {
     case '3d-portal-frame': {
-      api.model.name = 'Pórtico 3D';
+      api.model.name = t('ex.3d-portal-frame');
       // 2 porticos en plano XY separados 4m en Z, conectados por vigas transversales
       // Base nodes (Y=0)
       const pf1 = api.addNode(0, 0, 0);
@@ -49,7 +50,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-space-truss': {
-      api.model.name = 'Reticulado Espacial';
+      api.model.name = t('ex.3d-space-truss');
       // Reticulado Warren espacial: cordon inferior y superior con diagonales
       // 4 tramos de 2m en X, ancho 2m en Z, altura 1.5m en Y
       const span = 2;  // largo de cada tramo
@@ -132,7 +133,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-cantilever-load': {
-      api.model.name = 'Ménsula con carga biaxial';
+      api.model.name = t('ex.3d-cantilever-load');
       // Ménsula 3m en dirección X — barra única
       const cl1 = api.addNode(0, 0, 0);
       const cl2 = api.addNode(3, 0, 0);
@@ -145,7 +146,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-grid-slab': {
-      api.model.name = 'Emparrillado';
+      api.model.name = t('ex.gridBeams');
       // Grilla 3x3 de vigas en plano XZ a Y=0
       const gNodes: number[][] = [];
       for (let iz = 0; iz <= 3; iz++) {
@@ -180,7 +181,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-tower': {
-      api.model.name = 'Torre 3D';
+      api.model.name = t('ex.tower3D_2');
       // 3 niveles: Y=0, Y=3, Y=6. Base 2m x 2m
       const tw: number[][] = []; // [level][corner 0-3]
       for (let lev = 0; lev < 3; lev++) {
@@ -233,7 +234,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-torsion-beam': {
-      api.model.name = 'Viga con torsión';
+      api.model.name = t('ex.3d-torsion-beam');
       // Viga biapoyada 4m con carga excéntrica que genera torsión
       const tb1 = api.addNode(0, 0, 0);
       const tb2 = api.addNode(2, 0, 0);
@@ -254,7 +255,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // Columnas reticuladas, cabriadas Pratt, viga carrilera,
       // contraviento lateral/frontal, correas y arriostramiento
       // ══════════════════════════════════════════════════════════════
-      api.model.name = 'Nave Industrial';
+      api.model.name = t('ex.3d-nave-industrial');
 
       // ─── Parámetros ───
       const NB = 5;            // vanos longitudinales
@@ -461,7 +462,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // EDIFICIO 5 PISOS — Estructura mixta H.A./acero con cargas
       // completas: D, L, W, E y combinaciones CIRSOC 201
       // ======================================================================
-      api.model.name = 'Edificio 5 Pisos (D+L+W+E)';
+      api.model.name = t('ex.3d-building');
 
       // -- Geometria --
       const nFloors = 5;
@@ -558,10 +559,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
       // === CASOS DE CARGA ===
       api.model.loadCases = [
-        { id: 1, type: 'D' as LoadCaseType, name: 'Carga muerta' },
-        { id: 2, type: 'L' as LoadCaseType, name: 'Carga viva' },
-        { id: 3, type: 'W' as LoadCaseType, name: 'Viento +X' },
-        { id: 4, type: 'E' as LoadCaseType, name: 'Sismo +X' },
+        { id: 1, type: 'D' as LoadCaseType, name: t('ex.deadLoad') },
+        { id: 2, type: 'L' as LoadCaseType, name: t('ex.liveLoad') },
+        { id: 3, type: 'W' as LoadCaseType, name: t('ex.windX') },
+        { id: 4, type: 'E' as LoadCaseType, name: t('ex.seismicX') },
       ];
       api.nextId.loadCase = 5;
 
