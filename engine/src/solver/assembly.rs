@@ -410,7 +410,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
 
                 // Assemble element loads with 14-DOF transform
-                assemble_element_loads_3d_warping(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d_warping(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else if dof_num.dofs_per_node >= 7 {
                 // Non-warping element in a warping model: 12×12 math mapped via DOF_MAP_12_TO_14
                 let k_local = frame_local_stiffness_3d(
@@ -429,7 +429,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
 
                 // Assemble element loads with 12-DOF transform, mapped to 14-DOF space
-                assemble_element_loads_3d_mapped(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d_mapped(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else {
                 // Standard 6-DOF-per-node path
                 let k_local = frame_local_stiffness_3d(
@@ -447,7 +447,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
 
                 // Assemble 3D element loads
-                assemble_element_loads_3d(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             }
         }
     }
@@ -606,13 +606,23 @@ fn assemble_element_loads_3d(
     elem: &SolverElement3D,
     t: &[f64],
     l: f64,
+    e: f64,
+    sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
 ) {
     for load in &input.loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let fef = fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l);
+                let a = dl.a.unwrap_or(0.0);
+                let b = dl.b.unwrap_or(l);
+                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+
+                let fef = if is_full {
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                } else {
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                };
                 let fef_global = transform_force(&fef, t, 12);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
                     f_global[dof] += fef_global[i];
@@ -639,6 +649,20 @@ fn assemble_element_loads_3d(
                     f_global[dof] += fef_global[i];
                 }
             }
+            SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
+                let alpha = 12e-6; // Steel default
+                let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                let fef = fef_thermal_3d(
+                    e, sec.a, sec.iy, sec.iz, l,
+                    tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
+                    alpha, hy, hz,
+                );
+                let fef_global = transform_force(&fef, t, 12);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
             _ => {}
         }
     }
@@ -650,13 +674,23 @@ fn assemble_element_loads_3d_warping(
     elem: &SolverElement3D,
     t14: &[f64],
     l: f64,
+    e: f64,
+    sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
 ) {
     for load in &input.loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let fef12 = fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l);
+                let a = dl.a.unwrap_or(0.0);
+                let b = dl.b.unwrap_or(l);
+                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+
+                let fef12 = if is_full {
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                } else {
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                };
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -677,6 +711,21 @@ fn assemble_element_loads_3d_warping(
                     f_global[dof] += fef_global[i];
                 }
             }
+            SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
+                let alpha = 12e-6;
+                let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                let fef12 = fef_thermal_3d(
+                    e, sec.a, sec.iy, sec.iz, l,
+                    tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
+                    alpha, hy, hz,
+                );
+                let fef14 = expand_fef_12_to_14(&fef12);
+                let fef_global = transform_force(&fef14, t14, 14);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
             _ => {}
         }
     }
@@ -688,13 +737,23 @@ fn assemble_element_loads_3d_mapped(
     elem: &SolverElement3D,
     t12: &[f64],
     l: f64,
+    e: f64,
+    sec: &SolverSection3D,
     elem_dofs: &[usize],
     f_global: &mut [f64],
 ) {
     for load in &input.loads {
         match load {
             SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                let fef = fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l);
+                let a = dl.a.unwrap_or(0.0);
+                let b = dl.b.unwrap_or(l);
+                let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
+
+                let fef = if is_full {
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                } else {
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                };
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
                     f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
@@ -708,6 +767,20 @@ fn assemble_element_loads_3d_mapped(
                 let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                 fef[2] = fef_z[1]; fef[4] = -fef_z[2];
                 fef[8] = fef_z[4]; fef[10] = -fef_z[5];
+                let fef_global = transform_force(&fef, t12, 12);
+                for i in 0..12 {
+                    f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
+                }
+            }
+            SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
+                let alpha = 12e-6;
+                let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                let fef = fef_thermal_3d(
+                    e, sec.a, sec.iy, sec.iz, l,
+                    tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
+                    alpha, hy, hz,
+                );
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
                     f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i];
@@ -951,7 +1024,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                     }
                     diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
                 }
-                assemble_element_loads_3d_warping(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d_warping(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else if dof_num.dofs_per_node >= 7 {
                 let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end);
                 let t = frame_transform_3d(&ex, &ey, &ez);
@@ -969,7 +1042,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                     }
                     diag_vals[gi] += k_glob[i * 12 + i];
                 }
-                assemble_element_loads_3d_mapped(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d_mapped(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else {
                 let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end);
                 let t = frame_transform_3d(&ex, &ey, &ez);
@@ -988,7 +1061,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                     }
                     diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
                 }
-                assemble_element_loads_3d(input, elem, &t, l, &elem_dofs, &mut f_global);
+                assemble_element_loads_3d(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             }
         }
     }

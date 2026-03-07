@@ -744,9 +744,14 @@ pub(crate) fn compute_internal_forces_3d(
         for load in &input.loads {
             match load {
                 SolverLoad3D::Distributed(dl) if dl.element_id == elem.id => {
-                    let fef12 = element::fef_distributed_3d(
-                        dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l,
-                    );
+                    let a_param = dl.a.unwrap_or(0.0);
+                    let b_param = dl.b.unwrap_or(l);
+                    let is_full_fef = (a_param.abs() < 1e-12) && ((b_param - l).abs() < 1e-12);
+                    let fef12 = if is_full_fef {
+                        element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                    } else {
+                        element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
+                    };
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -794,6 +799,26 @@ pub(crate) fn compute_internal_forces_3d(
 
                     pt_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.py });
                     pt_loads_z.push(PointLoadInfo3D { a: pl.a, p: pl.pz });
+                }
+                SolverLoad3D::Thermal(tl) if tl.element_id == elem.id => {
+                    let alpha = 12e-6;
+                    let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                    let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
+                    let fef12 = element::fef_thermal_3d(
+                        e, sec.a, sec.iy, sec.iz, l,
+                        tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
+                        alpha, hy, hz,
+                    );
+                    if ndof_elem == 14 {
+                        let fef14 = element::expand_fef_12_to_14(&fef12);
+                        for i in 0..14 {
+                            f_local[i] -= fef14[i];
+                        }
+                    } else {
+                        for i in 0..12 {
+                            f_local[i] -= fef12[i];
+                        }
+                    }
                 }
                 _ => {}
             }

@@ -208,6 +208,61 @@ pub fn fef_distributed_3d(q_yi: f64, q_yj: f64, q_zi: f64, q_zj: f64, l: f64) ->
     fef
 }
 
+/// Fixed-end forces for 3D partial distributed load (from position a to b).
+/// Uses Simpson's rule via the 2D partial function for each bending plane.
+pub fn fef_partial_distributed_3d(
+    q_yi: f64, q_yj: f64,
+    q_zi: f64, q_zj: f64,
+    a: f64, b: f64, l: f64,
+) -> [f64; 12] {
+    let mut fef = [0.0; 12];
+
+    // Y-direction
+    let fy = fef_partial_distributed_2d(q_yi, q_yj, a, b, l);
+    fef[1] = fy[1];   // fy_i
+    fef[5] = fy[2];   // mz_i
+    fef[7] = fy[4];   // fy_j
+    fef[11] = fy[5];  // mz_j
+
+    // Z-direction (θy = -dw/dx convention)
+    let fz = fef_partial_distributed_2d(q_zi, q_zj, a, b, l);
+    fef[2] = fz[1];    // fz_i
+    fef[4] = -fz[2];   // my_i (negated)
+    fef[8] = fz[4];    // fz_j
+    fef[10] = -fz[5];  // my_j
+
+    fef
+}
+
+/// Fixed-end forces for 3D thermal load.
+/// dt_uniform: uniform temperature change (°C)
+/// dt_gradient_y: gradient in Y direction (°C) — produces bending about Z
+/// dt_gradient_z: gradient in Z direction (°C) — produces bending about Y
+pub fn fef_thermal_3d(
+    e: f64, a: f64, iy: f64, iz: f64, _l: f64,
+    dt_uniform: f64, dt_gradient_y: f64, dt_gradient_z: f64,
+    alpha: f64, hy: f64, hz: f64,
+) -> [f64; 12] {
+    let fx = e * a * alpha * dt_uniform;
+
+    // Gradient in Y → bending about Z → uses Iz and hy
+    let mz = if hy > 1e-12 {
+        e * iz * alpha * dt_gradient_y / hy
+    } else {
+        0.0
+    };
+
+    // Gradient in Z → bending about Y → uses Iy and hz
+    let my = if hz > 1e-12 {
+        e * iy * alpha * dt_gradient_z / hz
+    } else {
+        0.0
+    };
+
+    // [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
+    [fx, 0.0, 0.0, 0.0, my, mz, -fx, 0.0, 0.0, 0.0, -my, -mz]
+}
+
 /// Expand a 12-element FEF vector to 14-element by inserting zeros at warping DOF positions (6 and 13).
 /// Mapping: 12-DOF indices 0-5 → 14-DOF indices 0-5, 12-DOF indices 6-11 → 14-DOF indices 7-12.
 pub fn expand_fef_12_to_14(fef12: &[f64; 12]) -> [f64; 14] {
