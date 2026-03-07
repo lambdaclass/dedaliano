@@ -990,8 +990,12 @@ pub(crate) fn compute_plate_stresses(
         let t_plate = crate::element::plate_transform_3d(&coords);
         let u_local = crate::linalg::transform_displacement(&u_global, &t_plate, 18);
 
-        // Recover stresses
+        // Recover stresses at centroid
         let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local);
+
+        // Also recover nodal stresses for stress smoothing
+        let nodal = crate::element::plate_stress_at_nodes(&coords, e, nu, plate.thickness, &u_local);
+        let nodal_vm: Vec<f64> = nodal.iter().map(|ns| ns.von_mises).collect();
 
         stresses.push(PlateStress {
             element_id: plate.id,
@@ -1004,6 +1008,7 @@ pub(crate) fn compute_plate_stresses(
             sigma_1: s.sigma_1,
             sigma_2: s.sigma_2,
             von_mises: s.von_mises,
+            nodal_von_mises: nodal_vm,
         });
     }
 

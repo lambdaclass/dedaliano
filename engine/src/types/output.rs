@@ -170,6 +170,10 @@ pub struct PlateStress {
     pub sigma_1: f64,
     pub sigma_2: f64,
     pub von_mises: f64,
+    /// Nodal von Mises stresses (3 values, one per node).
+    /// Computed from DKT B-matrix evaluated at element vertices.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub nodal_von_mises: Vec<f64>,
 }
 
 // ==================== Co-rotational Output ====================
