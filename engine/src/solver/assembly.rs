@@ -129,8 +129,8 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
 
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
-        if elem.elem_type == "truss" {
-            // Truss: assemble directly in global coordinates
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            // Truss/Cable: assemble directly in global coordinates
             let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
             let ndof = 4; // 2 per node for truss
             let truss_dofs = [
@@ -364,8 +364,8 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
 
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
-        if elem.elem_type == "truss" {
-            // 3D truss: direct global assembly
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            // 3D truss/cable: direct global assembly
             let ea_l = e * sec.a / l;
             let dir = [dx / l, dy / l, dz / l];
             let _truss_dofs_per_node = 3.min(dof_num.dofs_per_node);
@@ -840,7 +840,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         let sin = dy / l;
         let e = mat.e * 1000.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
             let truss_dofs = [
                 dof_num.global_dof(elem.node_i, 0).unwrap(),
@@ -987,7 +987,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         let e = mat.e * 1000.0;
         let g = e / (2.0 * (1.0 + mat.nu));
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let ea_l = e * sec.a / l;
             let dir = [dx / l, dy / l, dz / l];
             for a in 0..2 {

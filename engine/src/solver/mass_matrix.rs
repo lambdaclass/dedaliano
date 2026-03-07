@@ -33,7 +33,7 @@ pub fn assemble_mass_matrix_2d(
         // Mass = rho*A*L in kg. Convert to kN·s²/m (tonnes): divide by 1000
         let rho_a = density * sec.a / 1000.0; // tonnes/m
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Consistent truss mass: rhoAL/6 * [[2,1],[1,2]] per direction
             let m_local = truss_consistent_mass(rho_a, l);
             let truss_dofs = [
@@ -155,7 +155,7 @@ pub fn assemble_mass_matrix_3d(
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
         let rho_a = density * sec.a / 1000.0; // tonnes/m
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // 3D truss: M = ρAL/6 * [[2I₃, I₃],[I₃, 2I₃]]
             let m = rho_a * l / 6.0;
             let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())

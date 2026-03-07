@@ -197,6 +197,20 @@ pub fn solve_staged_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Cable Analysis ====================
+
+/// Solve 2D cable analysis. JSON in → JSON out.
+/// Input: { "solver": SolverInput, "densities": { materialId: density_kg_m3 } }
+#[wasm_bindgen]
+pub fn solve_cable_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
+    let input: types::ModalInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::cable::solve_cable_2d(&input.solver, &input.densities, max_iter, tolerance)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result.results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Kinematic Analysis ====================
 
 /// Analyze 2D kinematic stability. JSON in → JSON out.

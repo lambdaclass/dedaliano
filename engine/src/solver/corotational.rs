@@ -134,7 +134,7 @@ fn assemble_corotational(
 
         let e = mat.e * 1000.0; // MPa -> kN/m^2
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             assemble_truss_corotational(
                 dof_num, elem, node_i, node_j, e, sec.a,
                 u_full, f_int, k_t, n,
@@ -571,7 +571,7 @@ fn compute_corotational_forces(
 
         let e = mat.e * 1000.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let dx0 = node_j.x - node_i.x;
             let dy0 = node_j.y - node_i.y;
             let l0 = (dx0 * dx0 + dy0 * dy0).sqrt();

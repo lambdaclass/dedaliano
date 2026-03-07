@@ -236,7 +236,7 @@ fn assemble_staged_2d(
 
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
             let ndof = 4;
             let truss_dofs = [
@@ -451,7 +451,7 @@ fn build_results_from_u(
     let mut element_forces = Vec::new();
     for elem in input.elements.values() {
         if !active_elements.contains(&elem.id) { continue; }
-        if elem.elem_type == "truss" { continue; } // TODO: truss forces
+        if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; } // TODO: truss forces
 
         let node_i = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
         let node_j = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();

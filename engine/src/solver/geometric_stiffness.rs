@@ -16,7 +16,7 @@ pub fn add_geometric_stiffness_2d(
     let n = dof_num.n_total;
 
     for elem in input.elements.values() {
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
             add_truss_kg_2d(input, dof_num, elem, u, k_global, n);
             continue;
@@ -166,7 +166,7 @@ pub fn build_kg_from_forces_2d(
         // Use average axial force (negative = compression)
         let axial_force = (ef.n_start + ef.n_end) / 2.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let p_over_l = axial_force / l;
             let cc = cos * cos;
             let ss = sin * sin;
@@ -246,7 +246,7 @@ pub fn build_kg_from_forces_3d(
 
         let axial_force = (ef.n_start + ef.n_end) / 2.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // 3D truss Kg: P/L * [[G,-G],[-G,G]] where G_ij = δ_ij - dir_i*dir_j
             let dir = [dx / l, dy / l, dz / l];
             let p_over_l = axial_force / l;
@@ -342,7 +342,7 @@ pub fn add_geometric_stiffness_3d(
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
         let e = mat.e * 1000.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let dir = [dx / l, dy / l, dz / l];
             let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();

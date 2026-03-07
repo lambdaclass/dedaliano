@@ -275,7 +275,7 @@ fn assemble_tangent_stiffness(
 
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
             let truss_dofs = [
                 dof_num.global_dof(elem.node_i, 0).unwrap(),
@@ -420,7 +420,7 @@ fn compute_global_internal_forces(
         let sin = dy / l;
         let e = mat.e * 1000.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let k_elem = truss_global_stiffness_2d(e, sec.a, l, cos, sin);
             let truss_dofs = [
                 dof_num.global_dof(elem.node_i, 0).unwrap(),
@@ -528,7 +528,7 @@ fn update_element_states(
             None => continue,
         };
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             continue;
         }
 

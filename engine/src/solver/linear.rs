@@ -466,7 +466,7 @@ pub(crate) fn compute_internal_forces_2d(
         let sin = dy / l;
         let e = mat.e * 1000.0;
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss: compute axial force from deformation
             let ui = [
                 dof_num.global_dof(elem.node_i, 0).map(|d| u[d]).unwrap_or(0.0),
@@ -631,7 +631,7 @@ pub(crate) fn compute_internal_forces_3d(
         let e = mat.e * 1000.0;
         let g = e / (2.0 * (1.0 + mat.nu));
 
-        if elem.elem_type == "truss" {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let dir = [dx / l, dy / l, dz / l];
             let ui: Vec<f64> = (0..3).map(|i| {
                 dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)

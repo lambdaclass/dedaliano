@@ -16,6 +16,7 @@ pub mod damping;
 pub mod time_integration;
 pub mod prestress;
 pub mod staged;
+pub mod cable;
 
 pub use dof::*;
 pub use assembly::*;
@@ -30,3 +31,4 @@ pub use kinematic::*;
 pub use corotational::*;
 pub use material_nonlinear::*;
 pub use time_integration::*;
+pub use cable::*;
