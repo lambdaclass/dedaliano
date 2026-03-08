@@ -40,6 +40,12 @@ pub struct GapElement {
     pub initial_gap: f64,
     /// Penalty stiffness when closed (kN/m)
     pub stiffness: f64,
+    /// Coulomb friction coefficient (optional, tangential resistance)
+    #[serde(default)]
+    pub friction: Option<f64>,
+    /// Tangential direction for friction: 0=X, 1=Y, 2=Z (perpendicular to normal)
+    #[serde(default)]
+    pub friction_direction: Option<usize>,
 }
 
 /// Input for contact/gap analysis (2D).
@@ -60,6 +66,12 @@ pub struct ContactInput {
     pub max_iter: Option<usize>,
     #[serde(default)]
     pub tolerance: Option<f64>,
+    /// Augmented Lagrangian multiplier update factor (0 = pure penalty, >0 = AL)
+    #[serde(default)]
+    pub augmented_lagrangian: Option<f64>,
+    /// Oscillation damping: max consecutive status flips before forcing inactive
+    #[serde(default)]
+    pub max_flips: Option<usize>,
 }
 
 /// Input for contact/gap analysis (3D).
@@ -77,6 +89,10 @@ pub struct ContactInput3D {
     pub max_iter: Option<usize>,
     #[serde(default)]
     pub tolerance: Option<f64>,
+    #[serde(default)]
+    pub augmented_lagrangian: Option<f64>,
+    #[serde(default)]
+    pub max_flips: Option<usize>,
 }
 
 use serde::{Serialize, Deserialize};
@@ -119,11 +135,18 @@ pub struct GapContactInfo {
     pub status: String, // "open" or "closed"
     pub displacement: f64,
     pub force: f64,
+    /// Penetration depth (positive = penetration, only when closed)
+    pub penetration: f64,
+    /// Friction force (tangential, if friction is defined)
+    #[serde(default)]
+    pub friction_force: f64,
 }
 
 /// Solve a 2D structure with contact/gap elements.
 pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let max_iter = input.max_iter.unwrap_or(30);
+    let max_flips = input.max_flips.unwrap_or(4);
+    let al_factor = input.augmented_lagrangian.unwrap_or(0.0);
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -143,8 +166,12 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
         }
     }
 
-    // Track gap statuses
+    // Track gap statuses + oscillation flip counters
     let mut gap_status: Vec<ContactStatus> = vec![ContactStatus::Inactive; input.gap_elements.len()];
+    let mut gap_flip_count: Vec<usize> = vec![0; input.gap_elements.len()];
+
+    // Augmented Lagrangian multipliers (per gap)
+    let mut gap_lambda: Vec<f64> = vec![0.0; input.gap_elements.len()];
 
     // Track uplift support statuses
     let mut uplift_status: HashMap<usize, ContactStatus> = HashMap::new();
@@ -217,7 +244,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
         // Add gap element stiffness for closed gaps
         for (gi, gap) in input.gap_elements.iter().enumerate() {
             if gap_status[gi] == ContactStatus::Active {
-                // Gap is closed — add penalty stiffness
+                // Gap is closed — add normal penalty stiffness
                 let dir = gap.direction.min(1); // 2D: 0=X, 1=Y
                 if let (Some(&di), Some(&dj)) = (
                     dof_num.map.get(&(gap.node_i, dir)),
@@ -227,6 +254,26 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
                     asm.k[dj * n + dj] += gap.stiffness;
                     asm.k[di * n + dj] -= gap.stiffness;
                     asm.k[dj * n + di] -= gap.stiffness;
+
+                    // AL force contribution: add lambda to RHS
+                    if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                        if di < nf { asm.f[di] -= gap_lambda[gi]; }
+                        if dj < nf { asm.f[dj] += gap_lambda[gi]; }
+                    }
+                }
+                // Add tangential friction stiffness
+                if let (Some(mu), Some(fdir)) = (gap.friction, gap.friction_direction) {
+                    let fdir = fdir.min(1);
+                    if let (Some(&fi), Some(&fj)) = (
+                        dof_num.map.get(&(gap.node_i, fdir)),
+                        dof_num.map.get(&(gap.node_j, fdir)),
+                    ) {
+                        let k_fric = mu * gap.stiffness;
+                        asm.k[fi * n + fi] += k_fric;
+                        asm.k[fj * n + fj] += k_fric;
+                        asm.k[fi * n + fj] -= k_fric;
+                        asm.k[fj * n + fi] -= k_fric;
+                    }
                 }
             }
         }
@@ -320,7 +367,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             }
         }
 
-        // Check gap elements
+        // Check gap elements (with oscillation damping)
         for (gi, gap) in input.gap_elements.iter().enumerate() {
             let dir = gap.direction.min(1);
             let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
@@ -334,8 +381,29 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             };
 
             if gap_status[gi] != new_status {
-                any_change = true;
-                gap_status[gi] = new_status;
+                gap_flip_count[gi] += 1;
+                // Oscillation damping: if element has flipped too many times, force inactive
+                if gap_flip_count[gi] > max_flips {
+                    // Keep current status to stop oscillation
+                } else {
+                    any_change = true;
+                    gap_status[gi] = new_status;
+                }
+            }
+        }
+
+        // Update augmented Lagrangian multipliers
+        if al_factor > 0.0 {
+            for (gi, gap) in input.gap_elements.iter().enumerate() {
+                if gap_status[gi] == ContactStatus::Active {
+                    let dir = gap.direction.min(1);
+                    let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let u_j = dof_num.global_dof(gap.node_j, dir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let penetration = -(u_j - u_i) - gap.initial_gap;
+                    if penetration > 0.0 {
+                        gap_lambda[gi] += al_factor * gap.stiffness * penetration;
+                    }
+                }
             }
         }
 
@@ -378,11 +446,34 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             } else {
                 0.0
             };
+            let penetration = if gap_status[gi] == ContactStatus::Active {
+                let p = -(relative_disp) - gap.initial_gap;
+                if p > 0.0 { p } else { 0.0 }
+            } else {
+                0.0
+            };
+            let friction_force = if gap_status[gi] == ContactStatus::Active {
+                if let (Some(mu), Some(fdir)) = (gap.friction, gap.friction_direction) {
+                    let fdir = fdir.min(1);
+                    let u_fi = dof_num.global_dof(gap.node_i, fdir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let u_fj = dof_num.global_dof(gap.node_j, fdir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let tangential_disp = u_fj - u_fi;
+                    let max_friction = mu * force.abs();
+                    // Coulomb: friction limited by mu * normal force
+                    (gap.stiffness * tangential_disp).clamp(-max_friction, max_friction)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
             GapContactInfo {
                 id: gap.id,
                 status: if gap_status[gi] == ContactStatus::Active { "closed".into() } else { "open".into() },
                 displacement: relative_disp,
                 force,
+                penetration,
+                friction_force,
             }
         })
         .collect();
@@ -399,6 +490,8 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
 /// Solve a 3D structure with contact/gap elements.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     let max_iter = input.max_iter.unwrap_or(30);
+    let max_flips = input.max_flips.unwrap_or(4);
+    let al_factor = input.augmented_lagrangian.unwrap_or(0.0);
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {
@@ -416,8 +509,12 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         }
     }
 
-    // Track gap statuses
+    // Track gap statuses + oscillation flip counters
     let mut gap_status: Vec<ContactStatus> = vec![ContactStatus::Inactive; input.gap_elements.len()];
+    let mut gap_flip_count: Vec<usize> = vec![0; input.gap_elements.len()];
+
+    // Augmented Lagrangian multipliers (per gap)
+    let mut gap_lambda: Vec<f64> = vec![0.0; input.gap_elements.len()];
 
     // Track uplift support statuses
     let mut uplift_status: HashMap<usize, ContactStatus> = HashMap::new();
@@ -473,6 +570,26 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
                     asm.k[dj * n + dj] += gap.stiffness;
                     asm.k[di * n + dj] -= gap.stiffness;
                     asm.k[dj * n + di] -= gap.stiffness;
+
+                    // AL force contribution
+                    if al_factor > 0.0 && gap_lambda[gi].abs() > 1e-20 {
+                        if di < nf { asm.f[di] -= gap_lambda[gi]; }
+                        if dj < nf { asm.f[dj] += gap_lambda[gi]; }
+                    }
+                }
+                // Add tangential friction stiffness
+                if let (Some(_mu), Some(fdir)) = (gap.friction, gap.friction_direction) {
+                    let fdir = fdir.min(2);
+                    if let (Some(&fi), Some(&fj)) = (
+                        dof_num.map.get(&(gap.node_i, fdir)),
+                        dof_num.map.get(&(gap.node_j, fdir)),
+                    ) {
+                        let k_fric = _mu * gap.stiffness;
+                        asm.k[fi * n + fi] += k_fric;
+                        asm.k[fj * n + fj] += k_fric;
+                        asm.k[fi * n + fj] -= k_fric;
+                        asm.k[fj * n + fi] -= k_fric;
+                    }
                 }
             }
         }
@@ -546,7 +663,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             }
         }
 
-        // Check gap elements
+        // Check gap elements (with oscillation damping)
         for (gi, gap) in input.gap_elements.iter().enumerate() {
             let dir = gap.direction.min(2);
             let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
@@ -560,8 +677,28 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             };
 
             if gap_status[gi] != new_status {
-                any_change = true;
-                gap_status[gi] = new_status;
+                gap_flip_count[gi] += 1;
+                if gap_flip_count[gi] > max_flips {
+                    // Keep current status to stop oscillation
+                } else {
+                    any_change = true;
+                    gap_status[gi] = new_status;
+                }
+            }
+        }
+
+        // Update augmented Lagrangian multipliers
+        if al_factor > 0.0 {
+            for (gi, gap) in input.gap_elements.iter().enumerate() {
+                if gap_status[gi] == ContactStatus::Active {
+                    let dir = gap.direction.min(2);
+                    let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let u_j = dof_num.global_dof(gap.node_j, dir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let penetration = -(u_j - u_i) - gap.initial_gap;
+                    if penetration > 0.0 {
+                        gap_lambda[gi] += al_factor * gap.stiffness * penetration;
+                    }
+                }
             }
         }
 
@@ -607,11 +744,33 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             } else {
                 0.0
             };
+            let penetration = if gap_status[gi] == ContactStatus::Active {
+                let p = -(relative_disp) - gap.initial_gap;
+                if p > 0.0 { p } else { 0.0 }
+            } else {
+                0.0
+            };
+            let friction_force = if gap_status[gi] == ContactStatus::Active {
+                if let (Some(mu), Some(fdir)) = (gap.friction, gap.friction_direction) {
+                    let fdir = fdir.min(2);
+                    let u_fi = dof_num.global_dof(gap.node_i, fdir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let u_fj = dof_num.global_dof(gap.node_j, fdir).map(|d| u_full[d]).unwrap_or(0.0);
+                    let tangential_disp = u_fj - u_fi;
+                    let max_friction = mu * force.abs();
+                    (gap.stiffness * tangential_disp).clamp(-max_friction, max_friction)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
             GapContactInfo {
                 id: gap.id,
                 status: if gap_status[gi] == ContactStatus::Active { "closed".into() } else { "open".into() },
                 displacement: relative_disp,
                 force,
+                penetration,
+                friction_force,
             }
         })
         .collect();
