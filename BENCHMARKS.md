@@ -11,64 +11,48 @@
 
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
-| Industry Standards & Design Codes | 169 | 0 | 0 | 169 |
+| Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
 | Commercial Software Cross-Validation | 81 | 5 | 1 | 87 |
-| Textbook Classics | 1050 | 0 | 0 | 1050 |
-| Mathematical Properties & Numerical Methods | 115 | 0 | 0 | 115 |
-| FEM Quality & Convergence | 30 | 0 | 0 | 30 |
+| Textbook Classics | 1688 | 0 | 0 | 1688 |
+| Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
+| FEM Quality & Convergence | 54 | 0 | 0 | 54 |
+| Engineering Practice & Specialized Structures | 616 | 0 | 0 | 616 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **1445** | **8** | **7** | **1460** |
+| **Total** | **2969** | **8** | **1** | **2978** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
 **3030 validation test functions across 385 validation files. 3475 total registered tests across 423 Rust test files.**
 
-Current measured inventory for this pass:
+Current measured inventory:
 
 - `385` files matching `engine/tests/validation_*.rs`
 - `3030` `#[test]` functions inside validation files
-- `25` files matching `engine/tests/integration_*.rs`
+- `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
 - `3475` total registered tests from `cargo test -- --list`
 
-### Recent Session Additions
-
-All newly added modules and tests from this session are passing with zero failures.
-
-#### Design Check Modules Implemented This Session
+### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
 | Module | Code | Tests | Description |
 |--------|------|-------|-------------|
-| `connection_check` | AISC 360 | 8 integration tests | Bolt-group and weld-group elastic method checks |
-| `foundation_check` | ACI 318 | 8 integration tests | Spread footings: bearing, overturning, sliding, and punching shear |
-| `cfs_check` | AISI S100 | 8 integration tests | Cold-formed steel: compression, LTB, shear, and distortional buckling |
-| `ec2_check` | EN 1992-1-1 | 8 integration tests | Eurocode 2 concrete: parabolic stress block and variable-strut shear |
-| `cirsoc201_check` | CIRSOC 201-05 | 8 integration tests | Argentine concrete: Whitney block and ACI-style shear |
-| `ec3_check` | EN 1993-1-1 | 8 integration tests | Eurocode 3 steel: buckling curves a-d, LTB, and interaction checks |
-| `masonry_check` | TMS 402 | 8 integration tests | Masonry: axial with slenderness, flexure, and shear |
-
-#### New Validation Files Added This Session
-
-| File | Coverage |
-|------|----------|
-| `validation_fracture_mechanics.rs` | SIF, J-integral, Paris law, MTS, FAD |
-| `validation_laminate_plate_theory.rs` | CLT, Tsai-Wu, rule of mixtures, laminate invariants |
-| `validation_hydrodynamic_loading.rs` | Morison loading, wave theory, VIV-related formulas |
-| `validation_plate_shell_buckling.rs` | Donnell, Von Karman, Winter, EC3-style shell buckling formulas |
-| `validation_structural_damping_models.rs` | Rayleigh damping, half-power bandwidth, Eurocode 8 damping correction |
-| `validation_thermal_stress_analysis.rs` | Restrained thermal stress, thermal buckling, bimetallic-strip behavior |
-| `validation_finite_element_convergence.rs` | h-refinement, p-refinement, patch-style consistency, Richardson extrapolation |
-
-#### Bug Fixes Included in This Session
-
-- ACI 318 phi-factor unit-test threshold
-- Fracture mechanics MTS initial guess and FAD test point
-- Laminate plate theory invariant assertion and Halpin-Tsai bound
-
-#### Current Postprocess Footprint
-
-- `17` postprocess modules in `engine/src/postprocess/mod.rs`
-- `82` unit tests and `25` integration test files across the postprocess/design-check surface
+| `steel_check` | AISC 360-22 LRFD | 8 integration | Flexure (compact/LTB), shear, axial, combined H1-1 interaction |
+| `rc_check` | ACI 318-19 USD | 8 integration | Rectangular/T-beam flexure, singly/doubly reinforced, shear |
+| `ec2_check` | EN 1992-1-1 | 8 integration | Parabolic stress block, variable-strut shear, alpha_cc NA support |
+| `cirsoc201_check` | CIRSOC 201-05 | 8 integration | Whitney block, ACI-style shear, phi transition zone |
+| `ec3_check` | EN 1993-1-1 | 8 integration | Buckling curves a-d, LTB, shear, combined interaction |
+| `timber_check` | NDS 2018 | 8 integration | Bending (CL/CV), compression (Cp), shear, combined |
+| `cfs_check` | AISI S100 | 8 integration | Compression (local/distortional/global), LTB, shear |
+| `masonry_check` | TMS 402 | 8 integration | Axial with slenderness, flexure, shear, combined interaction |
+| `connection_check` | AISC 360 | 8 integration | Bolt-group and weld-group elastic method checks |
+| `foundation_check` | ACI 318 | 8 integration | Spread footings: bearing, overturning, sliding, punching shear |
+| `serviceability` | Multi-code | 8 integration | L/360, L/180, natural frequency, IBC/EC3/AS 4100 |
+| `diagrams` | — | unit tests | Shear, moment, axial, deflection diagrams (2D) |
+| `diagrams_3d` | — | unit tests | 3D element force diagrams |
+| `combinations` | ASCE 7, EN 1990 | unit tests | Load combinations and envelopes |
+| `influence` | — | unit tests | Influence lines and coefficients |
+| `section_stress` | — | unit tests | Normal, shear, von Mises, Mohr stress |
+| `section_stress_3d` | — | unit tests | 3D section stress recovery |
 
 ---
 
@@ -274,7 +258,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Industry Standards & Design Codes
 
-### AISC 360-22 (46 tests across 5 files)
+### AISC 360-22 (46 tests across 6 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -285,7 +269,24 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_braced_frame.rs` | 8 | AISC 360-16 Ch.C, McCormac 6th | X-brace, K-brace, chevron, diagonal force=H/cos(θ) |
 | `validation_braced_frames.rs` | 8 | AISC 360-16 Ch.C, Salmon/Johnson 5th | Stiffness increase, sway reduction, multi-story drift |
 
-### Eurocode 3 — EN 1993-1-1 (28 tests across 4 files)
+### AISC 360 — Steel Design (40 tests across 5 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_lateral_torsional_buckling.rs` | 8 | EN 1993-1-1 §6.3.2, AISC 360-22 Ch.F | SS uniform moment, fixed-fixed, cantilever, length effects |
+| `validation_structural_steel_design.rs` | 8 | AISC 360-22 | Compact flexure, LTB, shear capacity, web crippling |
+| `validation_steel_connections.rs` | 8 | AISC 360-22 Ch.J | Bolt shear/bearing, eccentricity, weld strength, base plate |
+| `validation_plate_girder_design.rs` | 8 | AISC 360-22 Ch.G | Web shear buckling, tension field, stiffeners, flange local buckling |
+| `validation_steel_deck_design.rs` | 8 | AISC 360/SDI | Section properties, composite moment, diaphragm shear, ponding |
+
+### AISC 360 — Connections & Composite (16 tests across 2 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_connection_design.rs` | 8 | AISC 360-22 Ch.J | Bolt/weld groups, prying, base plates, moment connections |
+| `validation_composite_design.rs` | 8 | AISC 360-22 Ch.I, EC4 | Full/partial composite interaction, effective slab width |
+
+### Eurocode 3 — EN 1993-1-1 (44 tests across 5 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -293,8 +294,10 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_code_provisions.rs` | 7 | EN 1993-1-1 §5.2, EN 1998-1 §4.3.3.3, ASCE 7 §12.9 | alpha_cr thresholds, P-delta amplification, mass participation |
 | `validation_deflection_limits.rs` | 8 | AISC Table 3-23, EC3 §7.2, Roark's | L/360, L/180, L/240, ranking |
 | `validation_serviceability_checks.rs` | 8 | AISC 360-22 App.L, IBC 2021, EC3 §7, AS 4100 | Floor beam L/360, cantilever L/180, portal drift H/400 |
+| `validation_cross_section_classification.rs` | 8 | EN 1993-1-1 Table 5.2, AISC 360-22 Table B4.1b | Class 1-4, compact/noncompact/slender |
+| `validation_stainless_steel.rs` | 8 | EN 1993-1-4 | Ramberg-Osgood, property comparison, CSM capacity |
 
-### Eurocode 8 — EN 1998-1 (26 tests across 4 files)
+### Eurocode 8 — EN 1998-1 (42 tests across 5 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -302,8 +305,10 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_seismic_design.rs` | 8 | Chopra 5th, EC8, ASCE 7 | Base shear, inverted triangle, effective mass, modal ordering |
 | `validation_3d_spectral.rs` | 6 | Chopra 5th, ASCE 7 §12.9, EC8 §4.3.3.3 | 3D RSA, SRSS vs CQC, reduction factor, X vs Y direction |
 | `validation_regulatory_features.rs` | 8 | ASCE 7 §12.8.6, EC8 §4.3.3.5 | Inter-story drift, multi-directional 100%+30%, superposition |
+| `validation_seismic_detailing.rs` | 8 | ACI 318-19 Ch.18, EC8-1 §5 | Strong-column weak-beam, capacity design, confinement, behavior factor |
+| `validation_seismic_isolation.rs` | 8 | ASCE 7 Ch.17, EC8 §10 | LRB bilinear, FPS bearing, HDR bearing, design displacement |
 
-### ASCE 7-22 (47 tests across 5 files)
+### ASCE 7-22 (71 tests across 8 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -312,20 +317,141 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_multi_story_lateral.rs` | 8 | ASCE 7 §12.8.6, AISC 360 App.7, Taranath | Two-story shear, two-bay sharing, soft-story detection |
 | `validation_load_combination_envelope.rs` | 8 | ASCE 7-22 Ch.2, AISC 360-22 Ch.B, EC0 | 1.2D+1.6L, Dead+Wind, pattern, factored superposition |
 | `validation_combinations.rs` | 8 | EN 1990 §6.4.3.2 | ULS 1.35DL+1.50LL+0.9Wind, negative factor, 3D biaxial |
+| `validation_seismic_design_asce7.rs` | 8 | ASCE 7-22 §12.8 | ELF method, vertical distribution, story drift, P-delta stability |
+| `validation_wind_loading.rs` | 8 | ASCE 7-22 Ch.26 | Velocity pressure qz, Kz, gust effect factor, MWFRS |
+| `validation_wind_engineering.rs` | 8 | EC1-1-4, ASCE 7 | Basic pressure, terrain roughness, along-wind gust, Strouhal |
 
-### AASHTO HL-93 (16 tests across 2 files)
+### AASHTO HL-93 & Bridge Codes (48 tests across 6 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
 | `validation_moving_loads.rs` | 8 | Kassimali, AASHTO HL-93 | Single axle, 2-axle, HL-93 truck, continuous negative moment |
 | `validation_moving_load_bridges.rs` | 7 | AASHTO LRFD 9th, EN 1991-2 LM1/LM2 | Axle spacing, shear envelope, mesh convergence |
+| `validation_bridge_design.rs` | 8 | AASHTO LRFD, EN 1991-2 | HL-93, LM1, distribution factors, load combinations |
+| `validation_bridge_engineering.rs` | 8 | AASHTO LRFD | Distribution factors, dynamic allowance, composite width, overhang |
+| `validation_highway_bridge_loading.rs` | 8 | AASHTO HL-93, EC1 LM1/LM2 | Truck+lane, tandem+UDL, fatigue truck, multi-lane reduction |
+| `validation_bridge_loads.rs` | 8 | AASHTO HL-93 | Truck, lane load, tandem, impact factor |
 
-### GSA / EN 1991-1-7 / FEMA (12 tests across 2 files)
+### GSA / UFC / FEMA / EN 1991-1-7 (28 tests across 4 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
 | `validation_progressive_collapse.rs` | 6 | GSA 2013, EN 1991-1-7, Starossek | Member removal, alternate paths, redundancy |
+| `validation_progressive_collapse_full.rs` | 8 | UFC 4-023-03, EN 1991-1-7, GSA 2016 | Corner column removal, tie force, accidental combination, DCR |
 | `validation_pushover.rs` | 6 | FEMA 356, ATC-40, EC8 Annex B | Pushover curves, P-delta stiffness, near-critical |
+| `validation_performance_based_design.rs` | 8 | FEMA P-58, ASCE 41 | PBEE hazard curve, fragility function, acceptance criteria, EAL |
+
+### ACI 318-19 / Concrete Design Codes (48 tests across 6 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_concrete_design.rs` | 8 | ACI 318-19, EC2 | Whitney block, parabolic-rectangular, beam design |
+| `validation_reinforced_concrete_design.rs` | 8 | ACI 318-19 | Singly/doubly reinforced, T-beam, shear |
+| `validation_concrete_detailing.rs` | 8 | ACI 318-19 | Development length, bar spacing, cover, crack width |
+| `validation_reinforcement_detailing.rs` | 8 | ACI 318-19 §25 | Development length, lap splice, hook, bar spacing/cover |
+| `validation_advanced_concrete.rs` | 8 | ACI 318-19, EC2 | Strut-and-tie, deep beam shear, torsion, PT load balancing |
+| `validation_concrete_mechanics.rs` | 8 | ACI 318-19, EC2 | Whitney depth, nominal moment, balanced rho, dev. length |
+
+### EN 1992-1-1 / Concrete Material (16 tests across 2 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_concrete_constitutive_models.rs` | 8 | EC2, Hognestad, Mander | Hognestad parabolic, Mander confined, Popovics, tension stiffening |
+| `validation_concrete_durability.rs` | 8 | EC2, ACI 318 | Cover requirements, carbonation, chloride, freeze-thaw |
+
+### CIRSOC 102 (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_cirsoc_wind.rs` | 8 | CIRSOC 102-2005 | Velocity pressure, exposure coefficients, design pressure |
+
+### EN 1991-2 / Railway (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_railway_structures.rs` | 8 | EN 1991-2 LM71 | LM71 loading, dynamic amplification, track-bridge, braking |
+
+### EC3-1-9 / Fatigue (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_fatigue.rs` | 8 | EC3-1-9, Miner | Detail category C71, CAFL, cutoff limit, Miner's rule |
+
+### EC2-1-2 / EC3-1-2 / Fire Resistance (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_fire_resistance.rs` | 8 | EC2-1-2, EC3-1-2, ISO 834 | Fire curve, steel ky/ke reduction, beam fire capacity |
+
+### NDS 2018 / Timber (24 tests across 3 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_timber_design.rs` | 8 | NDS 2018 | Bending, compression, tension, combined, adjustment factors |
+| `validation_timber_connections.rs` | 8 | NDS 2018 | Dowel-type, withdrawal, group action, geometry factors |
+| `validation_wood_design.rs` | 8 | NDS 2018 | Size factor, column stability, bearing, notched beam shear |
+
+### AISI S100 / Cold-Formed Steel (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_cold_formed_steel.rs` | 8 | AISI S100-16 | Effective width, distortional, DSM, connection design |
+
+### Aluminum Design (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_aluminum_design.rs` | 8 | AA ADM 2020, EC9 | 6061-T6, column buckling, HAZ reduction, beam LTB |
+
+### TMS 402 / Masonry (16 tests across 2 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_masonry_design.rs` | 8 | TMS 402/ACI 530 | Axial, flexure, shear, interaction, slenderness |
+| `validation_masonry_arches.rs` | 8 | TMS 402, Heyman | Arch thrust line, stability, MEXE method |
+
+### Foundation & Geotechnical Codes (48 tests across 6 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_foundation_design.rs` | 8 | ACI 318-19, Meyerhof | Spread footings, combined footings, mat foundations |
+| `validation_geotechnical_bearing_capacity.rs` | 8 | Meyerhof, Hansen, Vesic | Bearing capacity factors, correction factors, net allowable |
+| `validation_geotechnical_engineering.rs` | 8 | Terzaghi, Meyerhof, Rankine | General bearing capacity, earth pressure coefficients |
+| `validation_pile_foundations.rs` | 8 | EC7, API RP 2A | Alpha-method, beta-method, group efficiency, design resistance |
+| `validation_retaining_walls.rs` | 8 | Rankine, Coulomb | Active/passive pressure, overturning stability |
+| `validation_geotechnical_slopes.rs` | 8 | Fellenius, Bishop, Janbu | Infinite slope, Fellenius, Bishop simplified |
+
+### Prestress & Post-Tension Codes (24 tests across 3 files)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_prestressed_concrete.rs` | 8 | ACI 318, AASHTO | Elastic shortening loss, long-term losses, flexural capacity |
+| `validation_prestress_losses.rs` | 8 | ACI 318, PCI | Elastic shortening, friction, anchorage-set, creep losses |
+| `validation_post_tensioning.rs` | 8 | ACI 318, PTI | Elastic shortening, friction loss, anchorage-set, long-term |
+
+### Creep & Shrinkage Codes (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_creep_shrinkage.rs` | 8 | EC2, ACI 209 | EC2 creep coefficient, drying/autogenous shrinkage, effective modulus |
+
+### Dynamic Wind Codes (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_dynamic_wind.rs` | 8 | EC1-1-4, ASCE 7 | Vortex shedding Strouhal, scruton number, gust factor, along-wind |
+
+### FRP / Composites (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_frp_composites.rs` | 8 | ACI 440, EC2 | FRP properties, laminate stiffness, FRP-RC flexure, strengthening |
+
+### Precast Concrete (8 tests across 1 file)
+
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_precast_concrete.rs` | 8 | PCI, ACI 318 | Hollow-core flexure, double-tee composite, corbel, bearing pad |
 
 ---
 
@@ -367,9 +493,9 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 
 ---
 
-## Textbook Classics (~1050 tests)
+## Textbook Classics (~1688 tests)
 
-### Beam Theory (15 files, ~110 tests)
+### Beam Theory (18 files, ~134 tests)
 - `validation_beam_formulas.rs` (14) — Timoshenko: SS, cantilever, fixed-fixed, propped cantilever
 - `validation_beam_deflections.rs` (8) — Timoshenko & Gere, Gere & Goodno, Beer & Johnston
 - `validation_beam_rotation.rs` (8) — End rotation formulas
@@ -385,8 +511,11 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_shear_deformation.rs` (8) — Timoshenko vs EB comparison
 - `validation_span_to_depth_effects.rs` (8) — L/d ratio effects, section efficiency
 - `validation_cantilever_variations.rs` (8) — Intermediate load, superposition, stiffness ratio
+- `validation_beam_on_three_supports.rs` (8) — Propped beam, 2-span reactions, interior-support moment
+- `validation_overhanging_beam.rs` (8) — Tip load/UDL reactions, uplift detection
+- `validation_rotation_slope_verification.rs` (8) — Analytic end-slope cross-checks
 
-### Internal Forces (14 files, ~110 tests)
+### Internal Forces (20 files, ~158 tests)
 - `validation_internal_forces.rs` (8) — V=qL/2, M=qL²/8
 - `validation_shear_force_diagrams.rs` (8) — dV/dx=-q, dM/dx=V
 - `validation_moment_gradient.rs` (8) — Constant/linear shear → M shape
@@ -401,14 +530,22 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_reaction_patterns.rs` (8) — Determinate, indeterminate, symmetric
 - `validation_nodal_equilibrium.rs` (8) — ΣF=0 at every node
 - `validation_load_path.rs` (8) — Direct/indirect path, truss flow
+- `validation_axial_force_effects.rs` (8) — Pure tension/compression, proportionality
+- `validation_distributed_load_patterns.rs` (8) — UDL, triangular, reversed, partial
+- `validation_force_displacement.rs` (8) — Linear proportionality, doubling checks
+- `validation_force_equilibrium_detailed.rs` (8) — Global ΣFv and ΣM verification
+- `validation_joint_equilibrium_checks.rs` (8) — Per-node equilibrium
+- `validation_load_reversal_symmetry.rs` (8) — Reversed load reverses response
 
-### Continuous Beams (4 files, ~30 tests)
+### Continuous Beams (6 files, ~46 tests)
 - `validation_continuous_beams.rs` (6) — 2-span, 3-span, Ghali/Neville
 - `validation_three_moment_equation.rs` (8) — Clapeyron (1857)
 - `validation_continuous_patterns.rs` (8) — ACI 318 §6.4, EC2 §5.1.3 checkerboard
 - `validation_moment_redistribution.rs` (8) — Cross (1930), adding supports
+- `validation_continuous_beam_analysis.rs` (8) — 3/4-span interior moments, reactions, symmetry
+- `validation_continuous_beam_patterns.rs` (8) — Checkerboard patterns, moment envelope effects
 
-### Indeterminate Methods (14 files, ~110 tests)
+### Indeterminate Methods (20 files, ~157 tests)
 - `validation_slope_deflection.rs` (8) + `validation_slope_deflection_method.rs` (8)
 - `validation_moment_distribution.rs` (8) + `validation_hardy_cross.rs` (8)
 - `validation_force_method.rs` (8) + `validation_flexibility_method.rs` (8)
@@ -417,8 +554,14 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_matrix_condensation.rs` (8)
 - `validation_member_stiffness.rs` (8) + `validation_stiffness_matrix.rs` (8)
 - `validation_stiffness_ratio_effects.rs` (8)
+- `validation_carry_over_factors.rs` (8) — CO=0.5, distribution factors, 4EI vs 3EI
+- `validation_determinate_vs_indeterminate.rs` (8) — EI-independent vs EI-dependent reactions
+- `validation_matrix_fundamentals.rs` (8) — 2×2 truss, beam condensation, transformation
+- `validation_matrix_structural_analysis.rs` (8) — Axial/beam element stiffness, assembly
+- `validation_stiffness_matrix_properties.rs` (8) — Symmetry, positive work, superposition
+- `validation_kassimali_extended.rs` (6) — Propped cantilever, fixed partial UDL, continuous
 
-### Energy Methods (8 files, ~64 tests)
+### Energy Methods (8 files, ~68 tests)
 - `validation_fundamental_theorems.rs` (12) — Maxwell-Betti, Clapeyron, Castigliano
 - `validation_energy_methods.rs` (8) — Castigliano (1879), Maxwell (1864), Betti (1872)
 - `validation_castigliano.rs` (8) — δ=∂U/∂P
@@ -427,14 +570,16 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_unit_load_deflections.rs` (8)
 - `validation_superposition.rs` (8)
 
-### Classical Methods (5 files, ~40 tests)
+### Classical Methods (7 files, ~56 tests)
 - `validation_conjugate_beam.rs` (8) — Mohr's theorems
 - `validation_moment_area.rs` (8) — Mohr's theorems
 - `validation_transfer_matrix.rs` (8) — Pestel & Leckie (1963)
 - `validation_portal_cantilever_methods.rs` (8)
 - `validation_approximate_methods.rs` (8) — Portal/cantilever methods
+- `validation_approximate_analysis.rs` (8) — wL²/8, wL²/12 approximations
+- `validation_portal_method_analysis.rs` (8) — Column shear, interior double shear, inflection
 
-### Frames (16 files, ~130 tests)
+### Frames (22 files, ~178 tests)
 - `validation_frames.rs` (7) — Portal, Gerber, settlement, spring
 - `validation_frame_stiffness.rs` (8) — Sway stiffness, load sharing
 - `validation_frame_deflection_patterns.rs` (8)
@@ -446,8 +591,14 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_arch_structures.rs` (8) + `validation_arch_action.rs` (8)
 - `validation_grillage.rs` (8) — Hambly bridge deck
 - `validation_combined_loading.rs` (8)
+- `validation_frame_behavior_classes.rs` (8) — Braced vs unbraced sway, symmetric gravity
+- `validation_frame_drift_limits.rs` (8) — Drift proportionality, story drift
+- `validation_gerber_beam.rs` (8) — Gerber/hinge beam, moment=0 at hinge
+- `validation_moment_connection.rs` (8) — Rigid vs pinned sway, joint equilibrium
+- `validation_sway_frames.rs` (8) — Portal stiffness, antisymmetric moments
+- `validation_multi_story_behavior.rs` (8) — Two-story lateral, shear distribution
 
-### Trusses (8 files, ~64 tests)
+### Trusses (9 files, ~72 tests)
 - `validation_trusses.rs` (6) — Equilateral, Warren, Pratt, indeterminate
 - `validation_truss_methods.rs` (8) — Joints, sections, zero-force members
 - `validation_truss_method_of_joints.rs` (8)
@@ -456,8 +607,9 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_cable_truss_structures.rs` (8) — V-shape, fan, deep vs shallow
 - `validation_cable_truss_tension.rs` (8)
 - `validation_3d_truss_structures.rs` (8) — Tetrahedral, tower, bridge
+- `validation_truss_behavior_fundamental.rs` (8) — 3-bar triangle, axial bar, Warren 2-panel
 
-### 3D Analysis (24 files, ~180 tests)
+### 3D Analysis (31 files, ~236 tests)
 - `validation_3d_analysis.rs` (10) — Biaxial, torsion, space truss, equilibrium
 - `validation_3d_beam_bending.rs` (8) + `validation_3d_biaxial_bending.rs` (8)
 - `validation_3d_cantilever_benchmarks.rs` (8) + `validation_3d_cantilever_loading.rs` (8)
@@ -472,8 +624,15 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_3d_torsion_benchmarks.rs` (8) + `validation_3d_torsion_effects.rs` (8)
 - `validation_space_frame_geometry.rs` (8)
 - `validation_stress_3d.rs` (6)
+- `validation_3d_beam_bending_axes.rs` (8) — Strong/weak axis, biaxial superposition
+- `validation_3d_cantilever_verification.rs` (8) — Tip-load deflection/rotation for all DOFs
+- `validation_3d_frame_stiffness_properties.rs` (8) — Analytic stiffness: EA/L, 3EI/L³, GJ/L
+- `validation_3d_moment_verification.rs` (8) — Biaxial moment diagrams, My and Mz cross-check
+- `validation_3d_space_frame_basic.rs` (8) — L-frame, 3D portal, cantilevers along Y/Z
+- `validation_3d_support_conditions.rs` (8) — Fixed/pinned/roller DOF constraints
+- `validation_3d_torsion_basic.rs` (8) — Pure torsion: proportionality to length, 1/J
 
-### Buckling & Stability (16 files, ~130 tests)
+### Buckling & Stability (21 files, ~170 tests)
 - `validation_euler_buckling.rs` (16) — 4 BCs × 4 mesh densities
 - `validation_timoshenko_stability.rs` (8)
 - `validation_eurocode3_buckling.rs` (6) — alpha_cr
@@ -487,8 +646,13 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_effective_length.rs` (8) + `validation_notional_loads.rs` (8)
 - `validation_3d_buckling.rs` (7) + `validation_3d_pdelta.rs` (7)
 - `validation_beam_column_interaction.rs` (8)
+- `validation_buckling_theory.rs` (8) — Euler four BCs, tangent-modulus, AISC column curve
+- `validation_column_curves.rs` (8) — Amplification factor, effective length
+- `validation_nonlinear_geometry.rs` (8) — Euler critical, amplification, snap-through arch
+- `validation_stability_design_methods.rs` (8) — DAM, stiffness reduction, ELM, B1/B2
+- `validation_buckling_plate_shell.rs` (8) — Donnell, Von Karman, Winter, EC3 shell
 
-### Dynamic Analysis (14 files, ~100 tests)
+### Dynamic Analysis (18 files, ~132 tests)
 - `validation_modal_frequencies.rs` (16) — 4 BCs × (exact + convergence + higher + 3D)
 - `validation_damping_frequency.rs` (8) — Chopra, Clough & Penzien
 - `validation_modal_properties.rs` (8) — Orthogonality, Rayleigh, effective mass
@@ -501,14 +665,20 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_3d_spectral.rs` (6) + `validation_3d_modal_dynamic.rs` (8)
 - `validation_seismic_design.rs` (8)
 - `validation_biggs_extended.rs` (4)
+- `validation_dynamic_response.rs` (8) — SDOF free vibration, Duhamel, Newmark accuracy
+- `validation_earthquake_response_spectra.rs` (8) — Harmonic excitation, Duhamel impulse, SRSS
+- `validation_structural_dynamics.rs` (8) — Natural frequency, damped frequency, log decrement
+- `validation_structural_dynamics_advanced.rs` (8) — 2-DOF frequencies, SRSS/CQC, Rayleigh coefficients
 
-### Plastic & Nonlinear (9 files, ~55 tests)
+### Plastic & Nonlinear (11 files, ~71 tests)
 - `validation_plastic_collapse.rs` (8) — Neal: exact collapse loads
 - `validation_plastic_mechanisms.rs` (8) — Mechanism types, EN 1993-1-1 §5.6
 - `validation_plastic_hinge_sequence.rs` (8)
 - `validation_material_nonlinear.rs` (3) + `validation_material_nonlinear_benchmarks.rs` (8)
 - `validation_pushover.rs` (6) — FEMA 356, ATC-40
 - `validation_corotational.rs` (4) + `validation_corotational_benchmarks.rs` (5) + `validation_advanced_corotational.rs` (4)
+- `validation_plastic_analysis.rs` (8) — Plastic moment, upper/lower bound theorems, shape factors
+- `validation_plastic_analysis_theorems.rs` (8) — SS Mp, fixed collapse, portal sway, combined mechanism
 
 ### Thermal, Settlement, Springs, Foundation (9 files, ~68 tests)
 - `validation_thermal_settlement.rs` (10) + `validation_thermal_effects.rs` (8)
@@ -521,13 +691,44 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_influence_lines.rs` (8) + `validation_muller_breslau.rs` (8)
 - `validation_moving_loads.rs` (8) + `validation_moving_load_bridges.rs` (7)
 
-### Stress Analysis (2 files, ~16 tests)
+### Stress Analysis (4 files, ~30 tests)
 - `validation_section_stress.rs` (8) — Navier, Jourawski, Mohr, Von Mises, Tresca
 - `validation_stress_3d.rs` (6) — 3D Navier, biaxial, torsion, Von Mises
+- `validation_mohr_circle_stress.rs` (8) — 2D/3D stress transformation, principal stresses, yield
+- `validation_connection_mechanics.rs` (8) — Connection force mechanics, elastic method
 
-### Other Specialized (misc files)
+### Elastic Curves & Deflections (4 files, ~32 tests)
+- `validation_elastic_curve_shapes.rs` (8) — Parabolic (SS UDL), cubic (cantilever), quartic (fixed)
+- `validation_boundary_condition_effects.rs` (8) — Fixed vs SS ratio, zero rotation/moment checks
+- `validation_deflection_serviceability.rs` (8) — L/360 code check, required Iz, stiffness ratios
+- `validation_element_stiffness_verification.rs` (8) — Single-element cantilever, E-proportionality
+
+### Moment Diagrams & Shear Verification (4 files, ~32 tests)
+- `validation_moment_diagram_shapes.rs` (8) — Triangular, parabolic, linear diagram shapes
+- `validation_stress_resultants.rs` (8) — dM/dx=V, constant shear, dV/dx=-q
+- `validation_shear_force_verification.rs` (8) — Shear diagram shapes and discontinuities
+- `validation_reaction_force_patterns.rs` (8) — Reaction patterns under various loads
+
+### Arch & Shell Theory (4 files, ~32 tests)
+- `validation_arch_analysis_formulas.rs` (8) — Three-hinge parabolic, two-hinge circular, tied arch
+- `validation_plate_bending.rs` (8) — Navier solution, bending rigidity, Levy, critical buckling
+- `validation_plate_theory.rs` (8) — Kirchhoff-Navier, plate buckling, circular, natural frequency
+- `validation_shell_membrane_theory.rs` (8) — Spherical vessel, cylindrical shell, conical, edge bending
+
+### Cables (5 files, ~40 tests)
+- `validation_cable_structures.rs` (8) — Catenary thrust, parabolic sag, cable length, concentrated load
+- `validation_cable_suspension_analysis.rs` (8) — Catenary sag, parabolic profile, support tension
+- `validation_cable_analysis_advanced.rs` (8) — Ernst equivalent modulus, Irvine parameter
+- `validation_cable_net_structures.rs` (8) — Orthogonal net, spoke-wheel, pretension
+- `validation_cable_stayed_bridges.rs` (8) — Fan arrangement, Ernst modulus, tower compression
+
+### Plates & Shells (4 files, ~19 tests)
 - `validation_curved_beams.rs` (5) — Quarter-circle, Roark ring, parabolic arch
 - `validation_plates.rs` (4) + `validation_scordelis_lo.rs` (3) + `validation_pressure_loads.rs` (4)
+- `validation_shell_theory.rs` (8) — Spherical vessel, cylindrical, conical, edge bending
+- `validation_thin_shell_structures.rs` (8) — Dome membrane, cylindrical roof, hypar, buckling
+
+### Other Textbook (misc files, ~98 tests)
 - `validation_guided_y.rs` (3) — GuidedY support type
 - `validation_kinematic.rs` (6) + `validation_3d_kinematic.rs` (7) — Mechanism detection
 - `validation_rigid_body_modes.rs` (8) — Insufficient restraints
@@ -538,6 +739,156 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 - `validation_relative_displacement.rs` (8)
 - `validation_hibbeler_problems.rs` (8)
 - `validation_progressive_collapse.rs` (6)
+- `validation_deformation_compatibility_checks.rs` (8) — Rotation/displacement continuity
+- `validation_shear_lag.rs` (8) — Effective width, deflection increase, load sharing
+- `validation_timoshenko_solver.rs` (8) — Timoshenko beam solver validation
+- `validation_mixed_elements.rs` (8) — Mixed beam/truss/spring models
+
+---
+
+## Mathematical Properties & Numerical Methods (~179 tests)
+
+### Matrix & Stiffness Properties (5 files, ~39 tests)
+- `validation_stiffness_modification.rs` (8) — Internal hinge, midspan hinge, fixed-to-propped
+- `validation_stiffness_properties.rs` (7) — Rigid-body zero eigenvalues: 2D frame, 2D truss, 3D
+- `validation_cross_section_effects.rs` (8) — Doubling Iz halves deflection, EI effects on indeterminate
+- `validation_span_ratio_effects.rs` (8) — Equal vs unequal span, portal aspect ratio
+- `validation_load_path_redundancy.rs` (8) — Parallel paths, unequal stiffness, brace reduces sway
+
+### Energy & Work Theorems (2 files, ~16 tests)
+- `validation_work_energy_theorem.rs` (8) — Cantilever, Castigliano SS, UDL deflection
+- `validation_przemieniecki_extended.rs` (6) — Stiffness symmetry, positive diagonal, patch test
+
+### Fracture Mechanics (1 file, ~8 tests)
+- `validation_fracture_mechanics.rs` (8) — SIF, J-integral, Paris law, MTS criterion, FAD (BS 7910)
+
+### Laminate Plate Theory (1 file, ~8 tests)
+- `validation_laminate_plate_theory.rs` (8) — CLT, Tsai-Wu, rule of mixtures, laminate invariants
+
+### Hydrodynamic Loading (1 file, ~8 tests)
+- `validation_hydrodynamic_loading.rs` (8) — Morison equation, wave theory, VIV formulas
+
+### Structural Damping (1 file, ~8 tests)
+- `validation_structural_damping_models.rs` (8) — Rayleigh damping, half-power bandwidth, EC8 correction
+
+### Thermal Stress Theory (1 file, ~8 tests)
+- `validation_thermal_stress_analysis.rs` (8) — Free expansion, restrained bar, bimetallic strip, buckling
+
+### Structural Reliability (1 file, ~8 tests)
+- `validation_structural_reliability.rs` (8) — FORM index, Monte Carlo, LRFD, Hasofer-Lind
+
+### Structural Optimization (1 file, ~8 tests)
+- `validation_structural_optimization.rs` (8) — FSD, Lagrangian, SIMP penalty, compliance sensitivity
+
+### Numerical Methods (2 files, ~16 tests)
+- `validation_numerical_methods.rs` (8) — Gauss quadrature, Hilbert condition, Cholesky, bandwidth
+- `validation_impact_loading.rs` (8) — Falling weight, sudden load, vehicle collision, dropped object
+
+### Additional Properties (misc files, ~52 tests)
+- `validation_serviceability_vibration.rs` (8) — Floor vibration, natural frequency, response factor
+- `validation_footfall_vibration.rs` (8) — Walking harmonics, AISC DG11
+- `validation_vibration_isolation.rs` (8) — Transmissibility, LRB, TMD Den Hartog, viscous damper
+- `validation_structural_acoustics.rs` (8) — Mass law, STC rating, coincidence frequency
+- `validation_structural_health_monitoring.rs` (8) — Frequency shift, mode shape curvature, strain gauge
+- `validation_earthquake_engineering.rs` (8) — Design spectrum, ELF, vertical distribution, drift
+
+---
+
+## FEM Quality & Convergence (~54 tests)
+
+### Convergence (3 files, ~23 tests)
+- `validation_convergence.rs` (7) — h-refinement: cantilever tip, SS reactions, end moment
+- `validation_mesh_convergence.rs` (8) — Coarse vs fine, deflection convergence, midspan moment
+- `validation_finite_element_convergence.rs` (8) — h/p-refinement, patch consistency, Richardson extrapolation
+
+### Patch Tests (1 file, ~8 tests)
+- `validation_patch_tests.rs` (8) — Truss uniform-strain, frame axial, beam pure-bending, rigid-body
+
+### Element Verification (2 files, ~15 tests)
+- `validation_mixed_elements.rs` (8) — Mixed beam/truss/spring models
+- `validation_stiffness_properties.rs` (7) — Rigid-body eigenvalues
+
+---
+
+## Engineering Practice & Specialized Structures (~616 tests)
+
+### Geotechnical & Foundations (12 files, ~96 tests)
+- `validation_soil_structure.rs` (8) — Winkler spring, beam on elastic foundation, Rankine
+- `validation_soil_structure_interaction.rs` (8) — Winkler modulus, Vesic-Biot, mat stiffness, pile capacity
+- `validation_deep_excavation.rs` (8) — Active/passive/apparent pressure, sheet pile design
+- `validation_earth_retaining_advanced.rs` (8) — Anchored sheet pile, multi-propped, diaphragm wall
+- `validation_liquefaction.rs` (8) — CSR, CRR from SPT/CPT, settlement
+- `validation_rock_mechanics.rs` (8) — Hoek-Brown, RMR/GSI, Q-system, rock bolt
+- `validation_ground_improvement.rs` (8) — Stone columns, soil nailing, jet grouting, compaction
+- `validation_slope_stability.rs` (8) — Infinite slope, planar cohesive, Fellenius
+- `validation_soil_dynamics.rs` (8) — Site amplification, liquefaction CRR, Newmark block, 1D response
+- `validation_tunnel_lining.rs` (8) — Overburden, Curtis solution, convergence-confinement
+- `validation_underpinning.rs` (8) — Mass concrete, micropile, jet grout, needle beam
+- `validation_pavement_design.rs` (8) — Structural number, traffic design, rigid pavement, Boussinesq
+
+### Maritime, Offshore & Hydraulics (4 files, ~32 tests)
+- `validation_marine_offshore.rs` (8) — Airy wave, Morison equation, hydrostatic, API wave load
+- `validation_coastal_structures.rs` (8) — Wave force, breakwater armor, overtopping, wave run-up
+- `validation_hydraulic_engineering.rs` (8) — Manning, Bernoulli, weir discharge, Darcy-Weisbach
+- `validation_flood_hydraulics.rs` (8) — Manning's, weir flow, culvert capacity, Yarnell backwater
+
+### Bridge Engineering (2 files, ~16 tests)
+- `validation_suspension_bridges.rs` (8) — Suspension cable forces, stiffening girder, hanger design
+- `validation_catenary_cable.rs` (8) — Catenary cable analysis formulas
+
+### Wind Engineering (1 file, ~8 tests)
+- `validation_snow_ice_loading.rs` (8) — Ground-to-roof, EC flat roof, sloped reduction, drift
+
+### Specialty Civil Structures (14 files, ~112 tests)
+- `validation_blast_resistant_design.rs` (8) — Friedlander wave, scaled distance, SDOF, DLF
+- `validation_chimney_stack_design.rs` (8) — Along-wind, vortex shedding, thermal gradient, shell stress
+- `validation_crane_loading.rs` (8) — Static wheel loads, runway moment, lateral forces, biaxial
+- `validation_construction_staging.rs` (8) — Formwork pressure, shore load, reshoring, temp bracing
+- `validation_dam_engineering.rs` (8) — Gravity dam sliding/overturning/uplift, arch ring
+- `validation_demolition_engineering.rs` (8) — Partial stability, blast sequence, debris, pre-weakening
+- `validation_elevator_escalator.rs` (8) — Guide rail forces, rope tension, counterweight, machine room
+- `validation_expansion_joints.rs` (8) — Thermal movement, shrinkage/creep, gap sizing
+- `validation_nuclear_containment.rs` (8) — DBA pressure, hoop tension, dome membrane, liner strain
+- `validation_power_transmission_towers.rs` (8) — Conductor sag/tension, wind, leg member, foundation
+- `validation_scaffolding_falsework.rs` (8) — Leg capacity, platform loading, prop capacity, bracing
+- `validation_scaffolding_formwork.rs` (8) — Tube axial, tie forces, concrete pressure, props
+- `validation_silo_tank_design.rs` (8) — Janssen pressure, hydrostatic, wind buckling, sloshing
+- `validation_storage_rack_design.rs` (8) — Beam capacity, upright buckling, frame stability
+
+### Geosynthetics & Tunnels (2 files, ~16 tests)
+- `validation_geosynthetics.rs` (8) — Geogrid, MSE internal stability, reinforced slope, geomembrane
+- `validation_water_retaining.rs` (8) — Hydrostatic pressure, crack width, minimum reinforcement
+
+### Concrete Durability & Rehabilitation (2 files, ~16 tests)
+- `validation_progressive_rehabilitation.rs` (8) — Carbonation, corrosion, CFRP, section loss
+- `validation_glass_design.rs` (8) + `validation_glass_structures.rs` (8) — Glass design formulas
+
+### Steel Fiber & Stainless (2 files, ~16 tests)
+- `validation_steel_fiber_concrete.rs` (8) — SFRC flexure and shear capacity
+- `validation_tensile_structures.rs` (8) — Membrane stresses, form-finding
+
+### Miscellaneous Engineering Practice (misc files, ~296 tests)
+- `validation_fluid_structure_interaction.rs` (8) — FSI formulas
+- `validation_concrete_durability.rs` (8) — Cover, carbonation, chloride
+- `validation_seismic_isolation.rs` (8) — LRB, FPS, HDR
+- `validation_connection_design.rs` (8) + `validation_connection_mechanics.rs` (8) — Connections
+- `validation_composite_design.rs` (8) — AISC/EC4 composite
+- `validation_cold_formed_steel.rs` (8) — AISI S100 effective width, DSM
+- `validation_frp_composites.rs` (8) — FRP material, FRP-RC flexure
+- `validation_aluminum_design.rs` (8) — 6061-T6, HAZ, LTB
+- `validation_precast_concrete.rs` (8) — Hollow-core, corbel, bearing pad
+- `validation_seismic_detailing.rs` (8) — Strong-column weak-beam, capacity design
+- `validation_fatigue.rs` (8) — EC3 S-N curves, Miner's rule
+- `validation_fire_resistance.rs` (8) — ISO 834, steel reduction factors
+- `validation_cirsoc_wind.rs` (8) — CIRSOC 102 velocity pressure
+- `validation_railway_structures.rs` (8) — EN 1991-2 LM71
+- `validation_bridge_design.rs` (8) + `validation_bridge_engineering.rs` (8) + `validation_bridge_loads.rs` (8) + `validation_highway_bridge_loading.rs` (8)
+- `validation_pile_foundations.rs` (8) + `validation_retaining_walls.rs` (8)
+- `validation_geotechnical_bearing_capacity.rs` (8) + `validation_geotechnical_engineering.rs` (8) + `validation_geotechnical_slopes.rs` (8)
+- `validation_masonry_design.rs` (8) + `validation_masonry_arches.rs` (8)
+- `validation_timber_design.rs` (8) + `validation_timber_connections.rs` (8) + `validation_wood_design.rs` (8)
+- `validation_performance_based_design.rs` (8) — PBEE, fragility, ASCE 41
+- `validation_progressive_collapse_full.rs` (8) — UFC, EN 1991 accidental
 
 ---
 
@@ -603,27 +954,22 @@ These are important to structural engineering practice, but they are not the sam
 
 | Topic | Current State | Evidence in Code / Tests | Remaining Gap |
 |-------|---------------|--------------------------|---------------|
-| Steel member checks | Good | `postprocess/steel_check.rs`, `integration_steel_check.rs`, `validation_cross_section_classification.rs` | Broader design-code depth and more connection/joint coupling |
-| RC member checks | Good | `postprocess/rc_check.rs`, `integration_rc_check.rs`, `validation_reinforced_concrete_design.rs` | Cracked-section depth, detailing breadth, and time-dependent coupling |
+| Steel member checks (AISC 360) | Good | `postprocess/steel_check.rs`, `integration_steel_check.rs`, `validation_structural_steel_design.rs` | Broader design-code depth and more connection/joint coupling |
+| RC member checks (ACI 318) | Good | `postprocess/rc_check.rs`, `integration_rc_check.rs`, `validation_reinforced_concrete_design.rs` | Cracked-section depth, detailing breadth, and time-dependent coupling |
 | EC2 concrete checks | Good | `postprocess/ec2_check.rs`, `integration_ec2_check.rs`, `validation_concrete_design.rs`, `validation_concrete_detailing.rs` | Broader detailing, crack-control, and lifecycle coupling |
 | CIRSOC 201 concrete checks | Good | `postprocess/cirsoc201_check.rs`, `integration_cirsoc201_check.rs`, `validation_concrete_design.rs` | Broader code breadth and workflow integration |
 | EC3 steel checks | Good | `postprocess/ec3_check.rs`, `integration_ec3_check.rs`, `validation_eurocode3_buckling.rs`, `validation_cross_section_classification.rs` | Broader clause coverage and more design workflows |
-| Timber design checks | Good | `postprocess/timber_check.rs`, `integration_timber_check.rs`, `validation_timber_design.rs`, `validation_timber_connections.rs` | Broader species/detailing/connectors coverage |
+| Timber design checks (NDS) | Good | `postprocess/timber_check.rs`, `integration_timber_check.rs`, `validation_timber_design.rs`, `validation_timber_connections.rs` | Broader species/detailing/connectors coverage |
 | Serviceability checks | Good | `postprocess/serviceability.rs`, `integration_serviceability.rs`, `validation_serviceability_checks.rs`, `validation_serviceability_vibration.rs` | Broader office workflows and more building-level checks |
-| Connection checks | Good | `postprocess/connection_check.rs`, `integration_connection_check.rs`, `validation_connection_design.rs`, `validation_connection_mechanics.rs` | Broader joint families and detailing depth |
-| Foundation checks | Good | `postprocess/foundation_check.rs`, `integration_foundation_check.rs`, `validation_foundation_design.rs`, `validation_foundation_interaction.rs` | Deeper SSI coupling and broader footing/pile workflows |
-| Cold-formed steel checks | Good | `postprocess/cfs_check.rs`, `integration_cfs_check.rs`, `validation_cold_formed_steel.rs` | Broader AISI/EC3-1-3 clause coverage |
-| Masonry checks | Good | `postprocess/masonry_check.rs`, `integration_masonry_check.rs`, `validation_masonry_design.rs`, `validation_masonry_arches.rs` | Broader masonry design workflows and code breadth |
-
-#### Remaining Gaps — Can Test with Existing Solver
-
-| Topic | Difficulty | Impact | Reference Codes |
-|-------|-----------|--------|-----------------|
-| Lateral-torsional buckling (LTB) | Medium | Steel beam design | EN 1993-1-1 §6.3.2, AISC 360-22 Ch.F |
-| CIRSOC 102 wind loading | Medium | Argentine wind design | CIRSOC 102-2005, CIRSOC 102-2018 |
-| Fatigue / S-N curves / Miner's rule | Medium | Steel bridges, connections | EC3-1-9, AISC 360-22 App.3, AASHTO |
-| Seismic detailing | Medium | Ductile design | ACI 318-19 Ch.18, EC8-1 §5, CIRSOC 103 |
-| Progressive collapse — full analysis | Medium | Robustness | GSA 2016, DoD UFC 4-023-03, EN 1991-1-7 |
+| Connection checks (AISC) | Good | `postprocess/connection_check.rs`, `integration_connection_check.rs`, `validation_connection_design.rs`, `validation_connection_mechanics.rs` | Broader joint families and detailing depth |
+| Foundation checks (ACI 318) | Good | `postprocess/foundation_check.rs`, `integration_foundation_check.rs`, `validation_foundation_design.rs`, `validation_foundation_interaction.rs` | Deeper SSI coupling and broader footing/pile workflows |
+| Cold-formed steel (AISI S100) | Good | `postprocess/cfs_check.rs`, `integration_cfs_check.rs`, `validation_cold_formed_steel.rs` | Broader AISI/EC3-1-3 clause coverage |
+| Masonry checks (TMS 402) | Good | `postprocess/masonry_check.rs`, `integration_masonry_check.rs`, `validation_masonry_design.rs`, `validation_masonry_arches.rs` | Broader masonry design workflows and code breadth |
+| LTB checks | Done | `validation_lateral_torsional_buckling.rs`, `validation_structural_steel_design.rs` | Integrated into steel/EC3 check modules |
+| CIRSOC 102 wind | Done | `validation_cirsoc_wind.rs` | Formula-level checks complete |
+| Fatigue / S-N / Miner | Done | `validation_fatigue.rs` | EC3-1-9 S-N curves and Miner accumulation |
+| Seismic detailing | Done | `validation_seismic_detailing.rs` | ACI 318 Ch.18, EC8-1 §5 checks |
+| Progressive collapse — full | Done | `validation_progressive_collapse.rs`, `validation_progressive_collapse_full.rs` | UFC and EN 1991-1-7 checks |
 
 #### Remaining Gaps — Needs New Solver Features
 
@@ -631,7 +977,7 @@ These are important to structural engineering practice, but they are not the sam
 |-------|-----------|--------|-----------------|
 | RC design — reinforcement & crack control | Hard | Concrete structures | ACI 318-19 §24, EC2 §7.3, CIRSOC 201 |
 | Composite sections (steel-concrete) | Hard | Composite construction | AISC 360-22 Ch.I, EC4, CIRSOC 301+201 |
-| Fire resistance | Hard | Temperature-dependent properties | EC2-1-2, EC3-1-2, CIRSOC fire annex |
+| Fire resistance — coupled thermal-structural | Hard | Temperature-dependent properties | EC2-1-2, EC3-1-2, CIRSOC fire annex |
 | Soil-structure interaction (p-y curves) | Medium | Foundation analysis | API RP 2A, AASHTO, EC7 |
 | Dynamic wind / buffeting / vortex shedding | Hard | Tall buildings, bridges | CIRSOC 102, EC1-1-4, ASCE 7 Ch.26 |
 | Nonlinear material — concrete damage | Hard | Concrete cracking | Mazars, CDP, EC2 |
