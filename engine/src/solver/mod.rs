@@ -19,6 +19,7 @@ pub mod staged;
 pub mod cable;
 pub mod harmonic;
 pub mod load_cases;
+pub mod winkler;
 
 pub use dof::*;
 pub use assembly::*;
@@ -36,3 +37,4 @@ pub use time_integration::*;
 pub use cable::*;
 pub use harmonic::*;
 pub use load_cases::*;
+pub use winkler::*;

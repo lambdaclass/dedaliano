@@ -508,6 +508,30 @@ pub fn solve_harmonic_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Winkler Foundation ====================
+
+/// Solve 2D beam on Winkler elastic foundation. JSON: WinklerInput
+#[wasm_bindgen]
+pub fn solve_winkler_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::winkler::WinklerInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::winkler::solve_winkler_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D beam on Winkler elastic foundation. JSON: WinklerInput3D
+#[wasm_bindgen]
+pub fn solve_winkler_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::winkler::WinklerInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = solver::winkler::solve_winkler_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::*;
