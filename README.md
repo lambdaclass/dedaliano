@@ -52,7 +52,7 @@ It should explain what Dedaliano is and where to read next, not duplicate the be
 
 ## Current state
 
-Dedaliano is now best described as an `open-source structural solver and structural engineering platform in progress`.
+Dedaliano is an `open-source structural solver` with a growing structural engineering platform around it.
 
 What exists today at a high level:
 
@@ -61,6 +61,28 @@ What exists today at a high level:
 - 2D and 3D linear, second-order, dynamic, staged, cable, and nonlinear analysis paths
 - design-check and postprocess modules for steel, concrete, timber, masonry, serviceability, connections, and foundations
 - a large benchmark and validation program tracked in [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+
+The solver currently combines:
+
+- broad structural analysis coverage
+- serious nonlinear capability
+- contact and soil-structure interaction
+- staged construction and prestress / PT workflows
+- warping torsion
+- dynamic analysis
+- strong postprocessing and design layers
+- broad validation coverage
+
+The main remaining differentiators are:
+
+- robustness on hard real models
+- performance at scale
+- benchmark credibility
+- workflow and modeling quality
+
+A reasonable description today is:
+
+`Dedaliano is a strong open structural solver with broad analysis coverage and a large public validation program.`
 
 ## What is structural analysis
 
