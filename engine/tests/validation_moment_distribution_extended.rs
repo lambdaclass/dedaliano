@@ -704,8 +704,8 @@ fn validation_mdist_ext_non_sway_unequal_columns() {
 
     let m_base1_cross: f64 = m[0].abs();
     let m_base2_cross: f64 = m[5].abs();
-    let m_col1_top_cross: f64 = m[1].abs();
-    let m_col2_top_cross: f64 = m[4].abs();
+    let _m_col1_top_cross: f64 = m[1].abs();
+    let _m_col2_top_cross: f64 = m[4].abs();
 
     // --- Solver ---
     let nodes = vec![
