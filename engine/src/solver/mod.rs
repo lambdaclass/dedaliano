@@ -26,6 +26,7 @@ pub mod contact;
 pub mod soil_curves;
 pub mod ssi;
 pub mod constraints;
+pub mod arc_length;
 
 pub use dof::*;
 pub use assembly::*;

@@ -116,6 +116,17 @@ pub fn solve_corotational_2d(
     })
 }
 
+/// Public entry point for co-rotational assembly (used by arc-length solver).
+pub fn assemble_corotational_public(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    k_t: &mut [f64],
+) {
+    assemble_corotational(input, dof_num, u_full, f_int, k_t);
+}
+
 /// Assemble co-rotational internal forces and tangent stiffness for all elements.
 fn assemble_corotational(
     input: &SolverInput,
