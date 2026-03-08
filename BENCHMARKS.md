@@ -11,26 +11,26 @@
 
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
-| Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
+| Industry Standards & Design Codes | 369 | 0 | 0 | 369 |
 | Commercial Software Cross-Validation | 199 | 5 | 1 | 205 |
-| Textbook Classics | 1872 | 0 | 0 | 1872 |
-| Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
+| Textbook Classics | 1896 | 0 | 0 | 1896 |
+| Mathematical Properties & Numerical Methods | 187 | 0 | 0 | 187 |
 | FEM Quality & Convergence | 70 | 0 | 0 | 70 |
-| Engineering Practice & Specialized Structures | 632 | 0 | 0 | 632 |
+| Engineering Practice & Specialized Structures | 648 | 0 | 0 | 648 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3303** | **3** | **1** | **3307** |
+| **Total** | **3375** | **3** | **1** | **3379** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3369 validation test functions across 426 validation files. 3814 total registered tests across 482 Rust test files.**
+**3441 validation test functions across 435 validation files. 3886 total registered tests across 491 Rust test files.**
 
 Current measured inventory:
 
-- `426` files matching `engine/tests/validation_*.rs`
-- `3369` `#[test]` functions inside validation files
+- `435` files matching `engine/tests/validation_*.rs`
+- `3441` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3814` total registered tests from `cargo test -- --list`
+- `3886` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -269,7 +269,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_braced_frame.rs` | 8 | AISC 360-16 Ch.C, McCormac 6th | X-brace, K-brace, chevron, diagonal force=H/cos(θ) |
 | `validation_braced_frames.rs` | 8 | AISC 360-16 Ch.C, Salmon/Johnson 5th | Stiffness increase, sway reduction, multi-story drift |
 
-### AISC 360 — Steel Design (40 tests across 5 files)
+### AISC 360 — Steel Design (48 tests across 6 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -278,6 +278,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_steel_connections.rs` | 8 | AISC 360-22 Ch.J | Bolt shear/bearing, eccentricity, weld strength, base plate |
 | `validation_plate_girder_design.rs` | 8 | AISC 360-22 Ch.G | Web shear buckling, tension field, stiffeners, flange local buckling |
 | `validation_steel_deck_design.rs` | 8 | AISC 360/SDI | Section properties, composite moment, diaphragm shear, ponding |
+| `validation_design_code_interaction.rs` | 8 | AISC 360, ASCE 7, ACI 318 | H1-1 interaction, beam-column P-M, biaxial 3D, slenderness, shear-moment, bolt group, SCWB |
 
 ### AISC 360 — Connections & Composite (16 tests across 2 files)
 
@@ -308,7 +309,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_seismic_detailing.rs` | 8 | ACI 318-19 Ch.18, EC8-1 §5 | Strong-column weak-beam, capacity design, confinement, behavior factor |
 | `validation_seismic_isolation.rs` | 8 | ASCE 7 Ch.17, EC8 §10 | LRB bilinear, FPS bearing, HDR bearing, design displacement |
 
-### ASCE 7-22 (71 tests across 8 files)
+### ASCE 7-22 (79 tests across 9 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -320,6 +321,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_seismic_design_asce7.rs` | 8 | ASCE 7-22 §12.8 | ELF method, vertical distribution, story drift, P-delta stability |
 | `validation_wind_loading.rs` | 8 | ASCE 7-22 Ch.26 | Velocity pressure qz, Kz, gust effect factor, MWFRS |
 | `validation_wind_engineering.rs` | 8 | EC1-1-4, ASCE 7 | Basic pressure, terrain roughness, along-wind gust, Strouhal |
+| `validation_seismic_extended.rs` | 8 | ASCE 7-22 §12.8, EC8 | ELF base shear, modal SRSS, drift limit, P-delta stability, period estimation, redundancy, torsional irregularity, vertical distribution |
 
 ### AASHTO HL-93 & Bridge Codes (48 tests across 6 files)
 
@@ -332,7 +334,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_highway_bridge_loading.rs` | 8 | AASHTO HL-93, EC1 LM1/LM2 | Truck+lane, tandem+UDL, fatigue truck, multi-lane reduction |
 | `validation_bridge_loads.rs` | 8 | AASHTO HL-93 | Truck, lane load, tandem, impact factor |
 
-### GSA / UFC / FEMA / EN 1991-1-7 (28 tests across 4 files)
+### GSA / UFC / FEMA / EN 1991-1-7 (44 tests across 6 files)
 
 | File | Tests | Reference | Topics |
 |------|-------|-----------|--------|
@@ -340,6 +342,8 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_progressive_collapse_full.rs` | 8 | UFC 4-023-03, EN 1991-1-7, GSA 2016 | Corner column removal, tie force, accidental combination, DCR |
 | `validation_pushover.rs` | 6 | FEMA 356, ATC-40, EC8 Annex B | Pushover curves, P-delta stiffness, near-critical |
 | `validation_performance_based_design.rs` | 8 | FEMA P-58, ASCE 41 | PBEE hazard curve, fragility function, acceptance criteria, EAL |
+| `validation_progressive_collapse_extended.rs` | 8 | GSA 2013, UFC 4-023-03, EN 1991-1-7 | Column removal, catenary action, Vierendeel, alternate load path DCR, tie force, key element, two-column removal, redundancy |
+| `validation_pushover_extended.rs` | 8 | FEMA 356, ATC-40, EC8 | Capacity curve, hinge sequence, push pattern comparison, target displacement, ductility ratio, hinge rotation, weak story, symmetric frame |
 
 ### ACI 318-19 / Concrete Design Codes (48 tests across 6 files)
 
@@ -649,7 +653,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_truss_behavior_fundamental.rs` (8) — 3-bar triangle, axial bar, Warren 2-panel
 - `validation_kassimali_trusses.rs` (8) — 3-bar, Warren 6-panel, Pratt, Howe, K-truss, compound Fink, thermal truss
 
-### 3D Analysis (33 files, ~252 tests)
+### 3D Analysis (34 files, ~260 tests)
 - `validation_3d_analysis.rs` (10) — Biaxial, torsion, space truss, equilibrium
 - `validation_3d_beam_bending.rs` (8) + `validation_3d_biaxial_bending.rs` (8)
 - `validation_3d_cantilever_benchmarks.rs` (8) + `validation_3d_cantilever_loading.rs` (8)
@@ -673,6 +677,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_3d_torsion_basic.rs` (8) — Pure torsion: proportionality to length, 1/J
 - `validation_przemieniecki_3d.rs` (8) — Space truss, biaxial bending, L-frame torsion, grillage, inclined beam, 3D portal
 - `validation_3d_frames_extended.rs` (8) — Cantilever torsion, biaxial bending, 6-bar space truss, right-angle frame, 3D portal lateral, inclined column
+- `validation_3d_advanced_analysis.rs` (8) — Biaxial portal, space truss tower, grillage bridge deck, rigid diaphragm, torsional warping, eccentric loading, multi-story 3D frame, helical stair
 
 ### Buckling & Stability (23 files, ~186 tests)
 - `validation_euler_buckling.rs` (16) — 4 BCs × 4 mesh densities
@@ -697,7 +702,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_buckling_extended.rs` (8) — Pin-pin, fixed-free, fixed-pin, fixed-fixed columns, portal sway, multi-story, braced vs unbraced, variable section
 - `validation_pdelta_extended.rs` (8) — Column amplification B2, two-story drift, leaning column, gravity compression, soft story, near-Pcr convergence, symmetry, braced vs unbraced
 
-### Dynamic Analysis (23 files, ~172 tests)
+### Dynamic Analysis (24 files, ~180 tests)
 - `validation_modal_frequencies.rs` (16) — 4 BCs × (exact + convergence + higher + 3D)
 - `validation_damping_frequency.rs` (8) — Chopra, Clough & Penzien
 - `validation_modal_properties.rs` (8) — Orthogonality, Rayleigh, effective mass
@@ -718,6 +723,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_dynamic_integration.rs` (8) — Free vibration period, step load DAF=2, damped decay, harmonic resonance, Newmark energy, HHT-alpha, multi-DOF modes
 - `validation_modal_extended.rs` (8) — SS beam modes, cantilever 3 modes, portal sway, two-story shear, added mass, stiffness effect, orthogonality, Rayleigh quotient
 - `validation_spectral_extended.rs` (8) — SDOF Sd, SRSS, CQC, participation factors, base shear distribution, design spectrum shape, interstory drift
+- `validation_harmonic_extended.rs` (8) — SDOF resonance peak, far-from-resonance, damped peak reduction, frequency sweep, multi-DOF peaks, phase at resonance, half-power bandwidth, anti-resonance
 
 ### Plastic & Nonlinear (13 files, ~87 tests)
 - `validation_plastic_collapse.rs` (8) — Neal: exact collapse loads
@@ -832,8 +838,9 @@ This order improves solver class faster than expanding sideways into more specia
 ### Thermal Stress Theory (1 file, ~8 tests)
 - `validation_thermal_stress_analysis.rs` (8) — Free expansion, restrained bar, bimetallic strip, buckling
 
-### Structural Reliability (1 file, ~8 tests)
+### Structural Reliability (2 files, ~16 tests)
 - `validation_structural_reliability.rs` (8) — FORM index, Monte Carlo, LRFD, Hasofer-Lind
+- `validation_reliability_extended.rs` (8) — Reserve factor, load factor proportionality, partial safety factors, reliability index, limit state checks, ASCE 7 combos, resistance variability, redundancy
 
 ### Structural Optimization (1 file, ~8 tests)
 - `validation_structural_optimization.rs` (8) — FSD, Lagrangian, SIMP penalty, compliance sensitivity
@@ -874,7 +881,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Engineering Practice & Specialized Structures (~624 tests)
 
-### Geotechnical & Foundations (12 files, ~96 tests)
+### Geotechnical & Foundations (13 files, ~104 tests)
 - `validation_soil_structure.rs` (8) — Winkler spring, beam on elastic foundation, Rankine
 - `validation_soil_structure_interaction.rs` (8) — Winkler modulus, Vesic-Biot, mat stiffness, pile capacity
 - `validation_deep_excavation.rs` (8) — Active/passive/apparent pressure, sheet pile design
@@ -887,6 +894,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_tunnel_lining.rs` (8) — Overburden, Curtis solution, convergence-confinement
 - `validation_underpinning.rs` (8) — Mass concrete, micropile, jet grout, needle beam
 - `validation_pavement_design.rs` (8) — Structural number, traffic design, rigid pavement, Boussinesq
+- `validation_soil_structure_extended.rs` (8) — Winkler-Hetenyi, mat foundation, pile group cap, lateral earth pressure, surcharge, subgrade modulus, flexibility ratio, spring-supported portal
 
 ### Maritime, Offshore & Hydraulics (4 files, ~32 tests)
 - `validation_marine_offshore.rs` (8) — Airy wave, Morison equation, hydrostatic, API wave load
@@ -894,9 +902,10 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_hydraulic_engineering.rs` (8) — Manning, Bernoulli, weir discharge, Darcy-Weisbach
 - `validation_flood_hydraulics.rs` (8) — Manning's, weir flow, culvert capacity, Yarnell backwater
 
-### Bridge Engineering (2 files, ~16 tests)
+### Bridge Engineering (3 files, ~24 tests)
 - `validation_suspension_bridges.rs` (8) — Suspension cable forces, stiffening girder, hanger design
 - `validation_catenary_cable.rs` (8) — Catenary cable analysis formulas
+- `validation_bridge_engineering_extended.rs` (8) — HL-93 truck moment envelope, continuous 3-span pier moments, grillage distribution, natural frequency screening, IL pier reaction, composite transformed section, skew effect, temperature gradient
 
 ### Wind Engineering (1 file, ~8 tests)
 - `validation_snow_ice_loading.rs` (8) — Ground-to-roof, EC flat roof, sloped reduction, drift
