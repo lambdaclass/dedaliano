@@ -12,25 +12,25 @@
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
 | Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
-| Commercial Software Cross-Validation | 81 | 5 | 1 | 87 |
+| Commercial Software Cross-Validation | 135 | 5 | 1 | 141 |
 | Textbook Classics | 1688 | 0 | 0 | 1688 |
 | Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
 | FEM Quality & Convergence | 54 | 0 | 0 | 54 |
 | Engineering Practice & Specialized Structures | 616 | 0 | 0 | 616 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **2969** | **8** | **1** | **2978** |
+| **Total** | **3023** | **8** | **1** | **3032** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3030 validation test functions across 385 validation files. 3475 total registered tests across 423 Rust test files.**
+**3084 validation test functions across 390 validation files. 3529 total registered tests across 446 Rust test files.**
 
 Current measured inventory:
 
-- `385` files matching `engine/tests/validation_*.rs`
-- `3030` `#[test]` functions inside validation files
+- `390` files matching `engine/tests/validation_*.rs`
+- `3084` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3475` total registered tests from `cargo test -- --list`
+- `3529` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -457,39 +457,47 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Commercial Software Cross-Validation
 
-### ANSYS Verification Manual (33 DONE, 5 CAPABILITY)
+### ANSYS Verification Manual (41 DONE, 5 CAPABILITY)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
 | `validation_ansys_vm.rs` | 7 | VM1 (3-bar truss), VM2 (overhangs), VM4 (V-truss), VM10 (eccentric), VM12 (3D biaxial) |
 | `validation_ansys_vm_extended.rs` | 18 | VM3 (stepped), VM5/6 (thermal), VM7 (gradient), VM8 (truss), VM9 (space truss), VM13 (portal), VM14 (cantilever), VM21 (tie rod), VM156 (P-delta) |
 | `validation_ansys_vm_additional.rs` | 8 | VM11 (plate), VM15 (nonlinear), VM16 (Euler), VM17, VM20, VM25 (2-span), VM44 (ring) |
+| `validation_ansys_vm_benchmarks.rs` | 8 | VM22 (axial+bending cantilever), VM23 (Winkler), VM26 (2-span partial UDL), VM27 (thermal gradient), VM30 (3D space truss), VM33 (3-bar truss), VM34 (thermal 2-bar), VM40 (large deflection) |
 
 **CAPABILITY** (not yet exact match): VM11 (plate mesh), VM14a (large deflection), VM15 (material nonlinear), VM18 (semicircular arch), VM44 (circular ring).
 
-### SAP2000 / CSI (10 DONE)
+### SAP2000 / CSI (18 DONE)
 
-**File:** `validation_sap2000.rs`
-Simple beam, continuous, portal, 2-story modal, braced+leaning column, end releases, springs, prescribed displacement, P-delta, cantilever stiffness.
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_sap2000.rs` | 10 | Simple beam, continuous, portal, 2-story modal, braced+leaning column, end releases, springs, prescribed displacement, P-delta, cantilever stiffness |
+| `validation_sap2000_extended.rs` | 8 | Three-span continuous UDL, two-story two-bay frame, Warren truss, Gerber beam with hinge, 3D L-frame torsion, 3-story shear building modal, P-delta amplified portal, beam with settlement |
 
-### Code_Aster SSLL (9 DONE)
+### Code_Aster SSLL (17 DONE)
 
-**File:** `validation_code_aster.rs`
-SSLL010 (lattice), SSLL012 (bar loads), SSLL014 (portal), SSLL100 (L-frame), SSLL102 (clamped beam), SSLL103 (Euler), SSLL105 (L-structure), SSLL110 (self-weight), SSLL400 (variable section).
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_code_aster.rs` | 9 | SSLL010 (lattice), SSLL012 (bar loads), SSLL014 (portal), SSLL100 (L-frame), SSLL102 (clamped beam), SSLL103 (Euler), SSLL105 (L-structure), SSLL110 (self-weight), SSLL400 (variable section) |
+| `validation_code_aster_extended.rs` | 8 | SSLL101 (clamped-pinned UDL), SSLL104 (SS point load at L/3), SSLL106 (3-span continuous UDL), SSLL107 (propped cantilever midspan), SSLL108 (portal combined), SSLL111 (thermal 2-bar), SSLL112 (spring support), SSLL113 (fixed-fixed partial UDL) |
 
-### NAFEMS (14 DONE)
+### NAFEMS (22 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
 | `validation_nafems.rs` | 6 | FV2 (axial), FV12 (cantilever vibration), FV32 (SS UDL), T3 (thermal), LE5 (Z-section 3D), FV52 (pin-jointed cross) |
 | `validation_nafems_extended.rs` | 8 | FV1 (SS center), FV13 (SS vibration), FV31 (cantilever tip), FV51 (portal vibration), LE10 (3D bending+torsion), T1 (thermal gradient), FV41 (lumped mass), R0031 (3D truss) |
+| `validation_nafems_benchmarks.rs` | 8 | LE1 (load distribution), FV22 (cantilever ~1.03 Hz), FV42 (SS beam 3 modes), FV72 (free-free beam), T2 (thermal expansion), R0001 (SS beam UDL), R0015 (3-bar truss), R0024 (portal lateral) |
 
-### MASTAN2 / Ziemian 22 (20 DONE)
+### MASTAN2 / Ziemian 22 (42 DONE)
 
-**File:** `validation_mastan2_frames.rs`
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_mastan2_frames.rs` | 20 | Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (alpha_cr>10), unbraced (alpha_cr~1.5-4). Each frame: alpha_cr from eigenvalue + P-delta drift amplification |
+| `validation_mastan2_extended.rs` | 22 | 8 Ziemian-style benchmark frames (E1-E8): leaning column, unequal story heights, fixed vs pinned base, three-bay unequal widths, unequal column stiffness, X-braced, diagonal brace, three-story sway + 4 batch tests |
+
 **Reference:** Ziemian & Ziemian (2021), *J. Constr. Steel Res.* 186
-
-Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (alpha_cr>10), unbraced (alpha_cr~1.5-4). Each frame: alpha_cr from eigenvalue + P-delta drift amplification.
 
 ---
 
