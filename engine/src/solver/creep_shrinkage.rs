@@ -171,6 +171,14 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     let mut steps = input.time_steps.clone();
     steps.sort_by(|a, b| a.t_days.partial_cmp(&b.t_days).unwrap());
 
+    // Build O(1) lookup maps by numeric id
+    let node_by_id: HashMap<usize, &SolverNode> =
+        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+    let section_by_id: HashMap<usize, &SolverSection> =
+        input.solver.sections.values().map(|s| (s.id, s)).collect();
+    let material_by_id: HashMap<usize, &SolverMaterial> =
+        input.solver.materials.values().map(|m| (m.id, m)).collect();
+
     // Initial elastic solution (used for sustained stress baseline)
     let _base_results = linear::solve_2d(&input.solver)?;
 
@@ -199,12 +207,12 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
             max_phi = max_phi.max(phi);
             max_eps_sh = max_eps_sh.max(eps_sh.abs());
 
-            let sec = match input.solver.sections.values().find(|s| s.id == elem.section_id) {
+            let sec = match section_by_id.get(&elem.section_id) {
                 Some(s) => s,
                 None => continue,
             };
 
-            let mat = match input.solver.materials.values().find(|m| m.id == elem.material_id) {
+            let mat = match material_by_id.get(&elem.material_id) {
                 Some(m) => m,
                 None => continue,
             };
@@ -219,8 +227,8 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
 
             // Apply as axial load on element (via distributed)
             // Convert to equivalent nodal forces
-            let ni = input.solver.nodes.values().find(|n| n.id == elem.node_i).unwrap();
-            let nj = input.solver.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+            let ni = node_by_id.get(&elem.node_i).unwrap();
+            let nj = node_by_id.get(&elem.node_j).unwrap();
             let dx = nj.x - ni.x;
             let dy = nj.y - ni.y;
             let l = (dx * dx + dy * dy).sqrt();
@@ -316,6 +324,14 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
     let mut steps = input.time_steps.clone();
     steps.sort_by(|a, b| a.t_days.partial_cmp(&b.t_days).unwrap());
 
+    // Build O(1) lookup maps by numeric id
+    let node_by_id: HashMap<usize, &SolverNode3D> =
+        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+    let section_by_id: HashMap<usize, &SolverSection3D> =
+        input.solver.sections.values().map(|s| (s.id, s)).collect();
+    let material_by_id: HashMap<usize, &SolverMaterial> =
+        input.solver.materials.values().map(|m| (m.id, m)).collect();
+
     let _base_results = linear::solve_3d(&input.solver)?;
 
     let mut results = Vec::new();
@@ -340,12 +356,12 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
             max_phi = max_phi.max(phi);
             max_eps_sh = max_eps_sh.max(eps_sh.abs());
 
-            let sec = match input.solver.sections.values().find(|s| s.id == elem.section_id) {
+            let sec = match section_by_id.get(&elem.section_id) {
                 Some(s) => s,
                 None => continue,
             };
 
-            let mat = match input.solver.materials.values().find(|m| m.id == elem.material_id) {
+            let mat = match material_by_id.get(&elem.material_id) {
                 Some(m) => m,
                 None => continue,
             };
@@ -354,8 +370,8 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
             let e_eff = e_c / (1.0 + input.aging_coefficient * phi);
             let n_sh = e_eff * sec.a * eps_sh;
 
-            let ni = input.solver.nodes.values().find(|n| n.id == elem.node_i).unwrap();
-            let nj = input.solver.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+            let ni = node_by_id.get(&elem.node_i).unwrap();
+            let nj = node_by_id.get(&elem.node_j).unwrap();
             let dx = nj.x - ni.x;
             let dy = nj.y - ni.y;
             let dz = nj.z - ni.z;

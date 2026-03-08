@@ -91,6 +91,11 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let mut steps: Vec<PlasticStep> = Vec::new();
     let mut accumulated_moments: HashMap<(usize, String), f64> = HashMap::new();
 
+    // Build O(1) lookup: element id -> HashMap key (stable across hinge mutations)
+    let elem_id_to_key: HashMap<usize, String> = current_input.elements.iter()
+        .map(|(k, e)| (e.id, k.clone()))
+        .collect();
+
     for step in 0..max_hinges {
         // Solve under unit loads on current structure
         let results = match super::linear::solve_2d(&current_input) {
@@ -106,8 +111,8 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         let mut new_hinges = Vec::new();
 
         for ef in &results.element_forces {
-            let elem = current_input.elements.values()
-                .find(|e| e.id == ef.element_id).unwrap();
+            let elem_key = &elem_id_to_key[&ef.element_id];
+            let elem = current_input.elements.get(elem_key).unwrap();
             let mp = mp_map.get(&elem.section_id).copied().unwrap_or(f64::INFINITY);
             if mp >= f64::INFINITY { continue; }
 
@@ -206,9 +211,9 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
         // Record hinges
         let mut step_hinges = Vec::new();
         for (eid, end, _m_unit) in &new_hinges {
-            let mp = mp_map.get(
-                &current_input.elements.values().find(|e| e.id == *eid).unwrap().section_id
-            ).copied().unwrap_or(0.0);
+            let elem_key = &elem_id_to_key[eid];
+            let section_id = current_input.elements.get(elem_key).unwrap().section_id;
+            let mp = mp_map.get(&section_id).copied().unwrap_or(0.0);
 
             let hinge = PlasticHinge {
                 element_id: *eid,
@@ -229,7 +234,8 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
 
         // Insert hinges into structure for next iteration
         for (eid, end, _) in &new_hinges {
-            if let Some(elem) = current_input.elements.values_mut().find(|e| e.id == *eid) {
+            let elem_key = &elem_id_to_key[eid];
+            if let Some(elem) = current_input.elements.get_mut(elem_key) {
                 if end == "start" {
                     elem.hinge_start = true;
                 } else {
@@ -338,6 +344,11 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     let mut acc_my: HashMap<(usize, String), f64> = HashMap::new();
     let mut acc_mz: HashMap<(usize, String), f64> = HashMap::new();
 
+    // Build O(1) lookup: element id -> HashMap key (stable across hinge mutations)
+    let elem_id_to_key: HashMap<usize, String> = current_input.elements.iter()
+        .map(|(k, e)| (e.id, k.clone()))
+        .collect();
+
     for step in 0..max_hinges {
         // Solve under unit loads on current structure
         let results = match super::linear::solve_3d(&current_input) {
@@ -350,8 +361,8 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         let mut new_hinges: Vec<(usize, String, f64, f64)> = Vec::new();
 
         for ef in &results.element_forces {
-            let elem = current_input.elements.values()
-                .find(|e| e.id == ef.element_id).unwrap();
+            let elem_key = &elem_id_to_key[&ef.element_id];
+            let elem = current_input.elements.get(elem_key).unwrap();
             let (mp_y, mp_z) = mp_map.get(&elem.section_id).copied()
                 .unwrap_or((f64::INFINITY, f64::INFINITY));
             if mp_y >= f64::INFINITY || mp_z >= f64::INFINITY { continue; }
@@ -411,9 +422,9 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
 
         let mut step_hinges = Vec::new();
         for (eid, end, _my, _mz) in &new_hinges {
-            let (mp_y, mp_z) = mp_map.get(
-                &current_input.elements.values().find(|e| e.id == *eid).unwrap().section_id
-            ).copied().unwrap_or((0.0, 0.0));
+            let elem_key = &elem_id_to_key[eid];
+            let section_id = current_input.elements.get(elem_key).unwrap().section_id;
+            let (mp_y, mp_z) = mp_map.get(&section_id).copied().unwrap_or((0.0, 0.0));
             let total_my = acc_my.get(&(*eid, end.clone())).copied().unwrap_or(0.0);
             let total_mz = acc_mz.get(&(*eid, end.clone())).copied().unwrap_or(0.0);
             let ratio = (total_my / mp_y).powi(2) + (total_mz / mp_z).powi(2);
@@ -439,7 +450,8 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
 
         // Insert hinges
         for (eid, end, _, _) in &new_hinges {
-            if let Some(elem) = current_input.elements.values_mut().find(|e| e.id == *eid) {
+            let elem_key = &elem_id_to_key[eid];
+            if let Some(elem) = current_input.elements.get_mut(elem_key) {
                 if end == "start" {
                     elem.hinge_start = true;
                 } else {

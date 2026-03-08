@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::types::*;
 use crate::solver::dof::DofNumbering;
 use crate::solver::assembly::*;
@@ -55,9 +56,15 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
 
     let mut asm = assemble_2d(&input.solver, &dof_num);
 
+    // Build O(1) lookup maps
+    let node_by_id: HashMap<usize, &SolverNode> =
+        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement> =
+        input.solver.elements.values().map(|e| (e.id, e)).collect();
+
     // Add Winkler foundation stiffness
     for spring in &input.foundation_springs {
-        add_foundation_2d(&mut asm.k, n, spring, &input.solver, &dof_num)?;
+        add_foundation_2d(&mut asm.k, n, spring, &node_by_id, &elem_by_id, &dof_num)?;
     }
 
     // Prescribed displacements
@@ -135,8 +142,14 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
     let mut asm = assemble_3d(&input.solver, &dof_num);
 
+    // Build O(1) lookup maps
+    let node_by_id: HashMap<usize, &SolverNode3D> =
+        input.solver.nodes.values().map(|n| (n.id, n)).collect();
+    let elem_by_id: HashMap<usize, &SolverElement3D> =
+        input.solver.elements.values().map(|e| (e.id, e)).collect();
+
     for spring in &input.foundation_springs {
-        add_foundation_3d(&mut asm.k, n, spring, &input.solver, &dof_num)?;
+        add_foundation_3d(&mut asm.k, n, spring, &input.solver, &node_by_id, &elem_by_id, &dof_num)?;
     }
 
     // Prescribed displacements
@@ -206,16 +219,18 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
 fn add_foundation_2d(
     k_global: &mut [f64], n: usize,
-    spring: &FoundationSpring, input: &SolverInput, dof_num: &DofNumbering,
+    spring: &FoundationSpring,
+    node_by_id: &HashMap<usize, &SolverNode>,
+    elem_by_id: &HashMap<usize, &SolverElement>,
+    dof_num: &DofNumbering,
 ) -> Result<(), String> {
-    let elem = input.elements.values()
-        .find(|e| e.id == spring.element_id)
+    let elem = elem_by_id.get(&spring.element_id)
         .ok_or_else(|| format!("Element {} not found", spring.element_id))?;
 
     if elem.elem_type == "truss" || elem.elem_type == "cable" { return Ok(()); }
 
-    let node_i = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
-    let node_j = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+    let node_i = node_by_id[&elem.node_i];
+    let node_j = node_by_id[&elem.node_j];
     let dx = node_j.x - node_i.x;
     let dy = node_j.y - node_i.y;
     let l = (dx * dx + dy * dy).sqrt();
@@ -250,16 +265,18 @@ fn add_foundation_2d(
 
 fn add_foundation_3d(
     k_global: &mut [f64], n: usize,
-    spring: &FoundationSpring3D, input: &SolverInput3D, dof_num: &DofNumbering,
+    spring: &FoundationSpring3D, input: &SolverInput3D,
+    node_by_id: &HashMap<usize, &SolverNode3D>,
+    elem_by_id: &HashMap<usize, &SolverElement3D>,
+    dof_num: &DofNumbering,
 ) -> Result<(), String> {
-    let elem = input.elements.values()
-        .find(|e| e.id == spring.element_id)
+    let elem = elem_by_id.get(&spring.element_id)
         .ok_or_else(|| format!("Element {} not found", spring.element_id))?;
 
     if elem.elem_type == "truss" || elem.elem_type == "cable" { return Ok(()); }
 
-    let node_i = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
-    let node_j = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+    let node_i = node_by_id[&elem.node_i];
+    let node_j = node_by_id[&elem.node_j];
     let dx = node_j.x - node_i.x;
     let dy = node_j.y - node_i.y;
     let dz = node_j.z - node_i.z;

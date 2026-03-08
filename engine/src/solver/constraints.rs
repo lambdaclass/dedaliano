@@ -61,6 +61,14 @@ pub fn build_constraint_transform(
 ) -> ConstraintTransform {
     let n = dof_num.n_total;
 
+    // Build O(1) lookup maps: node numeric id -> &Node
+    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| {
+        nodes.values().map(|n| (n.id, n)).collect()
+    });
+    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
+        nodes.values().map(|n| (n.id, n)).collect()
+    });
+
     // Collect all dependent DOFs and their constraint equations.
     // Each equation: dependent_dof = Σ(coeff * independent_or_master_dof)
     let mut dep_equations: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
@@ -78,7 +86,7 @@ pub fn build_constraint_transform(
                 // Get offset from master to slave
                 let (dx, dy, dz) = get_node_offset(
                     rl.master_node, rl.slave_node,
-                    nodes_2d, nodes_3d,
+                    node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                 );
 
                 for &dof in &dofs {
@@ -174,7 +182,7 @@ pub fn build_constraint_transform(
                 for &slave_id in &dia.slave_nodes {
                     let (dx, dy, dz) = get_node_offset(
                         dia.master_node, slave_id,
-                        nodes_2d, nodes_3d,
+                        node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                     );
                     // Offset in the diaphragm plane
                     let (off_0, off_1) = match dia.plane.as_str() {
@@ -550,20 +558,16 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 fn get_node_offset(
     master: usize,
     slave: usize,
-    nodes_2d: Option<&HashMap<String, SolverNode>>,
-    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    node_by_id_2d: Option<&HashMap<usize, &SolverNode>>,
+    node_by_id_3d: Option<&HashMap<usize, &SolverNode3D>>,
 ) -> (f64, f64, f64) {
-    if let Some(nodes) = nodes_2d {
-        let m = nodes.values().find(|n| n.id == master);
-        let s = nodes.values().find(|n| n.id == slave);
-        if let (Some(m), Some(s)) = (m, s) {
+    if let Some(map) = node_by_id_2d {
+        if let (Some(m), Some(s)) = (map.get(&master), map.get(&slave)) {
             return (s.x - m.x, s.y - m.y, 0.0);
         }
     }
-    if let Some(nodes) = nodes_3d {
-        let m = nodes.values().find(|n| n.id == master);
-        let s = nodes.values().find(|n| n.id == slave);
-        if let (Some(m), Some(s)) = (m, s) {
+    if let Some(map) = node_by_id_3d {
+        if let (Some(m), Some(s)) = (map.get(&master), map.get(&slave)) {
             return (s.x - m.x, s.y - m.y, s.z - m.z);
         }
     }

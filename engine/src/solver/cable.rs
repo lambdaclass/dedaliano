@@ -131,6 +131,14 @@ pub fn solve_cable_2d(
         });
     }
 
+    // Build O(1) lookup maps by id
+    let node_by_id: HashMap<usize, &SolverNode> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
     // Precompute cable geometry
     let mut cables: Vec<CableGeom> = Vec::new();
     let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
@@ -139,10 +147,10 @@ pub fn solve_cable_2d(
         if elem.elem_type != "cable" {
             continue;
         }
-        let node_i = input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
-        let node_j = input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
-        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
-        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+        let node_i = node_by_id[&elem.node_i];
+        let node_j = node_by_id[&elem.node_j];
+        let mat = mat_by_id[&elem.material_id];
+        let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
         let dy = node_j.y - node_i.y;
@@ -353,6 +361,14 @@ pub fn solve_cable_3d(
         });
     }
 
+    // Build O(1) lookup maps by id
+    let node_by_id: HashMap<usize, &SolverNode3D> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
     let mut cables: Vec<CableGeom3D> = Vec::new();
     let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
 
@@ -360,10 +376,10 @@ pub fn solve_cable_3d(
         if elem.elem_type != "cable" {
             continue;
         }
-        let node_i = input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
-        let node_j = input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
-        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
-        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+        let node_i = node_by_id[&elem.node_i];
+        let node_j = node_by_id[&elem.node_j];
+        let mat = mat_by_id[&elem.material_id];
+        let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
         let dy = node_j.y - node_i.y;

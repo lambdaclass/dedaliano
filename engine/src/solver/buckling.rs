@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
@@ -38,6 +39,14 @@ pub fn solve_buckling_2d(
     input: &SolverInput,
     num_modes: usize,
 ) -> Result<BucklingResult, String> {
+    // Build lookup maps for O(1) access by id
+    let elem_by_id: HashMap<usize, &SolverElement> =
+        input.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
     let dof_num = DofNumbering::build_2d(input);
@@ -124,15 +133,14 @@ pub fn solve_buckling_2d(
         if n_avg >= -1e-6 {
             continue; // Skip tension elements
         }
-        let elem = input.elements.values().find(|e| e.id == ef.element_id).unwrap();
-        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+        let elem = elem_by_id[&ef.element_id];
+        let sec = sec_by_id[&elem.section_id];
         let l = ef.length;
         let pcr = lambda_cr * n_avg.abs();
         let r = if sec.a > 1e-20 { (sec.iz / sec.a).sqrt() } else { 0.0 };
         let k_eff = if pcr > 1e-6 && r > 1e-12 {
-            let le = std::f64::consts::PI * (input.materials.values()
-                .find(|m| m.id == elem.material_id).unwrap().e * 1000.0
-                * sec.iz / pcr).sqrt();
+            let le = std::f64::consts::PI
+                * (mat_by_id[&elem.material_id].e * 1000.0 * sec.iz / pcr).sqrt();
             le / l
         } else {
             1.0
@@ -192,6 +200,14 @@ pub fn solve_buckling_3d(
     input: &SolverInput3D,
     num_modes: usize,
 ) -> Result<BucklingResult3D, String> {
+    // Build lookup maps for O(1) access by id
+    let elem_by_id: HashMap<usize, &SolverElement3D> =
+        input.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
     let linear = super::linear::solve_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
@@ -269,9 +285,9 @@ pub fn solve_buckling_3d(
     for ef in &linear.element_forces {
         let n_avg = (ef.n_start + ef.n_end) / 2.0;
         if n_avg >= -1e-6 { continue; }
-        let elem = input.elements.values().find(|e| e.id == ef.element_id).unwrap();
-        let sec = input.sections.values().find(|s| s.id == elem.section_id).unwrap();
-        let mat = input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let elem = elem_by_id[&ef.element_id];
+        let sec = sec_by_id[&elem.section_id];
+        let mat = mat_by_id[&elem.material_id];
         let l = ef.length;
         let pcr = lambda_cr * n_avg.abs();
         let e = mat.e * 1000.0;
