@@ -404,8 +404,8 @@ mod tests {
 
     #[test]
     fn test_phi_values() {
-        // Tension controlled: epsilon_t >= fy/Es + 0.003
-        assert!((compute_phi(0.005, 420e6, 200e9) - 0.90).abs() < 1e-6);
+        // Tension controlled: epsilon_t >= fy/Es + 0.003 = 0.0021 + 0.003 = 0.0051
+        assert!((compute_phi(0.006, 420e6, 200e9) - 0.90).abs() < 1e-6);
         // Compression controlled: epsilon_t <= fy/Es = 0.0021
         assert!((compute_phi(0.002, 420e6, 200e9) - 0.65).abs() < 1e-6);
     }
