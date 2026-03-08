@@ -558,6 +558,15 @@ pub fn check_steel_members(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+#[wasm_bindgen]
+pub fn check_rc_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::rc_check::RCCheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::rc_check::check_rc_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::*;
