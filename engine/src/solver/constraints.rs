@@ -663,6 +663,7 @@ mod tests {
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
             })],
+            constraints: vec![],
         }
     }
 
@@ -804,6 +805,7 @@ mod tests {
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
             })],
+            constraints: vec![],
         };
 
         let input = ConstrainedInput {

@@ -55,8 +55,8 @@ fn make_plastic_cantilever_3d() -> PlasticInput3D {
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 
@@ -155,8 +155,9 @@ fn plastic_3d_fixed_beam_two_hinges() {
             node_id: 2, fx: 0.0, fy: 0.0, fz: -1.0,
             mx: 0.0, my: 0.0, mz: 0.0, bw: None,
         })],
+        constraints: vec![],
         left_hand: None,
-        plates: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 
@@ -316,8 +317,9 @@ fn plastic_3d_portal_frame_mechanism() {
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
             }),
         ],
+        constraints: vec![],
         left_hand: None,
-        plates: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 

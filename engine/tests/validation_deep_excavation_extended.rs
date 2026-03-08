@@ -188,8 +188,7 @@ fn deep_exc_single_anchored_wall() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = solve_2d(&input).expect("solve");
 
     // Total active force
@@ -309,8 +308,7 @@ fn deep_exc_multi_propped_wall() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = solve_2d(&input).expect("solve");
 
     // Total active force
@@ -444,8 +442,7 @@ fn deep_exc_apparent_earth_pressure() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = solve_2d(&input).expect("solve");
 
     // Total applied force = p_apparent * H
@@ -575,8 +572,7 @@ fn deep_exc_bottom_heave_stability() {
             .collect();
         SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads,
-        }
+            elements: elems_map, supports: sups_map, loads, constraints: vec![], }
     };
 
     // Stiff base (good soil)
@@ -684,8 +680,7 @@ fn deep_exc_strut_load() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = solve_2d(&input).expect("solve");
 
     // Total lateral force = p * H

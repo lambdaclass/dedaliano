@@ -256,6 +256,36 @@ pub fn assemble_mass_matrix_3d(
         }
     }
 
+    // Assemble quad (MITC4 shell) element masses
+    for quad in input.quads.values() {
+        let density = densities.get(&quad.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+        let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+        let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+        let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        // density is in kg/m³, divide by 1000 to get tonnes/m³ (consistent with kN units)
+        let m_local = crate::element::quad::quad_consistent_mass(&coords, density / 1000.0, quad.thickness);
+
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        for i in 0..24 {
+            for j in 0..24 {
+                let val = m_local[i * 24 + j];
+                if val.abs() > 1e-30 {
+                    m_global[quad_dofs[i] * n + quad_dofs[j]] += val;
+                }
+            }
+        }
+    }
+
     m_global
 }
 

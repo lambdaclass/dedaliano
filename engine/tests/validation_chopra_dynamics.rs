@@ -56,8 +56,7 @@ fn validation_chopra_sdof_undamped_period() {
         let fy = if i < pulse_steps { -100.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -149,8 +148,7 @@ fn validation_chopra_step_load_daf() {
     for i in 0..=n_steps {
         force_history.push(TimeForceRecord {
             time: i as f64 * dt,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -212,8 +210,7 @@ fn validation_chopra_rayleigh_damping_decay() {
         let fy = if i < pulse_steps { -200.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -368,8 +365,7 @@ fn validation_chopra_newmark_energy_conservation() {
                 node_id: n_nodes, fx: 0.0,
                 fy: if i < 2 { -100.0 } else { 0.0 },
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = TimeHistoryInput {
@@ -440,8 +436,7 @@ fn validation_chopra_hht_numerical_dissipation() {
                 node_id: n_nodes, fx: 0.0,
                 fy: if i < 2 { -100.0 } else { 0.0 },
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = TimeHistoryInput {

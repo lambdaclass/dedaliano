@@ -1478,7 +1478,7 @@ mod tests {
             }),
         ];
 
-        SolverInput { nodes, materials, sections, elements, supports, loads }
+        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] }
     }
 
     #[test]
@@ -1574,7 +1574,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
         let corot = solve_corotational_2d(&input, 50, 1e-8, 1).unwrap();
 
         assert!(corot.converged);
@@ -1625,6 +1625,7 @@ mod tests {
         let input = SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![],
+            constraints: vec![],
         };
 
         let result = solve_corotational_2d(&input, 50, 1e-8, 1);
@@ -1674,7 +1675,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
         let corot = solve_corotational_2d(&input, 100, 1e-6, 5).unwrap();
         assert!(corot.converged, "Two-element frame should converge");
         assert_eq!(corot.results.element_forces.len(), 2);

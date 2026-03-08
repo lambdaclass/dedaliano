@@ -428,8 +428,7 @@ fn validation_clough_6_newmark_sdof_impulse() {
         let fy = if i < pulse_steps { -100.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -622,8 +621,7 @@ fn validation_clough_8_damping_effect() {
             let fy = if i < pulse_steps { -100.0 } else { 0.0 };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
         }
         fh
     };

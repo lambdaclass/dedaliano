@@ -295,8 +295,7 @@ fn validation_fem_settlement() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems_map, supports: sups, loads: vec![],
-    };
+        elements: elems_map, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // M = 6EIδ/L²

@@ -361,6 +361,7 @@ fn validation_truss_settlement_effect() {
     let input_settle = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_settle,
+    constraints: vec![],
     };
     let res_settle = linear::solve_2d(&input_settle).unwrap();
 

@@ -365,8 +365,7 @@ fn validation_stiffmod_mixed_cross_sections() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    };
+        loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Quarter-point of left half (weaker): node at L/4

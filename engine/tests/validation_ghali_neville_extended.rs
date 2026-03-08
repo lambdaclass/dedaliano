@@ -286,8 +286,7 @@ fn validation_ghali_3_portal_sway_stiffness() {
             fx: f,
             fy: 0.0,
             mz: 0.0,
-        })],
-    };
+        })], constraints: vec![], };
     let results_rigid = linear::solve_2d(&input_rigid).unwrap();
     let sway_rigid = results_rigid
         .displacements
@@ -622,8 +621,7 @@ fn validation_ghali_6_stiffness_modification() {
         }
         SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads,
-        }
+            elements: elems_map, supports: sups_map, loads, constraints: vec![], }
     };
 
     // Case (a): right end fixed (4EI/L stiffness for span 2)
@@ -977,8 +975,7 @@ fn validation_ghali_8_settlement_continuous() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // No external loads: sum of reactions = 0
@@ -1182,8 +1179,7 @@ fn validation_ghali_8_settlement_continuous() {
         sections: secs_map2,
         elements: elems_map2,
         supports: sups_map2,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results2 = linear::solve_2d(&input2).unwrap();
 
     let r_b2 = results2

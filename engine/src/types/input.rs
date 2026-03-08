@@ -131,6 +131,8 @@ pub struct SolverInput {
     pub elements: HashMap<String, SolverElement>,
     pub supports: HashMap<String, SolverSupport>,
     pub loads: Vec<SolverLoad>,
+    #[serde(default)]
+    pub constraints: Vec<Constraint>,
 }
 
 // ==================== 3D Input Types ====================
@@ -299,6 +301,8 @@ pub enum SolverLoad3D {
     PlateThermal(SolverPlateThermalLoad),
     #[serde(rename = "bimoment")]
     Bimoment(SolverBimomentLoad),
+    #[serde(rename = "quadPressure")]
+    QuadPressure(SolverPressureLoad),
 }
 
 /// Concentrated bimoment load applied to a node (warping torsion).
@@ -331,9 +335,13 @@ pub struct SolverInput3D {
     pub supports: HashMap<String, SolverSupport3D>,
     pub loads: Vec<SolverLoad3D>,
     #[serde(default)]
+    pub constraints: Vec<Constraint>,
+    #[serde(default)]
     pub left_hand: Option<bool>,
     #[serde(default)]
     pub plates: HashMap<String, SolverPlateElement>,
+    #[serde(default)]
+    pub quads: HashMap<String, SolverQuadElement>,
     #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
 }
@@ -345,6 +353,15 @@ pub struct SolverInput3D {
 pub struct SolverPlateElement {
     pub id: usize,
     pub nodes: [usize; 3],
+    pub material_id: usize,
+    pub thickness: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverQuadElement {
+    pub id: usize,
+    pub nodes: [usize; 4],
     pub material_id: usize,
     pub thickness: f64,
 }

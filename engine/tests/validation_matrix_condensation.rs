@@ -223,8 +223,7 @@ fn validation_condensation_prescribed() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions should exist (settlement produces forces)
@@ -287,8 +286,7 @@ fn validation_condensation_mixed_supports() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Right end should have non-zero deflection (spring compresses)

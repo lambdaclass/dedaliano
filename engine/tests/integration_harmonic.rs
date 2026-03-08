@@ -59,8 +59,7 @@ fn make_ss_beam_2d_with_load() -> SolverInput {
     ];
 
     SolverInput {
-        nodes, materials, sections, elements, supports, loads,
-    }
+        nodes, materials, sections, elements, supports, loads, constraints: vec![], }
 }
 
 fn make_ss_beam_3d_with_load() -> SolverInput3D {
@@ -132,8 +131,8 @@ fn make_ss_beam_3d_with_load() -> SolverInput3D {
 
     SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     }
 }

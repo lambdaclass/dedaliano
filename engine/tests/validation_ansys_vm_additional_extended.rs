@@ -923,8 +923,7 @@ fn validation_vm49_continuous_beam_settlement() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    };
+        loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input_settlement).unwrap();
 

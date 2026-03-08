@@ -208,8 +208,7 @@ fn validation_approx_inflection_point() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Check that the left column has an inflection point near mid-height.
@@ -311,8 +310,7 @@ fn validation_approx_fixed_vs_pinned() {
 
     let input_pinned = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let d_pinned = linear::solve_2d(&input_pinned).unwrap()
         .displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
 

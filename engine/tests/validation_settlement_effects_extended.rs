@@ -144,8 +144,7 @@ fn settlement_ext_ss_beam_uniform_settlement_rigid_body() {
         sections: build_secs(),
         elements: build_beam_elems(n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // All element forces must be zero (rigid body motion)
@@ -239,8 +238,7 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
         sections: build_secs(),
         elements: build_beam_elems(n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // M = 6EI*delta/L²
@@ -341,8 +339,7 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
         sections: build_secs(),
         elements: build_beam_elems(n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // R_B = 3EI*delta/L³
@@ -470,8 +467,7 @@ fn settlement_ext_two_span_middle_support_settlement() {
         sections: build_secs(),
         elements: build_beam_elems(total_n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = 0 (no external loads)
@@ -580,8 +576,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
         sections: build_secs(),
         elements: build_beam_elems(n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // M_near = 4EI*theta/L at the end with prescribed rotation
@@ -754,8 +749,7 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
         sections: build_secs(),
         elements: build_beam_elems(total_n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum Ry = 0
@@ -917,8 +911,7 @@ fn settlement_ext_portal_frame_base_settlement() {
         sections: build_secs(),
         elements: elems,
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum Ry = 0 (no external vertical loads)
@@ -1037,8 +1030,7 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
         sections: build_secs(),
         elements: build_beam_elems(n),
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Equal settlement => rigid body => no internal forces

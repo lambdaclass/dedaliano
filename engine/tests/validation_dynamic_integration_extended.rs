@@ -235,8 +235,7 @@ fn validation_dynamic_ext_3_force_scaling_linearity() {
                     fx: 0.0,
                     fy: force,
                     mz: 0.0,
-                }],
-            },
+                }] },
             TimeForceRecord {
                 time: dt,
                 loads: vec![SolverNodalLoad {
@@ -244,8 +243,7 @@ fn validation_dynamic_ext_3_force_scaling_linearity() {
                     fx: 0.0,
                     fy: 0.0,
                     mz: 0.0,
-                }],
-            },
+                }] },
         ]
     };
 
@@ -337,8 +335,7 @@ fn validation_dynamic_ext_4_damped_forced_steady_state() {
                 fx: 0.0,
                 fy,
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = make_cantilever_th(
@@ -429,8 +426,7 @@ fn validation_dynamic_ext_5_symmetry_identical_cantilevers() {
                 fx: 0.0,
                 fy: -100.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -438,8 +434,7 @@ fn validation_dynamic_ext_5_symmetry_identical_cantilevers() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     // Run the same problem twice
@@ -544,8 +539,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 fx: 0.0,
                 fy: -80.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -553,8 +547,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     // Load 2: impulse at midspan
@@ -566,8 +559,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 fx: 0.0,
                 fy: -40.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -575,8 +567,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     // Combined load: both impulses simultaneously
@@ -596,8 +587,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                     fy: -40.0,
                     mz: 0.0,
                 },
-            ],
-        },
+            ] },
         TimeForceRecord {
             time: dt,
             loads: vec![
@@ -613,8 +603,7 @@ fn validation_dynamic_ext_6_superposition_principle() {
                     fy: 0.0,
                     mz: 0.0,
                 },
-            ],
-        },
+            ] },
     ];
 
     let input1 = make_cantilever_th(
@@ -724,8 +713,7 @@ fn validation_dynamic_ext_7_portal_frame_sway_mode() {
                 fx: 50.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -733,8 +721,7 @@ fn validation_dynamic_ext_7_portal_frame_sway_mode() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let th_input = TimeHistoryInput {

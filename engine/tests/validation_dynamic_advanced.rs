@@ -160,8 +160,7 @@ fn validation_dynamic_resonance_growth() {
         let f = f0 * (omega1 * t).sin();
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -211,8 +210,7 @@ fn validation_dynamic_newmark_unconditional_stability() {
         let f = if i < 3 { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.02,
@@ -262,8 +260,7 @@ fn validation_dynamic_daf_frequency_ratio() {
             let f = f0 * (omega_force * t).sin();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }] });
         }
         let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
             Some(fh), None);
@@ -371,8 +368,7 @@ fn validation_dynamic_hht_dissipation() {
             let f = if i < 2 { f0 } else { 0.0 };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
         }
         fh
     };
@@ -431,8 +427,7 @@ fn validation_dynamic_energy_conservation_free() {
         let f = if i == 0 { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -487,8 +482,7 @@ fn validation_dynamic_step_load_daf() {
         let t = i as f64 * dt;
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f0, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f0, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,

@@ -71,8 +71,7 @@ fn validation_settlement_fixed_fixed() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -136,8 +135,7 @@ fn validation_settlement_propped() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
@@ -200,8 +198,7 @@ fn validation_settlement_continuous() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Settlement produces reactions (equilibrium maintained)
@@ -254,8 +251,7 @@ fn validation_settlement_no_external_loads() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Internal forces should be non-zero (settlement induces stresses)
@@ -315,8 +311,7 @@ fn validation_settlement_equal() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Equal settlement → no bending → moments should be zero
@@ -373,8 +368,7 @@ fn validation_settlement_proportional() {
         });
         let input = SolverInput {
             nodes, materials: mats, sections: secs,
-            elements: elems, supports: sups, loads: vec![],
-        };
+            elements: elems, supports: sups, loads: vec![], constraints: vec![], };
         linear::solve_2d(&input).unwrap()
             .reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs()
     };
@@ -439,8 +433,7 @@ fn validation_settlement_plus_load() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions should balance applied load
@@ -495,8 +488,7 @@ fn validation_settlement_rotation() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Prescribed rotation should produce moments

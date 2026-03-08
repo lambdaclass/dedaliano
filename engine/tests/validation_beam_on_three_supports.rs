@@ -410,6 +410,7 @@ fn support_settlement_changes_reactions() {
         elements: elems_map.clone(),
         supports: sups_settled,
         loads: loads.clone(),
+    constraints: vec![],
     };
     let input_unsettled = SolverInput {
         nodes: nodes_map,
@@ -417,8 +418,7 @@ fn support_settlement_changes_reactions() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_unsettled,
-        loads,
-    };
+        loads, constraints: vec![], };
 
     let results_settled = linear::solve_2d(&input_settled).unwrap();
     let results_unsettled = linear::solve_2d(&input_unsettled).unwrap();

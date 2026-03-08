@@ -1230,6 +1230,7 @@ mod tests {
         let solver = SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![],
+            constraints: vec![],
         };
 
         let mut densities = HashMap::new();
@@ -1299,12 +1300,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
             TimeForceRecord {
                 time: 1.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
         ]);
         input.n_steps = 500;
         input.time_step = 0.001;
@@ -1329,12 +1328,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
             TimeForceRecord {
                 time: 0.01,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
         ]);
         input.n_steps = 200;
 
@@ -1353,12 +1350,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
             TimeForceRecord {
                 time: 0.001,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
         ]);
         input.n_steps = 1000;
         input.time_step = 0.001;
@@ -1388,12 +1383,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
             TimeForceRecord {
                 time: 0.001,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }],
-            },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
         ]);
         input.n_steps = 500;
         input.time_step = 0.001;

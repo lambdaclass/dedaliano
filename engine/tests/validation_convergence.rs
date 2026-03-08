@@ -218,12 +218,10 @@ fn validation_newmark_period_elongation() {
     let force_history = vec![
         TimeForceRecord {
             time: 0.0,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }],
-        },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }] },
         TimeForceRecord {
             time: dt,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }],
-        },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }] },
     ];
 
     let th_input = TimeHistoryInput {
@@ -291,12 +289,10 @@ fn validation_newmark_energy_conservation() {
     let force_history = vec![
         TimeForceRecord {
             time: 0.0,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }],
-        },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }] },
         TimeForceRecord {
             time: dt,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }],
-        },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }] },
     ];
 
     let th_input = TimeHistoryInput {

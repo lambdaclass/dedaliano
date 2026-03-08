@@ -452,6 +452,7 @@ mod tests {
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 0.0, fy: -50.0, mz: 0.0,
             })],
+            constraints: vec![],
         };
 
         // 0.2m × 0.4m rectangular section

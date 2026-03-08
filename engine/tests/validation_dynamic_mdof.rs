@@ -109,14 +109,12 @@ fn validation_mdof_2story_free_vibration() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: 5, fx: 10.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: 5, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_time_history_input(
@@ -287,14 +285,12 @@ fn validation_rayleigh_damping_ratio() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_time_history_input(
@@ -359,14 +355,12 @@ fn validation_newmark_vs_hht_undamped() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     // Newmark (no damping)
@@ -461,8 +455,7 @@ fn validation_step_load_mdof() {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
                 node_id: 5, fx: p, fy: 0.0, mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = make_time_history_input(

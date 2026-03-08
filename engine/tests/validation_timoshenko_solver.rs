@@ -117,8 +117,7 @@ fn make_timoshenko_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 // ================================================================
@@ -463,8 +462,8 @@ fn validation_timoshenko_3d_deep_beam() {
         elements: elems_map,
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 

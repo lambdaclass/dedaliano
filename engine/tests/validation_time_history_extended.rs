@@ -103,8 +103,7 @@ fn validation_th_ext_1_sdof_free_vibration_period() {
                 fx: 0.0,
                 fy: -50.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -112,8 +111,7 @@ fn validation_th_ext_1_sdof_free_vibration_period() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = build_cantilever_th(
@@ -194,8 +192,7 @@ fn validation_th_ext_2_damped_decay_envelope() {
                 fx: 0.0,
                 fy: -500.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: 2.0 * dt,
             loads: vec![SolverNodalLoad {
@@ -203,8 +200,7 @@ fn validation_th_ext_2_damped_decay_envelope() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = build_cantilever_th(
@@ -322,8 +318,7 @@ fn validation_th_ext_3_step_load_daf() {
                 fx: 0.0,
                 fy: p,
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = build_cantilever_th(
@@ -391,8 +386,7 @@ fn validation_th_ext_4_harmonic_resonance() {
                     fx: 0.0,
                     fy,
                     mz: 0.0,
-                }],
-            });
+                }] });
         }
         let input = build_cantilever_th(
             n_elem, length, DENSITY, dt, n_steps, Some(xi), None, Some(force),
@@ -478,8 +472,7 @@ fn validation_th_ext_5_impulse_response() {
                     fx: 0.0,
                     fy: p,
                     mz: 0.0,
-                }],
-            },
+                }] },
             TimeForceRecord {
                 time: dt,
                 loads: vec![SolverNodalLoad {
@@ -487,8 +480,7 @@ fn validation_th_ext_5_impulse_response() {
                     fx: 0.0,
                     fy: 0.0,
                     mz: 0.0,
-                }],
-            },
+                }] },
         ]
     };
 
@@ -570,8 +562,7 @@ fn validation_th_ext_6_newmark_energy_conservation() {
                 fx: 0.0,
                 fy: -50.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -579,8 +570,7 @@ fn validation_th_ext_6_newmark_energy_conservation() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = build_cantilever_th(
@@ -714,8 +704,7 @@ fn validation_th_ext_7_two_dof_beating() {
                 fx: 100.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -723,8 +712,7 @@ fn validation_th_ext_7_two_dof_beating() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let th_input = TimeHistoryInput {

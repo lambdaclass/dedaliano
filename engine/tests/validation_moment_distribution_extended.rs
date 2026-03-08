@@ -759,8 +759,7 @@ fn validation_mdist_ext_non_sway_unequal_columns() {
         elements: elems_map, supports: sups_map,
         loads: vec![SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 2, q_i: -q, q_j: -q, a: None, b: None,
-        })],
-    };
+        })], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -1080,8 +1079,7 @@ fn validation_mdist_ext_settlement() {
         sections: secs,
         elements: elems,
         supports: sups,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // The moment at the interior support from the solver

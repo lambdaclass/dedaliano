@@ -324,8 +324,7 @@ fn validation_sde_settlement_induced_moments() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = solve_2d(&input).expect("solve");
 
     // M = 6EIΔ/L²

@@ -267,8 +267,7 @@ fn validation_effective_length_braced() {
     })];
     let input_braced = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let d_braced = linear::solve_2d(&input_braced).unwrap()
         .displacements.iter().find(|d| d.node_id == 2).unwrap().ux.abs();
 

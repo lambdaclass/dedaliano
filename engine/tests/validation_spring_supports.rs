@@ -83,7 +83,7 @@ fn make_beam_with_springs(
         sid += 1;
     }
 
-    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads }
+    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], }
 }
 
 // ================================================================
@@ -228,7 +228,7 @@ fn validation_spring_rotational() {
     })];
 
     let input_spring = SolverInput { nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let res_spring = linear::solve_2d(&input_spring).unwrap();
     let tip_spring = res_spring.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().uy.abs();

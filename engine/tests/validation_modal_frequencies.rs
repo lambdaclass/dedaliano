@@ -76,7 +76,7 @@ fn make_3d_input_modal(
     }
     SolverInput3D {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], left_hand: None, plates: HashMap::new(), curved_beams: vec![],    }
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    }
 }
 
 fn omega_exact(beta_l: f64) -> f64 {

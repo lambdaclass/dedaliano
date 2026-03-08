@@ -111,8 +111,7 @@ fn make_winkler_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 /// Helper: solve a Winkler beam and return the vertical displacement at a given node.

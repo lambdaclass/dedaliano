@@ -128,8 +128,7 @@ fn make_stepped_ss_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 /// Build a stepped cantilever (fixed at left, free at right).
@@ -218,6 +217,7 @@ fn make_stepped_cantilever(
         elements: elems_map,
         supports: sups_map,
         loads: { let _ = total_nodes; loads },
+        constraints: vec![],
     }
 }
 
@@ -413,8 +413,7 @@ fn validation_stepped_beam_reaction_redistribution() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    };
+        loads, constraints: vec![], };
     let results_stepped = linear::solve_2d(&input_stepped).unwrap();
 
     // Right reaction (roller at tip of stiffer half)

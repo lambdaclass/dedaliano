@@ -238,8 +238,7 @@ fn validation_elastic_curve_overhang() {
     })];
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads,
-    };
+        elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Overhang tip deflects downward

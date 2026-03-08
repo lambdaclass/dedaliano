@@ -81,14 +81,12 @@ fn validation_time_history_sdof_free_vibration_period() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_sdof_multi(n_elem, l, density, dt, n_steps, None, None, Some(force_history));
@@ -159,8 +157,7 @@ fn validation_time_history_sdof_step_load_daf() {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = make_sdof_multi(n_elem, l, density, dt, n_steps, None, None, Some(force_history));
@@ -205,14 +202,12 @@ fn validation_time_history_newmark_energy_conservation() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_sdof_multi(n_elem, l, density, dt, n_steps, None, None, Some(force_history));
@@ -262,14 +257,12 @@ fn validation_time_history_hht_numerical_dissipation() {
             time: 0.0,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_sdof_multi(

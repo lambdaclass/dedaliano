@@ -85,8 +85,7 @@ fn validation_foundation_winkler_central_load() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -162,8 +161,7 @@ fn validation_foundation_stiffness_effect() {
         }
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads,
-        };
+            elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
         let results = linear::solve_2d(&input).unwrap();
         results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
@@ -233,8 +231,7 @@ fn validation_foundation_rigid_limit() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -302,8 +299,7 @@ fn validation_foundation_winkler_udl_symmetric() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -376,8 +372,7 @@ fn validation_foundation_localized_deflection() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -451,8 +446,7 @@ fn validation_foundation_mixed_boundary() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -530,8 +524,7 @@ fn validation_foundation_stiff_beam_uniform() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -608,8 +601,7 @@ fn validation_foundation_equilibrium() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 

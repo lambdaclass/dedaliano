@@ -148,8 +148,7 @@ fn validation_stiffness_carry_over() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let r_near = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();

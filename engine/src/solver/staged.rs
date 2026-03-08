@@ -200,6 +200,7 @@ fn staged_to_full_solver_input(input: &StagedInput) -> SolverInput {
         elements: input.elements.clone(),
         supports: input.supports.clone(),
         loads: input.loads.clone(),
+        constraints: vec![],
     }
 }
 
@@ -231,6 +232,7 @@ fn build_stage_solver_input(
         elements,
         supports,
         loads,
+        constraints: vec![],
     }
 }
 
@@ -845,8 +847,10 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         elements: input.elements.clone(),
         supports: input.supports.clone(),
         loads: input.loads.clone(),
+        constraints: vec![],
         left_hand: None,
         plates: HashMap::new(),
+        quads: HashMap::new(),
         curved_beams: vec![],
     }
 }
@@ -879,8 +883,10 @@ fn build_stage_solver_input_3d(
         elements,
         supports,
         loads,
+        constraints: vec![],
         left_hand: None,
         plates: HashMap::new(),
+        quads: HashMap::new(),
         curved_beams: vec![],
     }
 }

@@ -307,8 +307,7 @@ fn validation_stiffness_parallel_springs() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Both supports have reactions
@@ -374,8 +373,7 @@ fn validation_stiffness_spring_effect() {
 
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads,
-        };
+            elements: elems_map, supports: sups_map, loads, constraints: vec![], };
         let results = linear::solve_2d(&input).unwrap();
         results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs()
     };

@@ -55,8 +55,8 @@ fn make_arch_input(
         elements: HashMap::new(),
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams,
     }
 }

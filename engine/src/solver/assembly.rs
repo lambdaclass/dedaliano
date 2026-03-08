@@ -478,6 +478,36 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
+    // Assemble quad (MITC4 shell) element stiffness matrices
+    for quad in input.quads.values() {
+        let mat = input.materials.values().find(|m| m.id == quad.material_id).unwrap();
+        let e = mat.e * 1000.0; // MPa → kN/m²
+        let nu = mat.nu;
+
+        let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+        let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+        let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+        let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        let k_local = crate::element::quad::mitc4_local_stiffness(&coords, e, nu, quad.thickness);
+        let t_quad = crate::element::quad::quad_transform_3d(&coords);
+        let k_glob = transform_stiffness(&k_local, &t_quad, 24);
+
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        let ndof = quad_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_global[quad_dofs[i] * n + quad_dofs[j]] += k_glob[i * ndof + j];
+            }
+        }
+    }
+
     // Assemble 3D nodal loads
     for load in &input.loads {
         if let SolverLoad3D::Nodal(nl) = load {
@@ -549,6 +579,28 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 for (i, &dof) in plate_dofs.iter().enumerate() {
                     if i < f_th.len() {
                         f_global[dof] += f_th[i];
+                    }
+                }
+            }
+        }
+        // Quad pressure loads
+        if let SolverLoad3D::QuadPressure(pl) = load {
+            if let Some(quad) = input.quads.values().find(|q| q.id == pl.element_id) {
+                let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+                let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+                let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+                let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+                let coords = [
+                    [n0.x, n0.y, n0.z],
+                    [n1.x, n1.y, n1.z],
+                    [n2.x, n2.y, n2.z],
+                    [n3.x, n3.y, n3.z],
+                ];
+                let f_press = crate::element::quad::quad_pressure_load(&coords, pl.pressure);
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_press.len() {
+                        f_global[dof] += f_press[i];
                     }
                 }
             }

@@ -495,6 +495,7 @@ mod tests {
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 1, fx: 0.0, fy: -10.0, mz: 0.0,
             })],
+            constraints: vec![],
         }
     }
 

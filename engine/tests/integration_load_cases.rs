@@ -52,8 +52,7 @@ fn make_beam_2d() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![],
-    }
+        loads: vec![], constraints: vec![], }
 }
 
 fn make_beam_3d() -> SolverInput3D {
@@ -119,8 +118,8 @@ fn make_beam_3d() -> SolverInput3D {
     SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     }
 }
@@ -138,16 +137,14 @@ fn load_cases_2d_lrfd_basic() {
                         element_id: 1, q_i: -5.0, q_j: -5.0, a: None, b: None,                     }),
                     SolverLoad::Distributed(SolverDistributedLoad {
                         element_id: 2, q_i: -5.0, q_j: -5.0, a: None, b: None,                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "Live".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {
@@ -187,24 +184,21 @@ fn load_cases_2d_multiple_combos() {
                         element_id: 1, q_i: -3.0, q_j: -3.0, a: None, b: None,                     }),
                     SolverLoad::Distributed(SolverDistributedLoad {
                         element_id: 2, q_i: -3.0, q_j: -3.0, a: None, b: None,                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "L".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "W".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 10.0, fy: 0.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {
@@ -259,8 +253,7 @@ fn load_cases_3d_gravity_and_wind() {
                         node_id: 2, fx: 0.0, fy: 0.0, fz: -50.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                ],
-            },
+                ] },
             LoadCase3D {
                 name: "WindY".to_string(),
                 loads: vec![
@@ -268,8 +261,7 @@ fn load_cases_3d_gravity_and_wind() {
                         node_id: 2, fx: 0.0, fy: 20.0, fz: 0.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {
@@ -306,16 +298,14 @@ fn load_cases_2d_envelope_governs() {
                         element_id: 1, q_i: -10.0, q_j: -10.0, a: None, b: None,                     }),
                     SolverLoad::Distributed(SolverDistributedLoad {
                         element_id: 2, q_i: -10.0, q_j: -10.0, a: None, b: None,                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "L".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {
@@ -364,16 +354,14 @@ fn load_cases_2d_independent_cases() {
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "Case2".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {
@@ -418,16 +406,14 @@ fn load_cases_2d_superposition_correct() {
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
             LoadCase {
                 name: "B".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
                         node_id: 2, fx: 5.0, fy: 0.0, mz: 0.0,
                     }),
-                ],
-            },
+                ] },
         ],
         combinations: vec![
             CombinationDef {

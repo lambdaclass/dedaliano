@@ -533,6 +533,115 @@ pub fn solve_winkler_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Constrained Analysis ====================
+
+/// Solve 2D constrained analysis (rigid links, diaphragms, MPCs). JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_constrained_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::constraints::ConstrainedInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::constraints::solve_constrained_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D constrained analysis (rigid links, diaphragms, MPCs). JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_constrained_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::constraints::ConstrainedInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::constraints::solve_constrained_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Contact / Gap Analysis ====================
+
+/// Solve 2D contact analysis (tension/compression-only, gaps, uplift). JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_contact_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::contact::ContactInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::contact::solve_contact_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D contact analysis (tension/compression-only, gaps, uplift). JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_contact_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::contact::ContactInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::contact::solve_contact_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== SSI Analysis ====================
+
+/// Solve 2D soil-structure interaction with nonlinear p-y/t-z/q-z curves. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_ssi_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::ssi::SSIInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::ssi::solve_ssi_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve 3D soil-structure interaction with nonlinear p-y/t-z/q-z curves. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_ssi_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::ssi::SSIInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::ssi::solve_ssi_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Arc-Length / Displacement Control ====================
+
+/// Solve arc-length (Crisfield) analysis for snap-through/snap-back. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_arc_length(json: &str) -> Result<String, JsValue> {
+    let input: solver::arc_length::ArcLengthInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::arc_length::solve_arc_length(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Solve displacement-controlled analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_displacement_control(json: &str) -> Result<String, JsValue> {
+    let input: solver::arc_length::DisplacementControlInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::arc_length::solve_displacement_control(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Fiber Beam-Column Analysis ====================
+
+/// Solve 2D fiber beam-column nonlinear analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_fiber_nonlinear_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::fiber_nonlinear::FiberNonlinearInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::fiber_nonlinear::solve_fiber_nonlinear_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Section Analysis ====================
 
 /// Compute cross-section properties from polygon geometry. JSON: SectionInput
@@ -697,7 +806,7 @@ mod tests {
                 kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
             });
         }
-        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads }
+        SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] }
     }
 
     #[test]

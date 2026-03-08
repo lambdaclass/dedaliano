@@ -67,8 +67,7 @@ fn make_ff_beam_settlement(n: usize, l: f64, delta: Option<f64>) -> SolverInput 
     });
     SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    }
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], }
 }
 
 // ================================================================
@@ -137,8 +136,7 @@ fn validation_sse_middle_support_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Middle support prescribed displacement should be imposed
@@ -229,8 +227,7 @@ fn validation_sse_continuous_end_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Prescribed end displacement must be satisfied
@@ -339,8 +336,7 @@ fn validation_sse_portal_frame_base_settlement() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium (no applied loads)
@@ -421,8 +417,7 @@ fn validation_sse_propped_cantilever_roller_settlement() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // M_fixed = 3EIδ/L²
@@ -508,8 +503,7 @@ fn validation_sse_moment_proportional_to_ei() {
 
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads: vec![],
-        };
+            elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
         let results = linear::solve_2d(&input).unwrap();
 
         // Return max moment in elements adjacent to mid-support
@@ -586,8 +580,7 @@ fn validation_sse_stiff_vs_flexible_beam() {
         }
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads: vec![],
-        };
+            elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
         let results = linear::solve_2d(&input).unwrap();
         results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs()
     };
@@ -680,8 +673,7 @@ fn validation_sse_multiple_settlement_patterns() {
         }
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads: vec![],
-        };
+            elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
         linear::solve_2d(&input).unwrap()
     };
 

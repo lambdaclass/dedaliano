@@ -101,8 +101,7 @@ fn validation_dyn_adv_ext_portal_frame_sway_impulse() {
         let fx = if i < impulse_steps { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: 2, fx, fy: 0.0, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: 2, fx, fy: 0.0, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -166,8 +165,7 @@ fn validation_dyn_adv_ext_superposition_principle() {
             let fy = a1 * (omega_drive * t).sin() + a2 * (omega_drive * t).cos();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
         }
         fh
     };
@@ -258,8 +256,7 @@ fn validation_dyn_adv_ext_triangular_pulse_daf() {
         };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
@@ -321,8 +318,7 @@ fn validation_dyn_adv_ext_damping_reduces_peak() {
             let fy = f0 * (0.95 * omega1 * t).sin();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
         }
         fh
     };
@@ -452,8 +448,7 @@ fn validation_dyn_adv_ext_step_then_release() {
         let fy = if i < n_hold { -f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     // Use moderate damping so the system reaches near-steady-state during hold
@@ -539,8 +534,7 @@ fn validation_dyn_adv_ext_half_sine_shock_spectrum() {
             };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-            });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
         }
         let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
             Some(fh), None);
@@ -624,8 +618,7 @@ fn validation_dyn_adv_ext_velocity_displacement_consistency() {
         let fy = if i < impulse_steps { -f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,

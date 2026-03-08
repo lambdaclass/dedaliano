@@ -70,8 +70,8 @@ fn make_ss_beam_3d() -> SolverInput3D {
     SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     }
 }
@@ -237,8 +237,8 @@ fn moving_loads_3d_multispan() {
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 

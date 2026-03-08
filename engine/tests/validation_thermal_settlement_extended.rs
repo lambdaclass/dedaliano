@@ -387,8 +387,7 @@ fn validation_thermal_ext_5_settlement_propped() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -478,8 +477,7 @@ fn validation_thermal_ext_6_double_settlement() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 

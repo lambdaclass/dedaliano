@@ -68,6 +68,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
         elements: input.solver.elements.clone(),
         supports: input.solver.supports.clone(),
         loads: Vec::new(),
+        constraints: vec![],
     };
 
     // Pre-compute node positions
@@ -265,8 +266,10 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
         elements: input.solver.elements.clone(),
         supports: input.solver.supports.clone(),
         loads: Vec::new(),
+        constraints: vec![],
         left_hand: input.solver.left_hand,
         plates: input.solver.plates.clone(),
+        quads: input.solver.quads.clone(),
         curved_beams: input.solver.curved_beams.clone(),
     };
 

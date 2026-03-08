@@ -186,7 +186,7 @@ fn make_3d_input(
         elements: elems_map,
         supports: sups_map,
         loads: vec![],
-        left_hand: None, plates: HashMap::new(), curved_beams: vec![],    }
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    }
 }
 
 #[test]

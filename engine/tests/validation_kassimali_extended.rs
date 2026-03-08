@@ -163,8 +163,7 @@ fn validation_kass_continuous_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 

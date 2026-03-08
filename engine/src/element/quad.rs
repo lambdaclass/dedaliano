@@ -557,6 +557,34 @@ pub fn quad_element_dofs(
     dofs
 }
 
+/// Consistent pressure load for quad element (24-DOF).
+///
+/// Pressure is applied normal to the shell surface. Returns 24-element load vector.
+pub fn quad_pressure_load(coords: &[[f64; 3]; 4], pressure: f64) -> Vec<f64> {
+    let (ex, ey, ez) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+
+    let mut f = vec![0.0; 24];
+    let gauss = gauss_2x2();
+
+    for &((xi, eta), w_g) in &gauss {
+        let (_, _, det_j) = jacobian_2d(&pts, xi, eta);
+        let n = shape_functions(xi, eta);
+        let dv = det_j.abs() * w_g;
+
+        // Pressure acts in normal (ez) direction
+        for i in 0..4 {
+            // Force in global coordinates: pressure * N_i * dA * ez
+            let f_local_z = pressure * n[i] * dv;
+            f[i * 6]     += f_local_z * ez[0];
+            f[i * 6 + 1] += f_local_z * ez[1];
+            f[i * 6 + 2] += f_local_z * ez[2];
+        }
+    }
+
+    f
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -665,10 +693,6 @@ mod tests {
         let expected_mass = rho * t * 1.0; // area = 1m²
 
         // Sum of diagonal translational mass entries / 3 (for each direction)
-        let mut total_mass_x = 0.0;
-        for i in 0..4 {
-            total_mass_x += m[(i * 6) * 24 + (i * 6)]; // ux diagonal
-        }
         // For consistent mass, total = sum of all entries per direction
         let mut total = 0.0;
         for i in 0..4 {

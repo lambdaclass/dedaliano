@@ -146,8 +146,7 @@ fn validation_staged_1_two_phase_beam() {
                 load_indices: vec![0],
                 supports_added: vec![1], // fixed at node 1 only
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Add span 2".into(),
                 elements_added: vec![2],
@@ -155,8 +154,7 @@ fn validation_staged_1_two_phase_beam() {
                 load_indices: vec![1],
                 supports_added: vec![2], // roller at node 3
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
     let staged_results = solve_staged_2d(&staged_input).unwrap();
@@ -172,8 +170,7 @@ fn validation_staged_1_two_phase_beam() {
             load_indices: vec![0, 1],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
@@ -246,8 +243,7 @@ fn validation_staged_2_support_addition() {
                 load_indices: vec![0],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Add intermediate support".into(),
                 elements_added: vec![],
@@ -255,8 +251,7 @@ fn validation_staged_2_support_addition() {
                 load_indices: vec![], // no new loads
                 supports_added: vec![3],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -353,8 +348,7 @@ fn validation_staged_3_element_activation() {
                 load_indices: vec![],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Beam".into(),
                 elements_added: vec![2],
@@ -362,8 +356,7 @@ fn validation_staged_3_element_activation() {
                 load_indices: vec![],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 3: Lateral load".into(),
                 elements_added: vec![],
@@ -371,8 +364,7 @@ fn validation_staged_3_element_activation() {
                 load_indices: vec![0],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
     let staged_results = solve_staged_2d(&staged_input).unwrap();
@@ -388,8 +380,7 @@ fn validation_staged_3_element_activation() {
             load_indices: vec![0],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
@@ -481,8 +472,7 @@ fn validation_staged_4_support_removal() {
                 load_indices: vec![0],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Remove element 2 + support".into(),
                 elements_added: vec![],
@@ -490,8 +480,7 @@ fn validation_staged_4_support_removal() {
                 load_indices: vec![],
                 supports_added: vec![],
                 supports_removed: vec![2],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 3: Load on cantilever".into(),
                 elements_added: vec![],
@@ -499,8 +488,7 @@ fn validation_staged_4_support_removal() {
                 load_indices: vec![1],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -610,8 +598,7 @@ fn validation_staged_5_staged_loading() {
                 load_indices: vec![0, 1], // dead load on both elements
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Live load".into(),
                 elements_added: vec![],
@@ -619,8 +606,7 @@ fn validation_staged_5_staged_loading() {
                 load_indices: vec![2, 3], // live load on both elements
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
     let staged_results = solve_staged_2d(&staged_input).unwrap();
@@ -645,8 +631,7 @@ fn validation_staged_5_staged_loading() {
             load_indices: vec![0, 1],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
@@ -737,8 +722,7 @@ fn validation_staged_6_self_weight() {
                 load_indices: vec![0],
                 supports_added: vec![1],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Extend to 6m".into(),
                 elements_added: vec![2],
@@ -746,8 +730,7 @@ fn validation_staged_6_self_weight() {
                 load_indices: vec![1],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -778,8 +761,7 @@ fn validation_staged_6_self_weight() {
             load_indices: vec![0],
             supports_added: vec![1],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let ref_results = solve_staged_2d(&ref_staged_input).unwrap();
 
@@ -899,8 +881,7 @@ fn validation_staged_7_frame_erection() {
                 load_indices: vec![],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Second floor".into(),
                 elements_added: vec![4, 5, 6],
@@ -908,8 +889,7 @@ fn validation_staged_7_frame_erection() {
                 load_indices: vec![],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 3: Lateral load".into(),
                 elements_added: vec![],
@@ -917,8 +897,7 @@ fn validation_staged_7_frame_erection() {
                 load_indices: vec![0],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
     let staged_results = solve_staged_2d(&staged_input).unwrap();
@@ -934,8 +913,7 @@ fn validation_staged_7_frame_erection() {
             load_indices: vec![0],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
@@ -1043,8 +1021,7 @@ fn validation_staged_8_equilibrium_each_stage() {
                 load_indices: vec![0],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Additional vertical load".into(),
                 elements_added: vec![],
@@ -1052,8 +1029,7 @@ fn validation_staged_8_equilibrium_each_stage() {
                 load_indices: vec![1],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 3: Lateral + vertical load".into(),
                 elements_added: vec![],
@@ -1061,8 +1037,7 @@ fn validation_staged_8_equilibrium_each_stage() {
                 load_indices: vec![2],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 

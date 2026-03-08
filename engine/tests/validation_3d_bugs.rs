@@ -290,8 +290,8 @@ fn bug_3d_plate_mass_contributes_to_modal() {
         elements: HashMap::new(), // no frame elements
         supports: sups_map,
         loads: vec![],
-        left_hand: None,
-        plates: plates_map,
+        constraints: vec![], left_hand: None,
+        plates: plates_map, quads: HashMap::new(),
         curved_beams: vec![],
     };
 

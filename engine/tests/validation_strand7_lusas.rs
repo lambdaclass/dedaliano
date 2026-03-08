@@ -811,8 +811,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads: vec![],
-    };
+        loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 

@@ -132,8 +132,7 @@ fn make_stepped_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 // ================================================================

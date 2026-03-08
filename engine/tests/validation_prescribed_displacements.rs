@@ -75,8 +75,7 @@ fn validation_settlement_fixed_fixed() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -159,8 +158,7 @@ fn validation_settlement_propped_cantilever() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -236,8 +234,7 @@ fn validation_settlement_continuous_two_span() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -320,8 +317,7 @@ fn validation_settlement_plus_load() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -393,8 +389,7 @@ fn validation_prescribed_rotation() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -461,8 +456,7 @@ fn validation_prescribed_axial() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -526,8 +520,7 @@ fn validation_settlement_portal_frame() {
     }
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![],
-    };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -617,8 +610,7 @@ fn validation_settlement_superposition() {
         }
         let input = SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads,
-        };
+            elements: elems_map, supports: sups_map, loads, constraints: vec![], };
         linear::solve_2d(&input).unwrap()
     };
 

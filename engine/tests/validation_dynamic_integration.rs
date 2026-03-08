@@ -103,8 +103,7 @@ fn validation_dynamic_1_free_vibration_period() {
                 fx: 0.0,
                 fy: -50.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -112,8 +111,7 @@ fn validation_dynamic_1_free_vibration_period() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_cantilever_th(
@@ -225,8 +223,7 @@ fn validation_dynamic_2_step_load_response() {
                 fx: 0.0,
                 fy: p,
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = make_cantilever_th(
@@ -301,8 +298,7 @@ fn validation_dynamic_3_damped_decay() {
                 fx: 0.0,
                 fy,
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = make_cantilever_th(
@@ -604,8 +600,7 @@ fn validation_dynamic_6_newmark_energy_conservation() {
                 fx: 0.0,
                 fy: -50.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -613,8 +608,7 @@ fn validation_dynamic_6_newmark_energy_conservation() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let input = make_cantilever_th(
@@ -705,8 +699,7 @@ fn validation_dynamic_7_hht_alpha_damping() {
                 fx: 0.0,
                 fy: -50.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -714,8 +707,7 @@ fn validation_dynamic_7_hht_alpha_damping() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     // Run HHT-alpha with alpha = -0.1 (moderate numerical damping)
@@ -894,8 +886,7 @@ fn validation_dynamic_8_multi_dof_modes() {
                 fx: 100.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
@@ -903,8 +894,7 @@ fn validation_dynamic_8_multi_dof_modes() {
                 fx: 0.0,
                 fy: 0.0,
                 mz: 0.0,
-            }],
-        },
+            }] },
     ];
 
     let th_input = TimeHistoryInput {

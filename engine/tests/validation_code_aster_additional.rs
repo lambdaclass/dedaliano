@@ -360,8 +360,7 @@ fn validation_ca_ssll107a_beam_on_winkler() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    };
+        loads, constraints: vec![], };
 
     let foundation_springs: Vec<FoundationSpring> = (1..=n)
         .map(|i| FoundationSpring { element_id: i, kf })

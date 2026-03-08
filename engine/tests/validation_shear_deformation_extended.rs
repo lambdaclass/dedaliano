@@ -161,8 +161,7 @@ fn make_timoshenko_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 /// Build a two-span continuous beam with custom section (Timoshenko support).
@@ -290,8 +289,7 @@ fn make_timoshenko_continuous_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 // ================================================================

@@ -335,7 +335,7 @@ fn cable_3d_simple() {
 
     let input = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        left_hand: None, plates: HashMap::new(), curved_beams: Vec::new(),
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
     };
 
     let densities = HashMap::new();

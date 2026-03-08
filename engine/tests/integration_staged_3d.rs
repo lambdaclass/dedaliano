@@ -91,8 +91,7 @@ fn staged_3d_single_stage_all_elements() {
         load_indices: vec![0],
         supports_added: vec![1],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     let result = solve_staged_3d(&input).unwrap();
     assert_eq!(result.stages.len(), 1);
@@ -135,8 +134,7 @@ fn staged_3d_two_stage_element_activation() {
         load_indices: vec![],
         supports_added: vec![1],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     // Stage 2: add element 2 and apply load at node 3
     input.stages.push(ConstructionStage3D {
@@ -146,8 +144,7 @@ fn staged_3d_two_stage_element_activation() {
         load_indices: vec![0],
         supports_added: vec![],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     let result = solve_staged_3d(&input).unwrap();
     assert_eq!(result.stages.len(), 2);
@@ -188,8 +185,7 @@ fn staged_3d_displacement_accumulation() {
         load_indices: vec![0],
         supports_added: vec![1],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     input.stages.push(ConstructionStage3D {
         name: "Stage 2".to_string(),
@@ -198,8 +194,7 @@ fn staged_3d_displacement_accumulation() {
         load_indices: vec![1],
         supports_added: vec![],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     let result = solve_staged_3d(&input).unwrap();
     assert_eq!(result.stages.len(), 2);
@@ -250,8 +245,7 @@ fn staged_3d_support_activation() {
         load_indices: vec![0],
         supports_added: vec![1],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     // Stage 2: add support at node 3 (propped cantilever), same load again
     input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -265,8 +259,7 @@ fn staged_3d_support_activation() {
         load_indices: vec![1],
         supports_added: vec![3],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     let result = solve_staged_3d(&input).unwrap();
     assert_eq!(result.stages.len(), 2);
@@ -294,8 +287,7 @@ fn staged_3d_load_at_specific_stage() {
         load_indices: vec![],
         supports_added: vec![1],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     // Stage 2: apply live load
     input.stages.push(ConstructionStage3D {
@@ -305,8 +297,7 @@ fn staged_3d_load_at_specific_stage() {
         load_indices: vec![0],
         supports_added: vec![],
         supports_removed: vec![],
-        prestress_loads: vec![],
-    });
+        prestress_loads: vec![], });
 
     let result = solve_staged_3d(&input).unwrap();
 
@@ -405,8 +396,7 @@ fn staged_3d_multistory_erection() {
             load_indices: vec![0],
             supports_added: vec![1],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        },
+            prestress_loads: vec![], },
         ConstructionStage3D {
             name: "Story 2".to_string(),
             elements_added: vec![2],
@@ -414,8 +404,7 @@ fn staged_3d_multistory_erection() {
             load_indices: vec![1],
             supports_added: vec![],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        },
+            prestress_loads: vec![], },
         ConstructionStage3D {
             name: "Story 3".to_string(),
             elements_added: vec![3],
@@ -423,8 +412,7 @@ fn staged_3d_multistory_erection() {
             load_indices: vec![2],
             supports_added: vec![],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        },
+            prestress_loads: vec![], },
     ];
 
     let input = StagedInput3D {

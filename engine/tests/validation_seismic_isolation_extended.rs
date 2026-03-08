@@ -114,7 +114,7 @@ fn validation_seis_iso_ext_1_lrb_effective_stiffness() {
         node_id: 2, fx: f_applied, fy: 0.0, mz: 0.0,
     })];
 
-    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads };
+    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -234,7 +234,7 @@ fn validation_seis_iso_ext_2_fps_period() {
         node_id: 2, fx: f_restoring, fy: 0.0, mz: 0.0,
     })];
 
-    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads };
+    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -406,7 +406,7 @@ fn validation_seis_iso_ext_4_design_displacement() {
         node_id: 2, fx: v_b, fy: 0.0, mz: 0.0,
     })];
 
-    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads };
+    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -718,7 +718,7 @@ fn validation_seis_iso_ext_7_hdr_shear_modulus() {
         node_id: 2, fx: f_design, fy: 0.0, mz: 0.0,
     })];
 
-    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads };
+    let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();

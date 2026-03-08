@@ -13,6 +13,15 @@ const SPARSE_THRESHOLD: usize = 64;
 
 /// Solve a 2D linear static analysis.
 pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
+    // Auto-delegate to constrained solver when constraints are present
+    if !input.constraints.is_empty() {
+        let ci = super::constraints::ConstrainedInput {
+            solver: input.clone(),
+            constraints: input.constraints.clone(),
+        };
+        return super::constraints::solve_constrained_2d(&ci);
+    }
+
     let dof_num = DofNumbering::build_2d(input);
 
     if dof_num.n_free == 0 {
@@ -132,6 +141,15 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
 
 /// Solve a 3D linear static analysis.
 pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
+    // Auto-delegate to constrained solver when constraints are present
+    if !input.constraints.is_empty() {
+        let ci = super::constraints::ConstrainedInput3D {
+            solver: input.clone(),
+            constraints: input.constraints.clone(),
+        };
+        return super::constraints::solve_constrained_3d(&ci);
+    }
+
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let input = &input;

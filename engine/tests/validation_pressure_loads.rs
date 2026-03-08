@@ -87,8 +87,8 @@ fn make_plate_input(
         elements: HashMap::new(),
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: plates_map,
+        constraints: vec![], left_hand: None,
+        plates: plates_map, quads: HashMap::new(),
         curved_beams: vec![],
     }
 }

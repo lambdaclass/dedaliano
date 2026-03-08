@@ -532,8 +532,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         elements: HashMap::new(),
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams,
     };
 
@@ -772,8 +772,8 @@ fn capability_vm44_roark_circular_ring() {
         elements: HashMap::new(),
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams,
     };
 

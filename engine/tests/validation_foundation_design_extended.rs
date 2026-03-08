@@ -105,8 +105,7 @@ fn make_winkler_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads,
-    }
+        loads, constraints: vec![], }
 }
 
 // ================================================================
@@ -423,8 +422,7 @@ fn validation_pile_cap_3_piles() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads,
-    };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Compute pile forces from deflections: F_pile = k_pile * |uy|

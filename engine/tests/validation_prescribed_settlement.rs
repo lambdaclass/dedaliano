@@ -79,8 +79,7 @@ fn validation_settlement_fixed_fixed() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Settlement-induced moments: M = 6EIδ/L²
@@ -148,8 +147,7 @@ fn validation_settlement_propped() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     let r_roller = results.reactions.iter()
@@ -220,8 +218,7 @@ fn validation_settlement_two_span() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: ΣRy = 0 (no external loads)
@@ -285,8 +282,7 @@ fn validation_settlement_moment_formula() {
 
         let input = SolverInput {
             nodes: nodes_map, materials: mats, sections: secs,
-            elements: elems, supports: sups, loads: vec![],
-        };
+            elements: elems, supports: sups, loads: vec![], constraints: vec![], };
         let results = linear::solve_2d(&input).unwrap();
 
         let m_exact = 6.0 * e_eff * IZ * delta.abs() / (l * l);
@@ -344,8 +340,7 @@ fn validation_settlement_equal() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // All internal forces should be zero (rigid body motion)
@@ -410,8 +405,7 @@ fn validation_settlement_rotation() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![],
-    };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
     let results = linear::solve_2d(&input).unwrap();
 
     // Near end (B): M = 4EIθ/L
@@ -475,7 +469,7 @@ fn validation_settlement_superposition() {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None, dx: None, dy: dy_right, drz: None, angle: None,
         });
-        SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads }
+        SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], }
     };
 
     let udl = |q_val: f64| -> Vec<SolverLoad> {
@@ -544,7 +538,7 @@ fn validation_settlement_linearity() {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None, dx: None, dy: Some(dy), drz: None, angle: None,
         });
-        SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads: vec![] }
+        SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads: vec![], constraints: vec![], }
     };
 
     let r1 = linear::solve_2d(&build(-0.005)).unwrap();

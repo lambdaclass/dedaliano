@@ -161,8 +161,8 @@ fn make_3d_continuous_beam(
         elements: elems_map,
         supports: sups_map,
         loads,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     }
 }
@@ -496,8 +496,8 @@ fn validation_3d_continuous_elastic_support() {
         elements: elems_map,
         supports: sups_map,
         loads: loads_spring,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
     let res_spring = linear::solve_3d(&input_spring).unwrap();
@@ -744,8 +744,8 @@ fn validation_3d_continuous_moment_ei_proportionality() {
         elements: elems_map,
         supports: sups_map,
         loads: loads_2ei,
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
     let res_2ei = linear::solve_3d(&input_2ei).unwrap();

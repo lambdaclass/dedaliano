@@ -651,8 +651,7 @@ fn validation_ext_8_undamped_amplitude_stability() {
                 fx: 0.0,
                 fy,
                 mz: 0.0,
-            }],
-        });
+            }] });
     }
 
     let input = TimeHistoryInput {

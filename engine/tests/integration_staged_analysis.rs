@@ -81,16 +81,14 @@ fn single_stage_matches_normal_solve() {
             load_indices: vec![0],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
 
     let staged_results = solve_staged_2d(&staged_input).unwrap();
 
     // Normal solve
     let normal_input = SolverInput {
-        nodes, materials, sections, elements, supports, loads,
-    };
+        nodes, materials, sections, elements, supports, loads, constraints: vec![], };
     let normal_results = dedaliano_engine::solver::linear::solve_2d(&normal_input).unwrap();
 
     // Compare midspan deflection (node 2)
@@ -131,8 +129,7 @@ fn two_stage_cantilever_then_span() {
                 load_indices: vec![0], // First 50 kN load
                 supports_added: vec![1],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2: Complete span".into(),
                 elements_added: vec![2],
@@ -140,8 +137,7 @@ fn two_stage_cantilever_then_span() {
                 load_indices: vec![1], // Second 50 kN load
                 supports_added: vec![2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -230,8 +226,7 @@ fn prestress_straight_tendon_camber() {
                     mu: None,
                     kappa: None,
                 },
-            ],
-        }],
+            ] }],
     };
 
     let results = solve_staged_2d(&staged_input).unwrap();
@@ -330,8 +325,7 @@ fn prestress_parabolic_tendon() {
             load_indices: vec![],
             supports_added: all_sup_ids,
             supports_removed: vec![],
-            prestress_loads,
-        }],
+            prestress_loads }],
     };
 
     let results = solve_staged_2d(&staged_input).unwrap();
@@ -377,8 +371,7 @@ fn stage_with_no_elements() {
             load_indices: vec![],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
 
     let results = solve_staged_2d(&staged_input).unwrap();
@@ -413,8 +406,7 @@ fn element_removal_increases_deflection() {
                 load_indices: vec![0],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Remove span 2".into(),
                 elements_added: vec![],
@@ -422,8 +414,7 @@ fn element_removal_increases_deflection() {
                 load_indices: vec![], // no new loads
                 supports_added: vec![],
                 supports_removed: vec![2],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -468,8 +459,7 @@ fn three_stages_increasing_load() {
                 load_indices: vec![0],
                 supports_added: vec![1, 2],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 2".into(),
                 elements_added: vec![],
@@ -477,8 +467,7 @@ fn three_stages_increasing_load() {
                 load_indices: vec![1],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
             ConstructionStage {
                 name: "Stage 3".into(),
                 elements_added: vec![],
@@ -486,8 +475,7 @@ fn three_stages_increasing_load() {
                 load_indices: vec![2],
                 supports_added: vec![],
                 supports_removed: vec![],
-                prestress_loads: vec![],
-            },
+                prestress_loads: vec![], },
         ],
     };
 
@@ -564,6 +552,7 @@ fn staged_braced_frame_matches_linear_results() {
         elements: elements.clone(),
         supports: supports.clone(),
         loads: loads.clone(),
+    constraints: vec![],
     };
     let normal = solve_2d(&normal_input).unwrap();
 
@@ -581,8 +570,7 @@ fn staged_braced_frame_matches_linear_results() {
             load_indices: vec![0],
             supports_added: vec![1, 2],
             supports_removed: vec![],
-            prestress_loads: vec![],
-        }],
+            prestress_loads: vec![], }],
     };
     let staged = solve_staged_2d(&staged_input).unwrap();
     let stage = &staged.stages[0].results;

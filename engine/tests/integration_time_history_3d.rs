@@ -55,8 +55,8 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
     };
 
@@ -139,15 +139,13 @@ fn time_history_3d_force_history() {
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: 0.0, fz: -10.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
         TimeForceRecord3D {
             time: 1.0,
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: 0.0, fz: -10.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
     ]);
     input.n_steps = 500;
 
@@ -170,15 +168,13 @@ fn time_history_3d_hht_alpha() {
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
         TimeForceRecord3D {
             time: 0.01,
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
     ]);
     input.n_steps = 200;
 
@@ -200,15 +196,13 @@ fn time_history_3d_rayleigh_damping() {
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
         TimeForceRecord3D {
             time: 0.001,
             loads: vec![SolverNodalLoad3D {
                 node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0,
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-            }],
-        },
+            }] },
     ]);
     input.n_steps = 1000;
 

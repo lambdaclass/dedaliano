@@ -194,8 +194,7 @@ fn validation_chopra_rectangular_pulse_response() {
         let fy = if t <= t_d { p } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -452,8 +451,7 @@ fn validation_chopra_logarithmic_decrement() {
         let fy = if i < pulse_steps { -300.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }],
-        });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
