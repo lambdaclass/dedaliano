@@ -20,14 +20,14 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 ## Running Tests
 
 ```bash
-cd engine && cargo test              # full suite (1834 tests)
-cd engine && cargo test validation_  # validation tests only (1587 tests across 205 files)
+cd engine && cargo test              # full suite (3500+ tests)
+cd engine && cargo test validation_  # validation tests only (3080+ tests across 390+ files)
 cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 ```
 
 ## Validation Test Suite
 
-**1587 validation tests across 205 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
+**3,080+ validation tests across 390+ files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
 
 ### Industry Standards and Design Codes
 
