@@ -332,7 +332,7 @@ fn validation_compat_ext_stiffness_proportional_sharing() {
 
 #[test]
 fn validation_compat_ext_mesh_refinement_convergence() {
-    let l = 10.0;
+    let l: f64 = 10.0;
     let q = 15.0;
     let e_eff = E * 1000.0;
     let delta_exact: f64 = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);

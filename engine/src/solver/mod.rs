@@ -23,6 +23,8 @@ pub mod winkler;
 pub mod line_search;
 pub mod adaptive_stepping;
 pub mod contact;
+pub mod soil_curves;
+pub mod ssi;
 
 pub use dof::*;
 pub use assembly::*;
