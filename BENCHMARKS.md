@@ -13,24 +13,24 @@
 |----------|------|------------|---------|-------|
 | Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
 | Commercial Software Cross-Validation | 167 | 5 | 1 | 173 |
-| Textbook Classics | 1688 | 0 | 0 | 1688 |
+| Textbook Classics | 1800 | 0 | 0 | 1800 |
 | Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
-| FEM Quality & Convergence | 54 | 0 | 0 | 54 |
-| Engineering Practice & Specialized Structures | 616 | 0 | 0 | 616 |
+| FEM Quality & Convergence | 62 | 0 | 0 | 62 |
+| Engineering Practice & Specialized Structures | 624 | 0 | 0 | 624 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3055** | **8** | **1** | **3064** |
+| **Total** | **3183** | **3** | **1** | **3187** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3116 validation test functions across 394 validation files. 3561 total registered tests across 450 Rust test files.**
+**3249 validation test functions across 411 validation files. 3694 total registered tests across 467 Rust test files.**
 
 Current measured inventory:
 
-- `394` files matching `engine/tests/validation_*.rs`
-- `3116` `#[test]` functions inside validation files
+- `411` files matching `engine/tests/validation_*.rs`
+- `3249` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3561` total registered tests from `cargo test -- --list`
+- `3694` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -525,7 +525,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Textbook Classics (~1688 tests)
 
-### Beam Theory (18 files, ~134 tests)
+### Beam Theory (19 files, ~142 tests)
 - `validation_beam_formulas.rs` (14) — Timoshenko: SS, cantilever, fixed-fixed, propped cantilever
 - `validation_beam_deflections.rs` (8) — Timoshenko & Gere, Gere & Goodno, Beer & Johnston
 - `validation_beam_rotation.rs` (8) — End rotation formulas
@@ -536,6 +536,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_propped_cantilever.rs` (8) — Timoshenko & Gere, Roark 8th
 - `validation_partial_loads.rs` (8) — Half-span, trapezoidal, convergence
 - `validation_roark_formulas.rs` (8) — Roark's Table 8.1 Cases 1a/1e/2a/2e/3a/2c/1c
+- `validation_roark_extended.rs` (8) — Roark Cases 8a/8e/3a/3e/2d/1d/2c-partial, overhanging beam
 - `validation_stepped_beam.rs` (8) — Ghali/Neville, Pilkey, Roark
 - `validation_nonprismatic_members.rs` (7) — Haunched, tapered, composite
 - `validation_shear_deformation.rs` (8) — Timoshenko vs EB comparison
@@ -575,7 +576,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_continuous_beam_analysis.rs` (8) — 3/4-span interior moments, reactions, symmetry
 - `validation_continuous_beam_patterns.rs` (8) — Checkerboard patterns, moment envelope effects
 
-### Indeterminate Methods (20 files, ~157 tests)
+### Indeterminate Methods (24 files, ~189 tests)
 - `validation_slope_deflection.rs` (8) + `validation_slope_deflection_method.rs` (8)
 - `validation_moment_distribution.rs` (8) + `validation_hardy_cross.rs` (8)
 - `validation_force_method.rs` (8) + `validation_flexibility_method.rs` (8)
@@ -590,6 +591,10 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_matrix_structural_analysis.rs` (8) — Axial/beam element stiffness, assembly
 - `validation_stiffness_matrix_properties.rs` (8) — Symmetry, positive work, superposition
 - `validation_kassimali_extended.rs` (6) — Propped cantilever, fixed partial UDL, continuous
+- `validation_ghali_neville_extended.rs` (8) — Force method 2-span, propped cantilever, portal sway, stiffness modification, settlement
+- `validation_weaver_gere_extended.rs` (8) — Propped cantilever stiffness, fixed asymmetric, 2-span, portal sway, grid beam, gable frame
+- `validation_hibbeler_extended.rs` (8) — Conjugate beam, virtual work frame, three-moment, moment distribution, influence line, settlement
+- `validation_mcguire_ziemian_extended.rs` (8) — Assembly, geometric stiffness, portal, P-delta frame, 3D space frame, truss, stability eigenvalue, moment redistribution
 
 ### Energy Methods (8 files, ~68 tests)
 - `validation_fundamental_theorems.rs` (12) — Maxwell-Betti, Clapeyron, Castigliano
@@ -628,7 +633,7 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_sway_frames.rs` (8) — Portal stiffness, antisymmetric moments
 - `validation_multi_story_behavior.rs` (8) — Two-story lateral, shear distribution
 
-### Trusses (9 files, ~72 tests)
+### Trusses (10 files, ~80 tests)
 - `validation_trusses.rs` (6) — Equilateral, Warren, Pratt, indeterminate
 - `validation_truss_methods.rs` (8) — Joints, sections, zero-force members
 - `validation_truss_method_of_joints.rs` (8)
@@ -638,8 +643,9 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_cable_truss_tension.rs` (8)
 - `validation_3d_truss_structures.rs` (8) — Tetrahedral, tower, bridge
 - `validation_truss_behavior_fundamental.rs` (8) — 3-bar triangle, axial bar, Warren 2-panel
+- `validation_kassimali_trusses.rs` (8) — 3-bar, Warren 6-panel, Pratt, Howe, K-truss, compound Fink, thermal truss
 
-### 3D Analysis (31 files, ~236 tests)
+### 3D Analysis (33 files, ~252 tests)
 - `validation_3d_analysis.rs` (10) — Biaxial, torsion, space truss, equilibrium
 - `validation_3d_beam_bending.rs` (8) + `validation_3d_biaxial_bending.rs` (8)
 - `validation_3d_cantilever_benchmarks.rs` (8) + `validation_3d_cantilever_loading.rs` (8)
@@ -661,8 +667,10 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_3d_space_frame_basic.rs` (8) — L-frame, 3D portal, cantilevers along Y/Z
 - `validation_3d_support_conditions.rs` (8) — Fixed/pinned/roller DOF constraints
 - `validation_3d_torsion_basic.rs` (8) — Pure torsion: proportionality to length, 1/J
+- `validation_przemieniecki_3d.rs` (8) — Space truss, biaxial bending, L-frame torsion, grillage, inclined beam, 3D portal
+- `validation_3d_frames_extended.rs` (8) — Cantilever torsion, biaxial bending, 6-bar space truss, right-angle frame, 3D portal lateral, inclined column
 
-### Buckling & Stability (21 files, ~170 tests)
+### Buckling & Stability (22 files, ~178 tests)
 - `validation_euler_buckling.rs` (16) — 4 BCs × 4 mesh densities
 - `validation_timoshenko_stability.rs` (8)
 - `validation_eurocode3_buckling.rs` (6) — alpha_cr
@@ -681,8 +689,9 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_nonlinear_geometry.rs` (8) — Euler critical, amplification, snap-through arch
 - `validation_stability_design_methods.rs` (8) — DAM, stiffness reduction, ELM, B1/B2
 - `validation_buckling_plate_shell.rs` (8) — Donnell, Von Karman, Winter, EC3 shell
+- `validation_chen_lui_stability.rs` (8) — P-delta amplification, effective length, braced vs unbraced, leaning column, sway frames
 
-### Dynamic Analysis (18 files, ~132 tests)
+### Dynamic Analysis (20 files, ~148 tests)
 - `validation_modal_frequencies.rs` (16) — 4 BCs × (exact + convergence + higher + 3D)
 - `validation_damping_frequency.rs` (8) — Chopra, Clough & Penzien
 - `validation_modal_properties.rs` (8) — Orthogonality, Rayleigh, effective mass
@@ -699,8 +708,10 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_earthquake_response_spectra.rs` (8) — Harmonic excitation, Duhamel impulse, SRSS
 - `validation_structural_dynamics.rs` (8) — Natural frequency, damped frequency, log decrement
 - `validation_structural_dynamics_advanced.rs` (8) — 2-DOF frequencies, SRSS/CQC, Rayleigh coefficients
+- `validation_clough_penzien_dynamics.rs` (8) — Cantilever fundamental, SS beam 3 modes, portal sway, Newmark impulse, spectral
+- `validation_dynamic_integration.rs` (8) — Free vibration period, step load DAF=2, damped decay, harmonic resonance, Newmark energy, HHT-alpha, multi-DOF modes
 
-### Plastic & Nonlinear (11 files, ~71 tests)
+### Plastic & Nonlinear (12 files, ~79 tests)
 - `validation_plastic_collapse.rs` (8) — Neal: exact collapse loads
 - `validation_plastic_mechanisms.rs` (8) — Mechanism types, EN 1993-1-1 §5.6
 - `validation_plastic_hinge_sequence.rs` (8)
@@ -709,17 +720,20 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_corotational.rs` (4) + `validation_corotational_benchmarks.rs` (5) + `validation_advanced_corotational.rs` (4)
 - `validation_plastic_analysis.rs` (8) — Plastic moment, upper/lower bound theorems, shape factors
 - `validation_plastic_analysis_theorems.rs` (8) — SS Mp, fixed collapse, portal sway, combined mechanism
+- `validation_neal_plastic_extended.rs` (8) — SS beam Pc=4Mp/L, fixed 16Mp/L², propped cantilever, portal combined, 2-span UDL, sway mechanism, upper/lower bound
 
-### Thermal, Settlement, Springs, Foundation (9 files, ~68 tests)
+### Thermal, Settlement, Springs, Foundation (10 files, ~76 tests)
 - `validation_thermal_settlement.rs` (10) + `validation_thermal_effects.rs` (8)
 - `validation_prescribed_displacements.rs` (8) + `validation_prescribed_settlement.rs` (8)
 - `validation_settlement_effects.rs` (8) + `validation_support_settlement_effects.rs` (8)
 - `validation_spring_supports.rs` (8)
 - `validation_winkler_foundation.rs` (4) + `validation_foundation_interaction.rs` (8)
+- `validation_thermal_settlement_extended.rs` (8) — Restrained bar, gradient cantilever, continuous thermal, portal thermal, settlement propped, double settlement, thermal truss, combined
 
-### Influence Lines & Moving Loads (4 files, ~32 tests)
+### Influence Lines & Moving Loads (5 files, ~40 tests)
 - `validation_influence_lines.rs` (8) + `validation_muller_breslau.rs` (8)
 - `validation_moving_loads.rs` (8) + `validation_moving_load_bridges.rs` (7)
+- `validation_moving_loads_extended.rs` (8) — SS single/two axles, continuous envelope, max shear position, IL reaction/moment, bridge two-lane, Müller-Breslau
 
 ### Stress Analysis (4 files, ~30 tests)
 - `validation_section_stress.rs` (8) — Navier, Jourawski, Mohr, Von Mises, Tresca
@@ -826,10 +840,11 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## FEM Quality & Convergence (~54 tests)
 
-### Convergence (3 files, ~23 tests)
+### Convergence (4 files, ~31 tests)
 - `validation_convergence.rs` (7) — h-refinement: cantilever tip, SS reactions, end moment
 - `validation_mesh_convergence.rs` (8) — Coarse vs fine, deflection convergence, midspan moment
 - `validation_finite_element_convergence.rs` (8) — h/p-refinement, patch consistency, Richardson extrapolation
+- `validation_bathe_convergence.rs` (8) — h-refinement, Richardson extrapolation, stiffness bound, eigenvalue bounds, patch tests, rigid body modes, condition number
 
 ### Patch Tests (1 file, ~8 tests)
 - `validation_patch_tests.rs` (8) — Truss uniform-strain, frame axial, beam pure-bending, rigid-body
@@ -869,11 +884,12 @@ This order improves solver class faster than expanding sideways into more specia
 ### Wind Engineering (1 file, ~8 tests)
 - `validation_snow_ice_loading.rs` (8) — Ground-to-roof, EC flat roof, sloped reduction, drift
 
-### Specialty Civil Structures (14 files, ~112 tests)
+### Specialty Civil Structures (15 files, ~120 tests)
 - `validation_blast_resistant_design.rs` (8) — Friedlander wave, scaled distance, SDOF, DLF
 - `validation_chimney_stack_design.rs` (8) — Along-wind, vortex shedding, thermal gradient, shell stress
 - `validation_crane_loading.rs` (8) — Static wheel loads, runway moment, lateral forces, biaxial
 - `validation_construction_staging.rs` (8) — Formwork pressure, shore load, reshoring, temp bracing
+- `validation_staged_construction.rs` (8) — Two-phase beam, support addition/removal, element activation, staged loading, self-weight, frame erection, equilibrium
 - `validation_dam_engineering.rs` (8) — Gravity dam sliding/overturning/uplift, arch ring
 - `validation_demolition_engineering.rs` (8) — Partial stability, blast sequence, debris, pre-weakening
 - `validation_elevator_escalator.rs` (8) — Guide rail forces, rope tension, counterweight, machine room
