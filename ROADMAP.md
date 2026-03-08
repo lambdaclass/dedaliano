@@ -65,6 +65,7 @@ This section is intentionally separate from the product and revenue roadmap belo
 
 - The tables above optimize for business phases.
 - This section optimizes for solver quality and technical credibility.
+- Detailed current capability and validation status live in [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md), not here.
 
 If the goal is "best structural solver", the next solver-core work should be read in this order:
 
@@ -107,6 +108,44 @@ If the goal is "best structural solver", the next solver-core work should be rea
 7. Shell upgrade
 
 This order is not the easiest order. It is the order with the best solver-quality payoff per unit of engineering risk.
+
+#### Difficulty ladder
+
+This is the approximate implementation difficulty ordering for the remaining solver-core gaps. It is intentionally different from the priority order above.
+
+##### Low to Medium
+
+| Topic | Status | Why |
+|---|---|---|
+| Staged truss/cable force handling | Completed | This was a contained staged/result-reconstruction cleanup, not a new solver family. |
+| Warping torsion completion | Open | The hard part is consistency, but the plumbing already exists. |
+| Full PT depth improvements | Open | Extends current staged/prestress support instead of inventing it from zero. |
+
+##### Medium
+
+| Topic | Status | Why |
+|---|---|---|
+| SSI beyond Winkler | Open | If scoped to spring-family models like `p-y`, `t-z`, and `q-z`, this is manageable. |
+| Constraint technology | Open | MPCs, rigid links, diaphragms, and eccentric connectivity are conceptually straightforward, but invasive across DOF handling, assembly, supports, and postprocessing. |
+
+##### Medium to High
+
+| Topic | Status | Why |
+|---|---|---|
+| Nonlinear solution controls | Open | Line search and adaptive stepping are moderate-to-hard; arc-length and displacement control are materially harder because they affect solver architecture and debugging. |
+| Contact / gap basics | Open | Compression-only, tension-only, and uplift-style supports are feasible; full contact behavior is much harder. |
+
+##### High
+
+| Topic | Status | Why |
+|---|---|---|
+| Fiber / section-based beam-column elements | Open | This is a real jump in nonlinear sophistication touching element formulation, section integration, constitutive response, convergence, and benchmarks. |
+
+##### Very High
+
+| Topic | Status | Why |
+|---|---|---|
+| Advanced shell technology | Open | Going from “plates/shells exist” to “commercial-grade shell robustness” is a long solver program, not a feature patch. |
 
 ### Competitive displacement by phase
 

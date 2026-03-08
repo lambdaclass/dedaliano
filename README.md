@@ -15,6 +15,7 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#solver-engine">Solver engine</a> ·
   <a href="#features">Features</a> ·
+  <a href="#documentation-map">Docs</a> ·
   <a href="#getting-started">Getting started</a>
 </p>
 
@@ -33,6 +34,34 @@
 <p align="center"><sub>Same structure with a stress utilization color map (sigma/fy). Blue elements are lightly loaded. Green and yellow elements are at moderate utilization. Red elements are approaching their yield strength.</sub></p>
 
 ---
+
+## Documentation map
+
+Use the docs by question:
+
+- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+  source of truth for solver capability, validation coverage, benchmark status, and remaining solver gaps
+- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
+  product roadmap plus solver-first priority ordering and difficulty ladder
+- [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
+  product/business framing, adjacent markets, and platform direction
+- [`engine/README.md`](/Users/unbalancedparen/projects/dedaliano/engine/README.md)
+  Rust solver engine surface, analysis types, and engine-focused validation summary
+
+This README is intentionally the short repo-level entry point.
+It should explain what Dedaliano is and where to read next, not duplicate the benchmark ledger, roadmap tables, or market strategy in full.
+
+## Current state
+
+Dedaliano is now best described as an `open-source structural solver and structural engineering platform in progress`.
+
+What exists today at a high level:
+
+- browser-native modeling and visualization
+- a substantial Rust structural solver in `engine/`
+- 2D and 3D linear, second-order, dynamic, staged, cable, and nonlinear analysis paths
+- design-check and postprocess modules for steel, concrete, timber, masonry, serviceability, connections, and foundations
+- a large benchmark and validation program tracked in [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
 
 ## What is structural analysis
 

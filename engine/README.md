@@ -2,6 +2,16 @@
 
 High-performance 2D/3D structural analysis engine in Rust, implementing the Direct Stiffness Method from scratch with no external linear algebra dependencies.
 
+## Document scope
+
+This file is the engine-facing overview.
+
+- For full benchmark status and solver gap tracking, see [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
+- For repo-level product and execution priorities, see [`../ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md).
+- For business framing and market position, see [`../POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md).
+
+This document should stay focused on the engine surface, analysis families, and engine-facing validation summary.
+
 ## Analysis Types
 
 - **Linear static** (2D & 3D): direct stiffness method, sparse Cholesky solver
@@ -26,14 +36,14 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 ## Running Tests
 
 ```bash
-cd engine && cargo test              # full suite (3561+ tests)
-cd engine && cargo test validation_  # validation tests only (3116+ tests across 394 files)
+cd engine && cargo test              # full suite (4950+ tests)
+cd engine && cargo test validation_  # validation tests only (4505 tests across 568 files)
 cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 ```
 
 ## Validation Test Suite
 
-**3,116+ validation tests across 394 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
+**4505 validation tests across 568 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark.
 
 ### Industry Standards and Design Codes
 

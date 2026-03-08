@@ -32,6 +32,33 @@ Current measured inventory:
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
 - `4950` total registered tests from `cargo test -- --list`
 
+## How to Read This File
+
+This file answers four different questions, in this order:
+
+1. `What exists today?`
+   The current solver/design surface, current maturity level, and the biggest remaining gaps.
+2. `How is it validated?`
+   The testing methodology and the role of analytical checks, benchmarks, cross-validation, regressions, and acceptance models.
+3. `What exact benchmarks are covered?`
+   The full benchmark ledger by design code family, commercial cross-check source, textbook domain, and engineering specialty.
+4. `What is not yet benchmark-complete?`
+   Regression-only items, capability-only items, placeholders, and the detailed gap inventory.
+
+Recommended reading order:
+
+- `Solver Capability Matrix`
+- `Priority and Parity Framework`
+- `Validation Methodology`
+- `Benchmark Ledger`
+- `Regression and Capability-Only Tracking`
+- `Detailed Gap Inventory`
+
+This document is about solver capability, validation, and benchmark evidence.
+It should not carry the repo’s full business narrative or become the primary product roadmap.
+
+## Current Coverage Snapshot
+
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
 | Module | Code | Tests | Description |
@@ -56,7 +83,7 @@ Current measured inventory:
 
 ---
 
-## Testing Layers
+## Validation Methodology
 
 The benchmark suite is only one part of solver verification. A structural solver should be tested in layers:
 
@@ -93,7 +120,9 @@ In other words, the benchmark strategy should be framed around reproducibility a
 
 ---
 
-## Solver Capability Matrix
+## Current Solver State
+
+### Solver Capability Matrix
 
 This section is intentionally different from the benchmark tables below.
 
@@ -165,7 +194,7 @@ Today the engine is already competitive in the first program's linear and second
 
 ---
 
-## World-Class Parity Tiers
+## Priority and Parity Framework
 
 The sections below describe current capability and current gaps. This section answers a different question:
 
@@ -284,9 +313,49 @@ If the goal is "best solver" rather than "feature checklist completeness", the h
 
 This order improves solver class faster than expanding sideways into more specialized engineering modules.
 
+### Difficulty Ladder
+
+This is the approximate implementation difficulty ordering for the remaining solver-core gaps. It is intentionally different from the solver-first priority order above.
+
+#### Low to Medium
+
+| Topic | Status | Why |
+|---|---|---|
+| Staged truss/cable force handling | Completed | This was a contained staged/result-reconstruction cleanup, not a new solver family. |
+| Warping torsion completion | Open | The hard part is consistency, but the plumbing already exists. |
+| Full PT depth improvements | Open | Extends current staged/prestress support instead of inventing it from zero. |
+
+#### Medium
+
+| Topic | Status | Why |
+|---|---|---|
+| SSI beyond Winkler | Open | If scoped to spring-family models like `p-y`, `t-z`, and `q-z`, this is manageable. |
+| Constraint technology | Open | MPCs, rigid links, diaphragms, and eccentric connectivity are conceptually straightforward, but invasive across DOF handling, assembly, supports, and postprocessing. |
+
+#### Medium to High
+
+| Topic | Status | Why |
+|---|---|---|
+| Nonlinear solution controls | Open | Line search and adaptive stepping are moderate-to-hard; arc-length and displacement control are materially harder because they affect solver architecture and debugging. |
+| Contact / gap basics | Open | Compression-only, tension-only, and uplift-style supports are feasible; full contact behavior is much harder. |
+
+#### High
+
+| Topic | Status | Why |
+|---|---|---|
+| Fiber / section-based beam-column elements | Open | This is a real jump in nonlinear sophistication touching element formulation, section integration, constitutive response, convergence, and benchmarks. |
+
+#### Very High
+
+| Topic | Status | Why |
+|---|---|---|
+| Advanced shell technology | Open | Going from “plates/shells exist” to “commercial-grade shell robustness” is a long solver program, not a feature patch. |
+
 ---
 
-## Industry Standards & Design Codes
+## Benchmark Ledger
+
+### Industry Standards & Design Codes
 
 ### AISC 360-22 (46 tests across 6 files)
 
@@ -492,7 +561,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Commercial Software Cross-Validation
+### Commercial Software Cross-Validation
 
 ### ANSYS Verification Manual (54 DONE)
 
@@ -564,7 +633,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Textbook Classics (~1688 tests)
+### Textbook Classics (~1688 tests)
 
 ### Beam Theory (19 files, ~142 tests)
 - `validation_beam_formulas.rs` (14) — Timoshenko: SS, cantilever, fixed-fixed, propped cantilever
@@ -849,7 +918,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Mathematical Properties & Numerical Methods (~179 tests)
+### Mathematical Properties & Numerical Methods (~179 tests)
 
 ### Matrix & Stiffness Properties (6 files, ~47 tests)
 - `validation_stiffness_modification.rs` (8) — Internal hinge, midspan hinge, fixed-to-propped
@@ -899,7 +968,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## FEM Quality & Convergence (~78 tests)
+### FEM Quality & Convergence (~78 tests)
 
 ### Convergence (4 files, ~31 tests)
 - `validation_convergence.rs` (7) — h-refinement: cantilever tip, SS reactions, end moment
@@ -919,7 +988,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Engineering Practice & Specialized Structures (~624 tests)
+### Engineering Practice & Specialized Structures (~624 tests)
 
 ### Geotechnical & Foundations (13 files, ~104 tests)
 - `validation_soil_structure.rs` (8) — Winkler spring, beam on elastic foundation, Rankine
@@ -1164,7 +1233,9 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Fixed Bugs (6 regression tests)
+## Regression and Capability-Only Tracking
+
+### Fixed Bugs (6 regression tests)
 
 **File:** `validation_3d_bugs.rs` — All bugs fixed, tests now pass without `#[ignore]`.
 
@@ -1174,7 +1245,7 @@ This order improves solver class faster than expanding sideways into more specia
 | 2 | 3D partial distributed loads ignore a/b | 2 | Added `fef_partial_distributed_3d()` and conditional dispatch |
 | 3 | Plate mass not assembled in mass_matrix.rs | 2 | Added plate mass loop + rotational inertia in `plate_consistent_mass` |
 
-## Incomplete Features (3 placeholder tests)
+### Incomplete Features (3 placeholder tests)
 
 **File:** `validation_warping_torsion.rs`
 
@@ -1184,7 +1255,7 @@ This order improves solver class faster than expanding sideways into more specia
 | 2 | Z-section torsion | Same |
 | 3 | Mixed warping + non-warping model | Same |
 
-## CAPABILITY Items (5 tests)
+### CAPABILITY Items (5 tests)
 
 | Benchmark | File | What's Needed |
 |-----------|------|---------------|
@@ -1196,7 +1267,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ---
 
-## Roadmap Gaps
+## Detailed Gap Inventory
 
 These are the largest gaps between the current engine and a top-tier structural solver. This section is split on purpose:
 
