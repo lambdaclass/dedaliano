@@ -365,28 +365,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
-            // 3D truss/cable: direct global assembly
+            // 3D truss/cable: direct global assembly using extracted function
             let ea_l = e * sec.a / l;
             let dir = [dx / l, dy / l, dz / l];
-            let _truss_dofs_per_node = 3.min(dof_num.dofs_per_node);
-
-            for a in 0..2 {
-                for b in 0..2 {
-                    let sign = if a == b { 1.0 } else { -1.0 };
-                    let node_a = if a == 0 { elem.node_i } else { elem.node_j };
-                    let node_b = if b == 0 { elem.node_i } else { elem.node_j };
-                    for i in 0..3 {
-                        for j in 0..3 {
-                            if let (Some(&da), Some(&db)) = (
-                                dof_num.map.get(&(node_a, i)),
-                                dof_num.map.get(&(node_b, j)),
-                            ) {
-                                k_global[da * n + db] += sign * ea_l * dir[i] * dir[j];
-                            }
-                        }
-                    }
-                }
-            }
+            scatter_truss_3d(&mut k_global, n, ea_l, &dir, elem.node_i, elem.node_j, &dof_num.map);
         } else {
             // 3D frame element
             let (ex, ey, ez) = compute_local_axes_3d(
@@ -513,6 +495,14 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) {
                         f_global[d] += bw;
                     }
+                }
+            }
+        }
+        // Standalone bimoment load (warping DOF 6)
+        if let SolverLoad3D::Bimoment(bl) = load {
+            if bl.bimoment.abs() > 1e-15 {
+                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) {
+                    f_global[d] += bl.bimoment;
                 }
             }
         }
@@ -1124,6 +1114,14 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) {
                         f_global[d] += bw;
                     }
+                }
+            }
+        }
+        // Standalone bimoment load (warping DOF 6) — sparse path
+        if let SolverLoad3D::Bimoment(bl) = load {
+            if bl.bimoment.abs() > 1e-15 {
+                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) {
+                    f_global[d] += bl.bimoment;
                 }
             }
         }

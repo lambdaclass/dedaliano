@@ -18,6 +18,7 @@ use super::linear::{
     compute_plate_stresses,
 };
 use super::prestress::prestress_fef_2d;
+use crate::element::cable::cable_self_weight;
 
 /// Solve a 2D staged construction analysis.
 ///
@@ -150,6 +151,16 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         }
         for i in 0..nr {
             cumulative_u[nf + i] = u_r[i]; // prescribed displacements override
+        }
+
+        // Cable iteration: if stage has cable elements, iterate with Ernst modulus
+        let has_cables = stage_solver_input.elements.values()
+            .any(|e| e.elem_type == "cable");
+        if has_cables {
+            iterate_cables_staged_2d(
+                &stage_solver_input, &dof_num, input, &active_elements, stage,
+                &mut cumulative_u, &u_r, nf, nr, n,
+            );
         }
 
         // Build results for this stage
@@ -488,6 +499,188 @@ fn compute_stage_reactions_vec(
         reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
     }
     reactions_vec
+}
+
+/// Iterate cable elements in staged 2D using Ernst equivalent modulus.
+/// Modifies cumulative_u in place. Follows the pattern from cable.rs.
+fn iterate_cables_staged_2d(
+    stage_input: &SolverInput,
+    dof_num: &DofNumbering,
+    full_input: &StagedInput,
+    active_elements: &HashSet<usize>,
+    stage: &ConstructionStage,
+    cumulative_u: &mut [f64],
+    u_r: &[f64],
+    nf: usize,
+    nr: usize,
+    n: usize,
+) {
+    const MAX_CABLE_ITER: usize = 30;
+    const CABLE_TOL: f64 = 1e-4;
+
+    // Precompute cable geometry
+    struct CableInfo {
+        elem_id: usize,
+        node_i: usize,
+        node_j: usize,
+        l0: f64,
+        cos_a: f64,
+        sin_a: f64,
+        ea: f64,
+        w: f64,
+        dx: f64,
+    }
+
+    let mut cables = Vec::new();
+    let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
+
+    for elem in stage_input.elements.values() {
+        if elem.elem_type != "cable" { continue; }
+
+        let node_i = full_input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = full_input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+        let mat = full_input.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = full_input.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let l0 = (dx * dx + dy * dy).sqrt();
+        let e = mat.e * 1000.0;
+
+        // Estimate self-weight (assume steel density if not specified)
+        let density = 7.85 / 1000.0; // t/m³
+        let w = cable_self_weight(density, sec.a);
+
+        cables.push(CableInfo {
+            elem_id: elem.id,
+            node_i: elem.node_i,
+            node_j: elem.node_j,
+            l0, cos_a: dx / l0, sin_a: dy / l0,
+            ea: e * sec.a, w, dx,
+        });
+
+        // Initial tension from current displacement state
+        let u_xi = dof_num.global_dof(elem.node_i, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
+        let u_yi = dof_num.global_dof(elem.node_i, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
+        let u_xj = dof_num.global_dof(elem.node_j, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
+        let u_yj = dof_num.global_dof(elem.node_j, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
+
+        let dx_def = dx + u_xj - u_xi;
+        let dy_def = dy + u_yj - u_yi;
+        let l_def = (dx_def * dx_def + dy_def * dy_def).sqrt();
+        let strain = (l_def - l0) / l0;
+        let tension = if strain > 0.0 { e * sec.a * strain } else { 0.0 };
+        cable_tensions.insert(elem.id, tension);
+    }
+
+    if cables.is_empty() { return; }
+
+    for iter in 0..MAX_CABLE_ITER {
+        // Re-assemble with modified cable stiffnesses
+        let mut asm = assemble_staged_2d(
+            stage_input, dof_num, full_input, active_elements, stage,
+        );
+
+        // Modify cable stiffness entries with Ernst factor
+        for ci in &cables {
+            let tension = cable_tensions[&ci.elem_id];
+            let l_h = ci.dx.abs().max(1e-10);
+
+            let e_eq_factor = if tension > 1e-10 && ci.w > 1e-15 {
+                let wl = ci.w * l_h;
+                1.0 / (1.0 + wl * wl * ci.ea / (12.0 * tension.powi(3)))
+            } else if tension <= 0.0 && iter > 0 {
+                0.0 // Slack cable: zero stiffness (tension-only)
+            } else {
+                1.0
+            };
+
+            if (e_eq_factor - 1.0).abs() > 1e-15 {
+                let ea_l = ci.ea / ci.l0;
+                let diff = (e_eq_factor - 1.0) * ea_l;
+                let c2 = ci.cos_a * ci.cos_a;
+                let s2 = ci.sin_a * ci.sin_a;
+                let cs = ci.cos_a * ci.sin_a;
+
+                let cable_dofs = [
+                    dof_num.global_dof(ci.node_i, 0).unwrap(),
+                    dof_num.global_dof(ci.node_i, 1).unwrap(),
+                    dof_num.global_dof(ci.node_j, 0).unwrap(),
+                    dof_num.global_dof(ci.node_j, 1).unwrap(),
+                ];
+
+                let dk = [
+                    [diff * c2,  diff * cs, -diff * c2, -diff * cs],
+                    [diff * cs,  diff * s2, -diff * cs, -diff * s2],
+                    [-diff * c2, -diff * cs,  diff * c2,  diff * cs],
+                    [-diff * cs, -diff * s2,  diff * cs,  diff * s2],
+                ];
+
+                for i in 0..4 {
+                    for j in 0..4 {
+                        asm.k[cable_dofs[i] * n + cable_dofs[j]] += dk[i][j];
+                    }
+                }
+            }
+        }
+
+        // Solve
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let rest_idx: Vec<usize> = (nf..n).collect();
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let mut f_f = extract_subvec(&asm.f, &free_idx);
+
+        let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
+        let k_fr_ur = mat_vec_rect(&k_fr, u_r, nf, nr);
+        for i in 0..nf {
+            f_f[i] -= k_fr_ur[i];
+        }
+
+        let u_f = {
+            let mut k_work = k_ff.clone();
+            match cholesky_solve(&mut k_work, &f_f, nf) {
+                Some(u) => u,
+                None => {
+                    let mut k_work = k_ff;
+                    let mut f_work = f_f;
+                    match lu_solve(&mut k_work, &mut f_work, nf) {
+                        Some(u) => u,
+                        None => break, // Can't solve, keep current state
+                    }
+                }
+            }
+        };
+
+        // Update cumulative_u with new solution
+        for i in 0..nf {
+            cumulative_u[i] = u_f[i];
+        }
+
+        // Update cable tensions
+        let mut max_change = 0.0_f64;
+        for ci in &cables {
+            let u_xi = dof_num.global_dof(ci.node_i, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
+            let u_yi = dof_num.global_dof(ci.node_i, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
+            let u_xj = dof_num.global_dof(ci.node_j, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
+            let u_yj = dof_num.global_dof(ci.node_j, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
+
+            let dx_def = ci.dx + u_xj - u_xi;
+            let dy_def = (ci.sin_a * ci.l0) + u_yj - u_yi;
+            let l_def = (dx_def * dx_def + dy_def * dy_def).sqrt();
+            let strain = (l_def - ci.l0) / ci.l0;
+            let tension = if strain > 0.0 { ci.ea * strain } else { 0.0 };
+
+            let old_tension = cable_tensions[&ci.elem_id];
+            let change = (tension - old_tension).abs();
+            let ref_val = old_tension.abs().max(tension.abs()).max(1.0);
+            max_change = max_change.max(change / ref_val);
+            cable_tensions.insert(ci.elem_id, tension);
+        }
+
+        if max_change < CABLE_TOL {
+            break;
+        }
+    }
 }
 
 // ==================== 3D Staged Construction Analysis ====================

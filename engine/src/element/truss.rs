@@ -40,6 +40,56 @@ pub fn truss_global_stiffness_2d(e: f64, a: f64, l: f64, cos: f64, sin: f64) -> 
     ]
 }
 
+/// 3D truss global stiffness matrix directly (6×6) using direction cosines.
+/// More efficient than local + transform for trusses.
+/// DOFs: [ux_i, uy_i, uz_i, ux_j, uy_j, uz_j]
+pub fn truss_global_stiffness_3d(e: f64, a: f64, l: f64, dx: f64, dy: f64, dz: f64) -> Vec<f64> {
+    let ea_l = e * a / l;
+    let dir = [dx / l, dy / l, dz / l];
+    let mut k = vec![0.0; 36];
+
+    for i in 0..3 {
+        for j in 0..3 {
+            let val = ea_l * dir[i] * dir[j];
+            k[i * 6 + j] = val;
+            k[i * 6 + (j + 3)] = -val;
+            k[(i + 3) * 6 + j] = -val;
+            k[(i + 3) * 6 + (j + 3)] = val;
+        }
+    }
+
+    k
+}
+
+/// Scatter a 3D truss global stiffness matrix into the global K.
+/// Uses the DOF map to handle both 6-DOF and 7-DOF (warping) node layouts.
+pub fn scatter_truss_3d(
+    k_global: &mut [f64],
+    n: usize,
+    ea_l: f64,
+    dir: &[f64; 3],
+    node_i: usize,
+    node_j: usize,
+    dof_map: &std::collections::HashMap<(usize, usize), usize>,
+) {
+    let nodes = [node_i, node_j];
+    for a in 0..2 {
+        for b in 0..2 {
+            let sign = if a == b { 1.0 } else { -1.0 };
+            for i in 0..3 {
+                for j in 0..3 {
+                    if let (Some(&da), Some(&db)) = (
+                        dof_map.get(&(nodes[a], i)),
+                        dof_map.get(&(nodes[b], j)),
+                    ) {
+                        k_global[da * n + db] += sign * ea_l * dir[i] * dir[j];
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

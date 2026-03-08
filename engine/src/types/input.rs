@@ -297,6 +297,16 @@ pub enum SolverLoad3D {
     Pressure(SolverPressureLoad),
     #[serde(rename = "plateThermal")]
     PlateThermal(SolverPlateThermalLoad),
+    #[serde(rename = "bimoment")]
+    Bimoment(SolverBimomentLoad),
+}
+
+/// Concentrated bimoment load applied to a node (warping torsion).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverBimomentLoad {
+    pub node_id: usize,
+    pub bimoment: f64,
 }
 
 /// Plate thermal load: uniform temperature change and/or through-thickness gradient.
@@ -779,6 +789,8 @@ pub enum TendonProfile {
     Straight,
     #[serde(rename = "parabolic")]
     Parabolic { e_mid: f64 },
+    #[serde(rename = "harped")]
+    Harped { e_harp: f64 },
 }
 
 impl Default for TendonProfile {
