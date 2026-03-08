@@ -16,21 +16,21 @@
 | Textbook Classics | 1920 | 0 | 0 | 1920 |
 | Mathematical Properties & Numerical Methods | 195 | 0 | 0 | 195 |
 | FEM Quality & Convergence | 78 | 0 | 0 | 78 |
-| Engineering Practice & Specialized Structures | 960 | 0 | 0 | 960 |
+| Engineering Practice & Specialized Structures | 1080 | 0 | 0 | 1080 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3743** | **3** | **1** | **3747** |
+| **Total** | **3863** | **3** | **1** | **3867** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**4273 validation test functions across 538 validation files. 4710+ total registered tests across 563+ Rust test files.**
+**4393 validation test functions across 553 validation files. 4830+ total registered tests across 578+ Rust test files.**
 
 Current measured inventory:
 
-- `538` files matching `engine/tests/validation_*.rs`
-- `4273` `#[test]` functions inside validation files
+- `553` files matching `engine/tests/validation_*.rs`
+- `4393` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `4710` total registered tests from `cargo test -- --list`
+- `4830` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -1123,6 +1123,25 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_structural_acoustics_extended.rs` (8) — Mass law TL, STC rating, coincidence frequency, double wall, floor impact DG11, vibration isolation, modal density, radiation efficiency
 - `validation_pavement_design_extended.rs` (8) — AASHTO structural number, traffic ESAL, PCA thickness, Boussinesq stress, Westergaard interior, CBR design, fatigue cracking, temperature curling
 - `validation_fsi_extended.rs` (8) — Westergaard added mass, radiation damping, sloshing period, pipe whip, vortex-induced vibration, submerged frequency, water hammer, Chopra period lengthening
+
+### Extended Validation — Wave 19 (8 files, 64 tests)
+- `validation_elevator_escalator_extended.rs` (8) — Guide rail bending, overhead beam, pit ladder, counterweight, escalator truss, machine room beam, cab sling, buffer spring
+- `validation_demolition_engineering_extended.rs` (8) — Partial removal stability, pre-weakening, debris loading, sequential column removal, floor collapse, impact force, temporary shoring, progressive mechanism
+- `validation_flood_hydraulics_extended.rs` (8) — Manning's equation, weir flow, culvert capacity, levee crown wall, debris impact, flood barrier, floodgate, scour pile
+- `validation_parking_structures_extended.rs` (8) — Post-tensioned slab, ramp slope, vehicle barrier, long span beam, drainage slope, punching shear, expansion joint, helical ramp
+- `validation_sports_arena_extended.rs` (8) — Cable-stayed roof, precast terrace, cantilever grandstand, long span truss, stadium column, crowd dynamic, press box, retractable roof
+- `validation_high_rise_buildings_extended.rs` (8) — Outrigger system, belt truss drift, tube structure, bundled tube, diagrid facade, core wall shear lag, mega column transfer, differential shortening
+- `validation_industrial_structures_extended.rs` (8) — Equipment platform, grating panel, handrail post, conveyor support, monorail beam, stair access, pipe rack beam, equipment skid
+- `validation_sign_pole_structures_extended.rs` (8) — Billboard wind, light pole combined, traffic signal, highway sign cantilever, flag pole, monopole tower, overhead gantry, antenna mast 3D
+
+### Extended Validation — Wave 20 (7 files, 56 tests)
+- `validation_crane_structures_extended.rs` (8) — Gantry leg portal, outrigger pad, bumper impact, jib cantilever, hook block, tower mast, girder fatigue, runway beam
+- `validation_heritage_retrofit_extended.rs` (8) — Masonry arch assessment, timber floor diaphragm, FRP strengthening, steel jacketing, base isolation, tie rod tension, URM out-of-plane, historic truss
+- `validation_solar_panel_extended.rs` (8) — Panel deflection, wind uplift cantilever, ground mount purlin, foundation pile, snow sliding, tracker torque, carport canopy, ballasted system
+- `validation_cooling_tower_extended.rs` (8) — Hyperbolic shell meridional, mechanical draft frame, fill support beam, fan deck, column ring beam, wind loading shell, basin wall, drift eliminator
+- `validation_piping_pressure_extended.rs` (8) — Barlow hoop stress, Lame thick wall, pressure vessel heads, span deflection, thermal expansion loop, support spring, nozzle reinforcement, elbow flexibility
+- `validation_agricultural_structures_extended.rs` (8) — Grain bin hoop tension, barn rigid frame, greenhouse arch, feed bunker wall, manure lagoon, silo hopper, hay storage truss, equipment shed portal
+- `validation_amusement_rides_extended.rs` (8) — Ferris wheel spoke, gondola cable, zip line tension, swing ride chain, carousel radial arm, water slide support, observation tower, roller coaster track
 
 ---
 
