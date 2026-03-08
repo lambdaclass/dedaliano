@@ -16,21 +16,21 @@
 | Textbook Classics | 1920 | 0 | 0 | 1920 |
 | Mathematical Properties & Numerical Methods | 195 | 0 | 0 | 195 |
 | FEM Quality & Convergence | 78 | 0 | 0 | 78 |
-| Engineering Practice & Specialized Structures | 1080 | 0 | 0 | 1080 |
+| Engineering Practice & Specialized Structures | 1200 | 0 | 0 | 1200 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3863** | **3** | **1** | **3867** |
+| **Total** | **3983** | **3** | **1** | **3987** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**4393 validation test functions across 553 validation files. 4830+ total registered tests across 578+ Rust test files.**
+**4505 validation test functions across 568 validation files. 4950+ total registered tests across 593+ Rust test files.**
 
 Current measured inventory:
 
-- `553` files matching `engine/tests/validation_*.rs`
-- `4393` `#[test]` functions inside validation files
+- `568` files matching `engine/tests/validation_*.rs`
+- `4505` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `4830` total registered tests from `cargo test -- --list`
+- `4950` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -1142,6 +1142,25 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_piping_pressure_extended.rs` (8) — Barlow hoop stress, Lame thick wall, pressure vessel heads, span deflection, thermal expansion loop, support spring, nozzle reinforcement, elbow flexibility
 - `validation_agricultural_structures_extended.rs` (8) — Grain bin hoop tension, barn rigid frame, greenhouse arch, feed bunker wall, manure lagoon, silo hopper, hay storage truss, equipment shed portal
 - `validation_amusement_rides_extended.rs` (8) — Ferris wheel spoke, gondola cable, zip line tension, swing ride chain, carousel radial arm, water slide support, observation tower, roller coaster track
+
+### Extended Validation — Wave 21 (8 files, 64 tests)
+- `validation_glass_design_extended.rs` (8) — Annealed plate, tempered strength, laminated effective thickness, insulated unit pressure, balustrade line load, point load deflection, canopy wind, thermal stress
+- `validation_progressive_collapse_extended2.rs` (8) — Column removal scenarios, catenary action, alternate load path, tie force method, key element design, dynamic amplification, membrane action, robustness index
+- `validation_seismic_design_extended.rs` (8) — Base shear distribution, story drift amplification, vertical force distribution, redundancy factor, diaphragm force, overstrength factor, accidental torsion, P-delta stability
+- `validation_timber_design_extended2.rs` (8) — Glulam deflection, CLT panel bending, plywood I-joist, Howe truss, column Euler buckling, notched beam shear, diaphragm deep beam, portal frame
+- `validation_masonry_arches_extended.rs` (8) — Three-hinge arch thrust, semicircular self-weight, segmental arch, flat arch, pointed arch lateral, thrust line eccentricity, arch with backfill, collapse mechanism
+- `validation_concrete_durability_extended.rs` (8) — Carbonation depth, chloride diffusion, cover requirements, crack width limits, corrosion rate, service life, exposure classification, durability index
+- `validation_connection_design_extended.rs` (8) — Bolt shear, weld fillet, moment end plate, base plate, column splice, beam-column joint, brace connection, seated connection
+- `validation_hydraulic_engineering_extended.rs` (8) — Open channel flow, weir discharge, pipe network, dam spillway, culvert sizing, stilling basin, floodgate design, hydraulic jump
+
+### Extended Validation — Wave 22 (7 files, 56 tests)
+- `validation_precast_concrete_extended.rs` (8) — Double-tee composite, hollow-core slab, spandrel beam torsion, column corbel, stair flight, wall panel, inverted-tee beam, connection hardware
+- `validation_bridge_design_extended.rs` (8) — Girder flexure, pier column, abutment wall, bearing pad, deck slab, expansion joint, parapet barrier, composite section
+- `validation_railway_structures_extended.rs` (8) — LM71 axle loading, sleeper beam, track slab, platform canopy, OHL mast, dynamic amplification, bridge deck acceleration, rail-structure interaction
+- `validation_cable_stayed_extended2.rs` (8) — Fan cable arrangement, harp cable pattern, cable pretension, deck girder bending, cable sag Ernst modulus, tower design, backstay anchorage, asymmetric live load
+- `validation_performance_based_extended2.rs` (8) — Pushover capacity, target displacement, acceptance criteria, fragility curves, loss estimation, retrofit evaluation, risk assessment, resilience metrics
+- `validation_blast_impact_extended.rs` (8) — Blast pressure, dynamic response, fragment impact, progressive collapse, protective design, blast wall, vehicle barrier, ground shock
+- `validation_catenary_cable_extended.rs` (8) — Parabolic sag horizontal thrust, catenary vs parabolic comparison, multi-span cable, concentrated load arbitrary, inclined cable, vibration frequency, Ernst equivalent modulus, temperature effects on sag
 
 ---
 
