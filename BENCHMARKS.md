@@ -16,21 +16,21 @@
 | Textbook Classics | 1920 | 0 | 0 | 1920 |
 | Mathematical Properties & Numerical Methods | 195 | 0 | 0 | 195 |
 | FEM Quality & Convergence | 78 | 0 | 0 | 78 |
-| Engineering Practice & Specialized Structures | 656 | 0 | 0 | 656 |
+| Engineering Practice & Specialized Structures | 832 | 0 | 0 | 832 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3439** | **3** | **1** | **3443** |
+| **Total** | **3615** | **3** | **1** | **3619** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3505 validation test functions across 443 validation files. 3950 total registered tests across 499 Rust test files.**
+**3689 validation test functions across 466 validation files. 4134 total registered tests across 522 Rust test files.**
 
 Current measured inventory:
 
-- `443` files matching `engine/tests/validation_*.rs`
-- `3505` `#[test]` functions inside validation files
+- `466` files matching `engine/tests/validation_*.rs`
+- `3689` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3950` total registered tests from `cargo test -- --list`
+- `4134` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -1001,6 +1001,39 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_timber_design.rs` (8) + `validation_timber_connections.rs` (8) + `validation_wood_design.rs` (8)
 - `validation_performance_based_design.rs` (8) — PBEE, fragility, ASCE 41
 - `validation_progressive_collapse_full.rs` (8) — UFC, EN 1991 accidental
+
+### Extended Validation — Wave 7 (8 files, 64 tests)
+- `validation_cable_structures_extended.rs` (8) — Catenary thrust, sag ratio, Ernst modulus, cable vibration, Irvine parameter, thermal sag, multi-span, pretension
+- `validation_nonlinear_extended.rs` (8) — Williams toggle, large rotation cantilever, shallow arch, 2-bar truss, second-order moments, column large deflection, follower moment, multi-step
+- `validation_3d_dynamic_extended.rs` (8) — Biaxial modes, torsional mode, 3D portal sway, space truss modal, spectral 3D, mass participation, orthogonality, Rayleigh quotient
+- `validation_influence_lines_extended.rs` (8) — SS midspan moment IL, continuous reaction, shear at quarter, Müller-Breslau, moving load max, cantilever IL, propped cantilever, two-span
+- `validation_seismic_isolation_extended.rs` (8) — LRB stiffness, FPS period, equivalent damping, ASCE 7 displacement, superstructure force, period shift, HDR modulus, isolation effectiveness
+- `validation_staged_construction_extended.rs` (8) — Two-phase beam, support addition, element activation, sequential loading, element removal, frame erection, cumulative displacement, staged vs instantaneous
+- `validation_composite_design_extended.rs` (8) — Transformed section, effective width, full composite moment, partial interaction, deflection comparison, shear stud demand, construction stage, modular ratio
+- `validation_arch_analysis_extended.rs` (8) — Three-hinge parabolic, two-hinge circular, tied arch, buckling, asymmetric loading, convergence, funicular shape, thrust vs span
+
+### Extended Validation — Wave 8 (8 files, 64 tests)
+- `validation_time_history_extended.rs` (8) — Free vibration period, damped decay, step load DAF, harmonic resonance, impulse response, energy conservation, two-DOF beating, ground motion base shear
+- `validation_prestress_extended.rs` (8) — Elastic shortening, friction loss, anchorage set, load balancing, cracking moment, ultimate moment, long-term losses, concordant tendon
+- `validation_concrete_design_extended.rs` (8) — Doubly reinforced, T-beam width, stirrup spacing, development length, crack width EC2, Branson Ie, column interaction, two-way slab
+- `validation_steel_design_extended.rs` (8) — Compact beam moment, LTB zones, AISC column curve, web shear buckling, H1-1 interaction, base plate, moment connection bolts, deflection serviceability
+- `validation_creep_shrinkage_extended.rs` (8) — EC2 creep, ACI 209, drying shrinkage, autogenous, effective modulus, age-adjusted EMM, relaxation, long-term deflection
+- `validation_cold_formed_extended.rs` (8) — Effective width, distortional buckling, DSM flexure, DSM compression, C-section properties, web crippling, screw connection, purlin design
+- `validation_connection_extended.rs` (8) — Bolt shear, bearing, weld strength, prying, eccentric bolt group, base plate, moment end plate, gusset
+- `validation_eurocode_extended.rs` (8) — EC3 column buckling curves, LTB chi_LT, EC2 parabolic-rectangular, EC8 design spectrum, EC3-1-5 effective width, EC2 creep Annex B, EN 1990 combinations, EC3-1-8 joint classification
+
+### Extended Validation — Wave 9 (6 files, 48 tests)
+- `validation_geotechnical_extended.rs` (8) — Meyerhof bearing capacity, consolidation settlement, Rankine/Coulomb earth pressure, pile capacity (alpha+beta), infinite slope stability, Coulomb active/passive, soil spring modulus, deep foundation settlement
+- `validation_aluminum_extended.rs` (8) — 6061-T6 properties, ADM buckling constants, member compression (inelastic/elastic), LTB, welded HAZ, fatigue detail, deflection comparison, thermal expansion
+- `validation_frp_extended.rs` (8) — CFRP/GFRP/AFRP properties, rule of mixtures, laminate stiffness CLT, FRP strengthening ACI 440.2R, debonding check, shear strengthening, environmental factors, deflection with FRP
+- `validation_precast_extended.rs` (8) — PCI hollow-core flexure, double-tee composite, corbel design, bearing pad, shear key, erection bracing, connection ductility, camber prediction
+- `validation_fatigue_extended.rs` (8) — EC3 S-N curves, Miner accumulation, stress range spectrum, CAFL threshold, AISC fatigue categories, weld toe hot-spot stress, thickness correction, remaining life
+- `validation_semirigid_extended.rs` (8) — Rigid vs pinned moment, spring stiffness effect, EC3 classification, semi-rigid deflection, moment redistribution, connection rotation, effective length, fixity factor
+
+### Extended Validation — Additional (3 files, 24 tests)
+- `validation_masonry_extended.rs` (8) — TMS 402 flexural capacity, axial compression, shear capacity, P-M interaction, slenderness effects, grout contribution, reinforcement limits, wall lateral capacity
+- `validation_serviceability_extended.rs` (8) — Floor beam L/360, cantilever L/180, portal drift H/400, vibration frequency, long-term deflection ACI, ponding check, interstory drift, camber requirement
+- `validation_eurocode_extended.rs` — see wave 8 above (already listed)
 
 ---
 
