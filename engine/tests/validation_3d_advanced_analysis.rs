@@ -504,22 +504,32 @@ fn validation_3d_adv_4_rigid_diaphragm() {
     let ux10 = results.displacements.iter().find(|d| d.node_id == 10).unwrap().ux;
     let ux11 = results.displacements.iter().find(|d| d.node_id == 11).unwrap().ux;
 
-    // Stiff bay nodes should be closer together in ux than bay 2 spread
-    let stiff_spread = (ux7 - ux8).abs().max((ux10 - ux11).abs())
-        .max((ux7 - ux10).abs()).max((ux8 - ux11).abs());
-
     let ux9  = results.displacements.iter().find(|d| d.node_id == 9).unwrap().ux;
     let ux12 = results.displacements.iter().find(|d| d.node_id == 12).unwrap().ux;
 
-    // Bay 2 far edge spread
-    let _flex_spread = (ux8 - ux9).abs().max((ux11 - ux12).abs());
-
-    // Verify structure sways (mean ux > 0) and spread is finite
+    // Mean sway must be positive (load in +X direction)
     let mean_ux: f64 = [ux7, ux8, ux9, ux10, ux11, ux12].iter().sum::<f64>() / 6.0;
     assert!(mean_ux > 0.0,
         "diaphragm: mean sway must be positive, got {:.6e}", mean_ux);
-    assert!(stiff_spread.is_finite(),
-        "diaphragm: stiff bay spread must be finite");
+
+    // The stiff Z-beam at x=0 connects nodes 7 and 10.
+    // It enforces that these two nodes (at the same X but different Z)
+    // sway more similarly in X than they would without the stiff beam.
+    // Verify: stiff beam propagates sway from loaded node 7 to node 10.
+    assert!(ux10 > ux7 * 0.3,
+        "diaphragm: stiff beam propagates sway, ux10={:.6e} vs ux7={:.6e}",
+        ux10, ux7);
+
+    // Similarly, stiff beam 7-8 (along X at z=0) enforces coupled sway
+    // between nodes 7 and 8. Node 8 should receive significant sway.
+    assert!(ux8 > ux7 * 0.3,
+        "diaphragm: stiff beam propagates sway X, ux8={:.6e} vs ux7={:.6e}",
+        ux8, ux7);
+
+    // Far bay nodes (9, 12) should also sway via frame action,
+    // but may sway less than the loaded bay.
+    assert!(ux9 > 0.0 && ux12 > 0.0,
+        "diaphragm: far bay nodes must sway, ux9={:.6e}, ux12={:.6e}", ux9, ux12);
 }
 
 // =================================================================
@@ -835,15 +845,17 @@ fn validation_3d_adv_7_multi_story_frame() {
     let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
 
-    let total_gravity = p_gravity * 12.0; // 3 floors * 4 nodes
-    // Vertical equilibrium: 3D column local axis orientation can affect
-    // how gravity loads are transferred through vertical columns.
-    // Verify reactions resist a substantial portion of the applied gravity.
+    let total_gravity = p_gravity * 12.0; // 3 floors * 4 nodes = -240 kN
+
+    // Vertical equilibrium: 3D column local axis orientation affects
+    // how gravity loads transfer through vertical columns.
+    // Verify reactions resist a substantial portion of applied gravity.
     assert!(sum_fy > 0.0 && sum_fy > (-total_gravity) * 0.5,
         "multi-story: SFy={:.4} should resist significant gravity (total={:.4})",
         sum_fy, -total_gravity);
-    // Lateral and transverse reactions should be bounded
-    assert!(sum_fz.abs() < f_lateral, "multi-story: SFz ~ 0, got {:.4}", sum_fz);
+    // No applied Z loads — transverse reactions should be bounded
+    assert!(sum_fz.abs() < f_lateral,
+        "multi-story: SFz should be small, got {:.4}", sum_fz);
 
     // Sway increases with height: average ux at each floor level
     let avg_ux = |level: usize| -> f64 {
@@ -860,10 +872,30 @@ fn validation_3d_adv_7_multi_story_frame() {
     let _sway_2 = avg_ux(2);
     let sway_3 = avg_ux(3);
 
-    // Floors should deflect (gravity causes vertical deflection at minimum)
-    // Lateral sway may be limited due to 3D column local axis effects
+    // Top floor should have at least as much sway as lower floors
     assert!(sway_3.abs() >= sway_1.abs() * 0.5,
-        "multi-story: top floor sway {:.6e} should be >= base {:.6e}", sway_3, sway_1);
+        "multi-story: top sway {:.6e} should be >= half of level 1 sway {:.6e}",
+        sway_3, sway_1);
+
+    // Average vertical deflection at each floor level should increase with height
+    // (more load above pushes down more)
+    let avg_uy = |level: usize| -> f64 {
+        let mut sum = 0.0;
+        for col in 0..4 {
+            let nid = level * 4 + col + 1;
+            sum += results.displacements.iter()
+                .find(|d| d.node_id == nid).unwrap().uy;
+        }
+        sum / 4.0
+    };
+
+    let vert_1 = avg_uy(1);
+    let vert_3 = avg_uy(3);
+    // All floors should deflect downward under gravity
+    assert!(vert_1 < 0.0,
+        "multi-story: level 1 must deflect down, got uy={:.6e}", vert_1);
+    assert!(vert_3 < 0.0,
+        "multi-story: level 3 must deflect down, got uy={:.6e}", vert_3);
 
     // Column axial forces should increase toward the base (more gravity load above).
     // Check one column line (column at position 0: nodes 1-5-9-13).

@@ -676,10 +676,6 @@ fn validation_redundancy_check() {
     // Reactions should still satisfy equilibrium: sum(Ry) = P
     let sum_ry_full: f64 = r_full.reactions.iter().map(|r| r.ry).sum();
     let sum_ry_reduced: f64 = r_reduced.reactions.iter().map(|r| r.ry).sum();
-    eprintln!("Full reactions: {:?}", r_full.reactions);
-    eprintln!("Reduced reactions: {:?}", r_reduced.reactions);
-    eprintln!("Full displacements: {:?}", r_full.displacements);
-    eprintln!("Reduced displacements: {:?}", r_reduced.displacements);
     assert_close(sum_ry_full, p, 0.01, "Full truss: vertical equilibrium");
     assert_close(sum_ry_reduced, p, 0.01, "Reduced truss: vertical equilibrium");
 
