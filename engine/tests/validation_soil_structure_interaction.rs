@@ -1,636 +1,444 @@
-/// Validation: Soil-Structure Interaction (Pure Formula Verification)
+/// Validation: Soil-Structure Interaction
 ///
 /// References:
-///   - Hetenyi, "Beams on Elastic Foundation", University of Michigan Press, 1946
-///   - Vesic, "Bending of Beams Resting on Isotropic Elastic Solid", ASCE, 1961
-///   - Biot, "Bending of an Infinite Beam on an Elastic Foundation", ASME, 1937
-///   - Terzaghi, "Evaluation of Coefficients of Subgrade Reaction", Geotechnique, 1955
 ///   - Bowles, "Foundation Analysis and Design", 5th Ed., McGraw-Hill
 ///   - Das, "Principles of Foundation Engineering", 9th Ed.
-///   - Meyerhof, "The Ultimate Bearing Capacity of Foundations", Geotechnique, 1951
+///   - Vesic, "Bending of Beams Resting on Isotropic Elastic Solid", ASCE 1961
+///   - Biot, "Bending of an Infinite Beam on an Elastic Foundation", J. Appl. Mech. 1937
+///   - Meyerhof, "Bearing Capacity and Settlement of Pile Foundations", ASCE 1976
+///   - Broms, "Lateral Resistance of Piles in Cohesive Soils", ASCE 1964
+///   - Gazetas, "Foundation Vibrations", Ch. 15 in "Foundation Engineering Handbook"
+///   - Poulos & Davis, "Pile Foundation Analysis and Design", Wiley
 ///
 /// Tests verify soil-structure interaction formulas without calling the solver.
-///
-/// Tests:
-///   1. Winkler spring modulus and subgrade reaction
-///   2. Vesic formula for subgrade reaction modulus
-///   3. Biot's relative stiffness parameter
-///   4. Beam on elastic foundation: characteristic length
-///   5. Lateral earth pressure: Rankine active and passive
-///   6. Lateral earth pressure: Coulomb with wall friction
-///   7. Bearing capacity: Terzaghi and Meyerhof
-///   8. Settlement of footings on elastic half-space
+/// Pure arithmetic verification of analytical expressions.
 
 use std::f64::consts::PI;
 
 // ================================================================
-// 1. Winkler Spring Modulus and Subgrade Reaction
+// Tolerance helper
 // ================================================================
-//
-// The Winkler model represents soil as independent linear springs.
-// Subgrade reaction modulus k_s (kN/m^3) relates contact pressure
-// to settlement:
-//   q = k_s * delta
-//
-// For a beam of width B:
-//   Spring stiffness per unit length: k = k_s * B  (kN/m per m)
-//
-// Terzaghi (1955) suggested values:
-//   Loose sand:    k_s = 4800-16000 kN/m^3
-//   Medium sand:   k_s = 9600-80000 kN/m^3
-//   Dense sand:    k_s = 64000-128000 kN/m^3
-//   Stiff clay:    k_s = 12000-24000 kN/m^3
-//
-// Reference: Bowles, "Foundation Analysis and Design", Table 9-1
 
-#[test]
-fn validation_ssi_winkler_spring_modulus() {
-    // Contact pressure and settlement relationship
-    let ks_medium_sand: f64 = 40_000.0; // kN/m^3
-    let delta: f64 = 0.010; // m, 10 mm settlement
-    let q: f64 = ks_medium_sand * delta;
-    let q_expected: f64 = 400.0; // kPa
+fn assert_close(got: f64, expected: f64, rel_tol: f64, label: &str) {
+    let err: f64 = if expected.abs() < 1e-12 {
+        got.abs()
+    } else {
+        (got - expected).abs() / expected.abs()
+    };
     assert!(
-        (q - q_expected).abs() / q_expected < 1e-12,
-        "Contact pressure: computed={:.2} kPa, expected={:.2} kPa",
-        q, q_expected
-    );
-
-    // Spring stiffness per unit length for beam width B
-    let b: f64 = 0.6; // m, beam width
-    let k_per_m: f64 = ks_medium_sand * b;
-    let k_per_m_expected: f64 = 24_000.0; // kN/m per m
-    assert!(
-        (k_per_m - k_per_m_expected).abs() / k_per_m_expected < 1e-12,
-        "Spring stiffness: computed={:.0}, expected={:.0} kN/m per m",
-        k_per_m, k_per_m_expected
-    );
-
-    // FEM nodal spring: tributary length * k_per_m
-    let elem_len: f64 = 0.5; // m
-    let k_nodal_interior: f64 = k_per_m * elem_len;
-    let k_nodal_interior_expected: f64 = 12_000.0; // kN/m
-    assert!(
-        (k_nodal_interior - k_nodal_interior_expected).abs() / k_nodal_interior_expected < 1e-12,
-        "Nodal spring: computed={:.0}, expected={:.0} kN/m",
-        k_nodal_interior, k_nodal_interior_expected
-    );
-
-    // End node gets half the tributary length
-    let k_nodal_end: f64 = k_per_m * elem_len / 2.0;
-    assert!(
-        (k_nodal_end - k_nodal_interior / 2.0).abs() < 1e-10,
-        "End spring is half of interior: {:.0} vs {:.0}",
-        k_nodal_end, k_nodal_interior / 2.0
+        err < rel_tol,
+        "{}: got {:.6}, expected {:.6}, rel err = {:.4}%",
+        label, got, expected, err * 100.0
     );
 }
 
 // ================================================================
-// 2. Vesic Formula for Subgrade Reaction Modulus
+// 1. Winkler Modulus from Soil Bearing Capacity
 // ================================================================
 //
-// Vesic (1961) proposed a formula relating the subgrade modulus
-// to the soil elastic modulus and beam stiffness:
+// The Winkler spring constant (coefficient of subgrade reaction) k_s
+// can be estimated from the allowable bearing capacity q_a and
+// allowable settlement delta_a:
+//   k_s = q_a / delta_a
 //
-//   k_s = 0.65 * (E_s * B^4 / (E_b * I_b))^(1/12) * E_s / (1 - nu_s^2)
+// For a square footing of width B on the surface of a clay:
+//   k_s(BxB) = k_s1 * [(B + 0.305)/(2B)]^2    (Terzaghi, for B in meters)
+// where k_s1 is for a 0.305m (1 ft) plate.
 //
-// Simplified form (for practical use):
-//   k_s ≈ E_s / (B * (1 - nu_s^2))
-//
-// where:
-//   E_s = soil elastic modulus
-//   nu_s = soil Poisson's ratio
-//   B = foundation width
-//   E_b = beam elastic modulus
-//   I_b = beam moment of inertia
-//
-// Reference: Vesic, ASCE J. Soil Mech., 1961
+// Reference: Bowles, Ch. 9; Terzaghi, "Evaluation of Subgrade Reaction"
 
 #[test]
-fn validation_ssi_vesic_subgrade_modulus() {
-    let e_s: f64 = 50_000.0;  // kPa, soil elastic modulus (medium dense sand)
-    let nu_s: f64 = 0.30;     // Poisson's ratio
-    let b: f64 = 1.0;         // m, foundation width
+fn validation_winkler_modulus_from_bearing() {
+    let q_a: f64 = 200.0;   // kN/m2, allowable bearing pressure
+    let delta_a: f64 = 0.025; // m, allowable settlement (25 mm)
 
-    // Simplified Vesic formula
-    let ks_simple: f64 = e_s / (b * (1.0 - nu_s * nu_s));
-    let ks_simple_expected: f64 = 50_000.0 / (1.0 * 0.91); // ≈ 54945 kN/m^3
-    assert!(
-        (ks_simple - ks_simple_expected).abs() / ks_simple_expected < 1e-10,
-        "Vesic simplified: computed={:.0}, expected={:.0} kN/m^3",
-        ks_simple, ks_simple_expected
-    );
+    // Direct estimate
+    let k_s: f64 = q_a / delta_a;
+    assert_close(k_s, 8000.0, 1e-10, "k_s = q_a/delta_a = 8000 kN/m3");
 
-    // Full Vesic formula
-    let e_b: f64 = 200_000_000.0; // kPa = 200 GPa (steel)
-    let i_b: f64 = 1e-4;          // m^4
-    let ratio: f64 = (e_s * b.powi(4) / (e_b * i_b)).powf(1.0 / 12.0);
-    let ks_full: f64 = 0.65 * ratio * e_s / (1.0 - nu_s * nu_s);
-
-    // Full formula should be positive
-    assert!(
-        ks_full > 0.0,
-        "Vesic full: ks = {:.0} kN/m^3",
-        ks_full
-    );
-
-    // Wider foundation: k_s should decrease (inversely related to B)
-    let b2: f64 = 2.0; // double the width
-    let ks_wider: f64 = e_s / (b2 * (1.0 - nu_s * nu_s));
-    assert!(
-        ks_wider < ks_simple,
-        "Wider foundation: ks({:.1}m)={:.0} < ks({:.1}m)={:.0}",
-        b2, ks_wider, b, ks_simple
-    );
-
-    // Ratio should be B1/B2
-    let ks_ratio: f64 = ks_wider / ks_simple;
-    let ks_ratio_expected: f64 = b / b2; // = 0.5
-    assert!(
-        (ks_ratio - ks_ratio_expected).abs() < 1e-10,
-        "Width ratio: computed={:.4}, expected={:.4}",
-        ks_ratio, ks_ratio_expected
-    );
-}
-
-// ================================================================
-// 3. Biot's Relative Stiffness Parameter
-// ================================================================
-//
-// Biot (1937) defined a relative stiffness parameter that
-// characterizes the beam-soil interaction:
-//
-//   K_r = E_b * I_b / (E_s * L^3)
-//
-// where L = beam length.
-//
-// For K_r > 0.5: beam is "rigid" (uniform pressure distribution)
-// For K_r < 0.01: beam is "flexible" (pressure varies significantly)
-//
-// The characteristic length of the elastic foundation:
-//   lambda = (k_s * B / (4 * E_b * I_b))^(1/4)
-//
-// Reference: Biot, J. Applied Mechanics, ASME, 1937
-
-#[test]
-fn validation_ssi_biot_relative_stiffness() {
-    let e_b: f64 = 30_000_000.0; // kPa = 30 GPa (concrete)
-    let i_b: f64 = 4.5e-3;       // m^4 (typical strip footing 0.3m x 1.0m)
-    let e_s: f64 = 20_000.0;     // kPa (soft soil)
-    let l: f64 = 10.0;           // m, beam length
-
-    // Biot's relative stiffness
-    let k_r: f64 = e_b * i_b / (e_s * l * l * l);
-    // = 30e6 * 4.5e-3 / (20000 * 1000)
-    // = 135000 / 20000000 = 0.00675
-    let k_r_expected: f64 = 30_000_000.0 * 4.5e-3 / (20_000.0 * 1000.0);
-    assert!(
-        (k_r - k_r_expected).abs() / k_r_expected < 1e-10,
-        "Biot K_r: computed={:.6}, expected={:.6}",
-        k_r, k_r_expected
-    );
-
-    // K_r < 0.01 => flexible beam
-    assert!(
-        k_r < 0.01,
-        "Flexible beam: K_r={:.6} < 0.01",
-        k_r
-    );
-
-    // For a much stiffer beam (thicker section)
-    let i_b_stiff: f64 = 0.1; // m^4 (very stiff)
-    let k_r_stiff: f64 = e_b * i_b_stiff / (e_s * l * l * l);
-    // = 30e6 * 0.1 / 20e6 = 3e6/20e6 = 0.15
-    assert!(
-        k_r_stiff > 0.1,
-        "Rigid beam: K_r={:.4} > 0.1",
-        k_r_stiff
-    );
-
-    // Verify: stiffer beam always has higher K_r
-    assert!(
-        k_r_stiff > k_r,
-        "Stiffer beam: K_r={:.6} > {:.6}",
-        k_r_stiff, k_r
-    );
-
-    // Softer soil also increases K_r (beam relatively more rigid)
-    let e_s_soft: f64 = 5000.0; // kPa
-    let k_r_soft_soil: f64 = e_b * i_b / (e_s_soft * l * l * l);
-    assert!(
-        k_r_soft_soil > k_r,
-        "Softer soil: K_r={:.6} > {:.6}",
-        k_r_soft_soil, k_r
-    );
-}
-
-// ================================================================
-// 4. Beam on Elastic Foundation: Characteristic Length
-// ================================================================
-//
-// The characteristic length (or relative stiffness factor) for
-// a beam on a Winkler foundation:
-//
-//   lambda = (k * B / (4 * EI))^(1/4)
-//
-// Key quantities:
-//   Characteristic length: L_c = pi / lambda
-//   Deflection under point load P at x=0:
-//     y(0) = P * lambda / (2 * k * B)
-//   Maximum bending moment:
-//     M(0) = P / (4 * lambda)
-//
-// If beam length L > L_c: "long beam" (infinite beam solution applies)
-// If beam length L < L_c: "short beam" (finite beam corrections needed)
-//
-// Reference: Hetenyi, "Beams on Elastic Foundation", Ch. 3
-
-#[test]
-fn validation_ssi_characteristic_length() {
-    let e_b: f64 = 200_000_000.0; // kPa = 200 GPa
-    let i_b: f64 = 8.33e-5;       // m^4 (HEB200 approx)
-    let ks: f64 = 30_000.0;       // kN/m^3
-    let b: f64 = 0.2;             // m, flange width
-
-    // Characteristic parameter lambda
-    let lambda: f64 = (ks * b / (4.0 * e_b * i_b)).powf(0.25);
-    let lambda_expected: f64 = (30_000.0_f64 * 0.2 / (4.0 * 200_000_000.0 * 8.33e-5)).powf(0.25);
-    assert!(
-        (lambda - lambda_expected).abs() / lambda_expected < 1e-10,
-        "Lambda: computed={:.6}, expected={:.6}",
-        lambda, lambda_expected
-    );
-
-    // Characteristic length
-    let l_c: f64 = PI / lambda;
-    assert!(
-        l_c > 0.0,
-        "Characteristic length: {:.4} m",
-        l_c
-    );
-
-    // Deflection under point load
-    let p: f64 = 100.0; // kN
-    let y_0: f64 = p * lambda / (2.0 * ks * b);
-    assert!(
-        y_0 > 0.0,
-        "Deflection at load: {:.6} m",
-        y_0
-    );
-
-    // Maximum bending moment
-    let m_0: f64 = p / (4.0 * lambda);
-    assert!(
-        m_0 > 0.0,
-        "Maximum moment at load: {:.4} kN-m",
-        m_0
-    );
-
-    // Verify relationship: doubling EI reduces lambda by factor 2^(-1/4)
-    let i_b2: f64 = 2.0 * i_b;
-    let lambda2: f64 = (ks * b / (4.0 * e_b * i_b2)).powf(0.25);
-    let ratio: f64 = lambda2 / lambda;
-    let ratio_expected: f64 = 2.0_f64.powf(-0.25);
-    assert!(
-        (ratio - ratio_expected).abs() / ratio_expected < 1e-10,
-        "Lambda ratio for 2x EI: computed={:.6}, expected={:.6}",
-        ratio, ratio_expected
-    );
-
-    // Stiffer foundation (larger ks) increases lambda
-    let ks2: f64 = 2.0 * ks;
-    let lambda_stiffer: f64 = (ks2 * b / (4.0 * e_b * i_b)).powf(0.25);
-    assert!(
-        lambda_stiffer > lambda,
-        "Stiffer soil: lambda={:.6} > {:.6}",
-        lambda_stiffer, lambda
-    );
-}
-
-// ================================================================
-// 5. Lateral Earth Pressure: Rankine Active and Passive
-// ================================================================
-//
-// Rankine earth pressure coefficients:
-//   K_a = (1 - sin(phi)) / (1 + sin(phi)) = tan^2(45 - phi/2)
-//   K_p = (1 + sin(phi)) / (1 - sin(phi)) = tan^2(45 + phi/2)
-//
-// where phi = soil friction angle.
-//
-// Active pressure at depth z: sigma_a = K_a * gamma * z - 2*c*sqrt(K_a)
-// Passive pressure at depth z: sigma_p = K_p * gamma * z + 2*c*sqrt(K_p)
-//
-// Note: K_a * K_p = 1
-//
-// Reference: Das, "Principles of Foundation Engineering", Ch. 7
-
-#[test]
-fn validation_ssi_rankine_earth_pressure() {
-    let phi_deg: f64 = 30.0; // degrees, friction angle
-    let phi_rad: f64 = phi_deg * PI / 180.0;
-    let gamma: f64 = 18.0;   // kN/m^3, unit weight
-    let c: f64 = 0.0;        // kPa, cohesion (granular soil)
-    let z: f64 = 5.0;        // m, depth
-
-    // Rankine active coefficient
-    let ka: f64 = (1.0 - phi_rad.sin()) / (1.0 + phi_rad.sin());
-    let ka_expected: f64 = (45.0_f64 - phi_deg / 2.0).to_radians().tan().powi(2);
-    assert!(
-        (ka - ka_expected).abs() / ka_expected < 1e-10,
-        "K_a: computed={:.6}, expected={:.6}",
-        ka, ka_expected
-    );
-
-    // For phi=30: K_a = 1/3
-    let ka_30: f64 = 1.0 / 3.0;
-    assert!(
-        (ka - ka_30).abs() / ka_30 < 1e-10,
-        "K_a(30) = 1/3: computed={:.6}",
-        ka
-    );
-
-    // Rankine passive coefficient
-    let kp: f64 = (1.0 + phi_rad.sin()) / (1.0 - phi_rad.sin());
-    let kp_expected: f64 = 3.0; // for phi=30
-    assert!(
-        (kp - kp_expected).abs() / kp_expected < 1e-10,
-        "K_p: computed={:.6}, expected={:.6}",
-        kp, kp_expected
-    );
-
-    // K_a * K_p = 1
-    let product: f64 = ka * kp;
-    assert!(
-        (product - 1.0).abs() < 1e-10,
-        "K_a * K_p = {:.6} (should be 1.0)",
-        product
-    );
-
-    // Active pressure at depth z
-    let sigma_a: f64 = ka * gamma * z - 2.0 * c * ka.sqrt();
-    let sigma_a_expected: f64 = (1.0 / 3.0) * 18.0 * 5.0; // = 30 kPa
-    assert!(
-        (sigma_a - sigma_a_expected).abs() / sigma_a_expected < 1e-10,
-        "Active pressure: computed={:.2} kPa, expected={:.2} kPa",
-        sigma_a, sigma_a_expected
-    );
-
-    // Passive pressure at depth z
-    let sigma_p: f64 = kp * gamma * z + 2.0 * c * kp.sqrt();
-    let sigma_p_expected: f64 = 3.0 * 18.0 * 5.0; // = 270 kPa
-    assert!(
-        (sigma_p - sigma_p_expected).abs() / sigma_p_expected < 1e-10,
-        "Passive pressure: computed={:.2} kPa, expected={:.2} kPa",
-        sigma_p, sigma_p_expected
-    );
-
-    // Passive > Active
-    assert!(
-        sigma_p > sigma_a,
-        "Passive ({:.2}) > Active ({:.2})",
-        sigma_p, sigma_a
-    );
-}
-
-// ================================================================
-// 6. Lateral Earth Pressure: Coulomb with Wall Friction
-// ================================================================
-//
-// Coulomb's active earth pressure coefficient with wall friction:
-//   K_a = sin^2(alpha + phi) /
-//         [sin^2(alpha) * sin(alpha - delta) *
-//          (1 + sqrt(sin(phi + delta)*sin(phi - beta) /
-//                    (sin(alpha - delta)*sin(alpha + beta))))^2]
-//
-// For vertical wall (alpha=90), horizontal backfill (beta=0):
-//   K_a = cos^2(phi) /
-//         [1 + sqrt(sin(phi + delta)*sin(phi) / cos(delta))]^2
-//
-// where:
-//   phi = soil friction angle
-//   delta = wall friction angle
-//   alpha = wall inclination from horizontal (90 for vertical)
-//   beta = backfill slope
-//
-// Reference: Das, "Principles of Foundation Engineering", Ch. 7
-
-#[test]
-fn validation_ssi_coulomb_earth_pressure() {
-    let phi_deg: f64 = 35.0;
-    let phi_rad: f64 = phi_deg * PI / 180.0;
-    let delta_deg: f64 = 20.0; // wall friction angle
-    let delta_rad: f64 = delta_deg * PI / 180.0;
-    let alpha_deg: f64 = 90.0; // vertical wall
-    let alpha_rad: f64 = alpha_deg * PI / 180.0;
-    let beta_deg: f64 = 0.0;   // horizontal backfill
-    let beta_rad: f64 = beta_deg * PI / 180.0;
-
-    // General Coulomb formula
-    let num: f64 = (alpha_rad + phi_rad).sin().powi(2);
-    let inner_sqrt: f64 = ((phi_rad + delta_rad).sin() * (phi_rad - beta_rad).sin()
-        / ((alpha_rad - delta_rad).sin() * (alpha_rad + beta_rad).sin()))
-    .sqrt();
-    let denom: f64 =
-        alpha_rad.sin().powi(2) * (alpha_rad - delta_rad).sin() * (1.0 + inner_sqrt).powi(2);
-    let ka_coulomb: f64 = num / denom;
-
-    // Should be positive and less than 1
-    assert!(
-        ka_coulomb > 0.0 && ka_coulomb < 1.0,
-        "Coulomb K_a should be in (0, 1): {:.6}",
-        ka_coulomb
-    );
-
-    // Compare with Rankine (delta = 0)
-    let ka_rankine: f64 = (1.0 - phi_rad.sin()) / (1.0 + phi_rad.sin());
-    // Coulomb with wall friction should give lower K_a (wall friction is favorable)
-    assert!(
-        ka_coulomb < ka_rankine,
-        "Coulomb K_a ({:.4}) < Rankine K_a ({:.4}) with wall friction",
-        ka_coulomb, ka_rankine
-    );
-
-    // Verify: when delta = 0, Coulomb reduces to Rankine for vertical wall
-    let delta_zero: f64 = 0.0;
-    let inner_sqrt_0: f64 = ((phi_rad + delta_zero).sin() * (phi_rad - beta_rad).sin()
-        / ((alpha_rad - delta_zero).sin() * (alpha_rad + beta_rad).sin()))
-    .sqrt();
-    let denom_0: f64 =
-        alpha_rad.sin().powi(2) * (alpha_rad - delta_zero).sin() * (1.0 + inner_sqrt_0).powi(2);
-    let _ka_coulomb_0: f64 = num / denom_0;
-
-    // For vertical wall with no friction, Coulomb = Rankine
-    // The numerator changes too when delta=0
-    let num_0: f64 = (alpha_rad + phi_rad).sin().powi(2);
-    let ka_coulomb_exact_0: f64 = num_0 / denom_0;
-
-    // Both should be close to Rankine
-    assert!(
-        (ka_coulomb_exact_0 - ka_rankine).abs() < 0.02,
-        "Coulomb(delta=0)={:.4} ≈ Rankine={:.4}",
-        ka_coulomb_exact_0, ka_rankine
-    );
-}
-
-// ================================================================
-// 7. Bearing Capacity: Terzaghi and Meyerhof
-// ================================================================
-//
-// Terzaghi's bearing capacity for strip footing:
-//   q_ult = c * N_c + q * N_q + 0.5 * gamma * B * N_gamma
-//
-// where N_c, N_q, N_gamma are bearing capacity factors:
-//   N_q = e^(pi*tan(phi)) * tan^2(45 + phi/2)
-//   N_c = (N_q - 1) * cot(phi)
-//   N_gamma = 2 * (N_q + 1) * tan(phi)  (Meyerhof approximation)
-//
-// For phi = 30:
-//   N_q = 18.40, N_c = 30.14, N_gamma = 22.40 (Meyerhof)
-//
-// Reference: Meyerhof (1951), Geotechnique
-
-#[test]
-fn validation_ssi_bearing_capacity() {
-    let phi_deg: f64 = 30.0;
-    let phi_rad: f64 = phi_deg * PI / 180.0;
-    let c: f64 = 10.0;       // kPa, cohesion
-    let gamma: f64 = 18.0;   // kN/m^3, unit weight
+    // Terzaghi correction for footing size (clay)
+    let k_s1: f64 = 24000.0; // kN/m3 for 0.305m plate (typical stiff clay)
     let b: f64 = 2.0;        // m, footing width
-    let d_f: f64 = 1.5;      // m, depth of footing
-    let q: f64 = gamma * d_f; // kPa, overburden pressure
 
-    // Bearing capacity factors (Meyerhof)
-    let n_q: f64 = (PI * phi_rad.tan()).exp() * (45.0_f64.to_radians() + phi_rad / 2.0).tan().powi(2);
-    let n_q_expected: f64 = 18.40;
-    assert!(
-        (n_q - n_q_expected).abs() / n_q_expected < 0.01,
-        "N_q: computed={:.2}, expected={:.2}",
-        n_q, n_q_expected
-    );
+    let size_factor: f64 = ((b + 0.305) / (2.0 * b)).powi(2);
+    let k_s_corrected: f64 = k_s1 * size_factor;
 
-    let n_c: f64 = (n_q - 1.0) / phi_rad.tan();
-    let n_c_expected: f64 = 30.14;
-    assert!(
-        (n_c - n_c_expected).abs() / n_c_expected < 0.02,
-        "N_c: computed={:.2}, expected={:.2}",
-        n_c, n_c_expected
-    );
+    let expected_factor: f64 = (2.305_f64 / 4.0).powi(2);
+    assert_close(size_factor, expected_factor, 1e-10, "Terzaghi size factor");
 
-    let n_gamma: f64 = 2.0 * (n_q + 1.0) * phi_rad.tan();
-    let n_gamma_expected: f64 = 22.40;
-    assert!(
-        (n_gamma - n_gamma_expected).abs() / n_gamma_expected < 0.02,
-        "N_gamma: computed={:.2}, expected={:.2}",
-        n_gamma, n_gamma_expected
-    );
+    // k_s decreases with increasing footing size
+    let b2: f64 = 4.0;
+    let factor2: f64 = ((b2 + 0.305) / (2.0 * b2)).powi(2);
+    assert!(factor2 < size_factor, "Larger footing -> lower k_s");
 
-    // Ultimate bearing capacity (strip footing)
-    let q_ult: f64 = c * n_c + q * n_q + 0.5 * gamma * b * n_gamma;
-    assert!(
-        q_ult > 0.0,
-        "Ultimate bearing capacity: {:.2} kPa",
-        q_ult
-    );
-
-    // Each term should be positive
-    let term_c: f64 = c * n_c;
-    let term_q: f64 = q * n_q;
-    let term_gamma: f64 = 0.5 * gamma * b * n_gamma;
-    assert!(
-        term_c > 0.0 && term_q > 0.0 && term_gamma > 0.0,
-        "All terms positive: c={:.2}, q={:.2}, gamma={:.2}",
-        term_c, term_q, term_gamma
-    );
-
-    // Factor of safety
-    let fs: f64 = q_ult / q;
-    assert!(
-        fs > 1.0,
-        "Factor of safety: {:.2} (should be > 1)",
-        fs
-    );
+    assert_close(k_s_corrected, k_s1 * expected_factor, 1e-10, "Corrected k_s value");
 }
 
 // ================================================================
-// 8. Settlement of Footings on Elastic Half-Space
+// 2. Coefficient of Subgrade Reaction (Vesic, Biot)
 // ================================================================
 //
-// Immediate settlement of a rectangular footing (B x L) on an
-// elastic half-space (Boussinesq theory):
+// Vesic (1961) proposed a formula relating k_s to soil elastic modulus:
+//   k_s = 0.65 * 12th_root(E_s B^4 / (EI)) * E_s / (1 - nu_s^2)
 //
-//   s = q * B * (1 - nu^2) * I_w / E_s
+// Biot (1937) characteristic length for beam on elastic foundation:
+//   lambda = 4th_root(k_s B / (4 EI))
+//   Characteristic length L_c = 1/lambda
 //
-// where:
-//   q = net bearing pressure
-//   B = footing width
-//   nu = soil Poisson's ratio
-//   E_s = soil elastic modulus
-//   I_w = influence factor depending on L/B and rigidity
-//
-// Influence factors (Steinbrenner/Mayne-Poulos):
-//   Square (L/B=1): I_w = 0.56 (flexible center), 0.88 (rigid)
-//   Rectangle (L/B=2): I_w = 0.77 (flexible center), 1.12 (rigid)
-//   Strip (L/B->inf): I_w -> 1.0 (flexible), 1.53 (rigid)
-//
-// Reference: Bowles, "Foundation Analysis and Design", Ch. 5
+// Reference: Vesic (1961), ASCE; Biot (1937)
 
 #[test]
-fn validation_ssi_footing_settlement() {
-    let q: f64 = 150.0;       // kPa, net bearing pressure
-    let b: f64 = 3.0;         // m, footing width
-    let nu: f64 = 0.3;        // Poisson's ratio
-    let e_s: f64 = 40_000.0;  // kPa, soil modulus (medium dense sand)
+fn validation_subgrade_reaction_vesic_biot() {
+    let e_s: f64 = 20000.0;  // kN/m2, soil elastic modulus
+    let nu_s: f64 = 0.35;    // soil Poisson's ratio
+    let b_beam: f64 = 0.5;   // m, beam (footing) width
+    let ei: f64 = 50000.0;   // kN*m2, beam flexural stiffness
 
-    // Square rigid footing (L/B = 1)
-    let iw_square: f64 = 0.88;
-    let s_square: f64 = q * b * (1.0 - nu * nu) * iw_square / e_s;
-    let s_square_mm: f64 = s_square * 1000.0;
-    // = 150 * 3 * 0.91 * 0.88 / 40000 * 1000
-    let s_square_expected_mm: f64 = 150.0 * 3.0 * 0.91 * 0.88 / 40_000.0 * 1000.0;
-    assert!(
-        (s_square_mm - s_square_expected_mm).abs() / s_square_expected_mm < 1e-10,
-        "Square footing settlement: computed={:.2} mm, expected={:.2} mm",
-        s_square_mm, s_square_expected_mm
-    );
+    // Vesic formula
+    let vesic_factor: f64 = (e_s * b_beam.powi(4) / ei).powf(1.0 / 12.0);
+    let k_s_vesic: f64 = 0.65 * vesic_factor * e_s / (1.0 - nu_s * nu_s);
 
-    // Rectangular footing (L/B = 2)
-    let iw_rect: f64 = 1.12;
-    let s_rect: f64 = q * b * (1.0 - nu * nu) * iw_rect / e_s;
-    let s_rect_mm: f64 = s_rect * 1000.0;
+    let expected_denom: f64 = 1.0 - 0.1225;
+    assert_close(1.0 - nu_s * nu_s, expected_denom, 1e-10, "1-nu^2 = 0.8775");
 
-    // Rectangular footing settles more than square (larger I_w)
-    assert!(
-        s_rect_mm > s_square_mm,
-        "Rectangular ({:.2} mm) > Square ({:.2} mm)",
-        s_rect_mm, s_square_mm
-    );
+    // k_s should be positive and in a reasonable range
+    assert!(k_s_vesic > 0.0, "k_s > 0");
+    assert!(k_s_vesic > 1000.0 && k_s_vesic < 100000.0,
+        "k_s = {} in reasonable range for medium soil", k_s_vesic);
 
-    // Settlement increases linearly with footing width
-    let b2: f64 = 6.0; // double the width
-    let s_wider: f64 = q * b2 * (1.0 - nu * nu) * iw_square / e_s;
-    let ratio: f64 = s_wider / s_square;
-    let ratio_expected: f64 = b2 / b; // = 2.0
-    assert!(
-        (ratio - ratio_expected).abs() / ratio_expected < 1e-10,
-        "Width ratio: computed={:.4}, expected={:.4}",
-        ratio, ratio_expected
-    );
+    // Biot characteristic length
+    let k_s: f64 = k_s_vesic;
+    let lambda: f64 = (k_s * b_beam / (4.0 * ei)).powf(0.25);
+    let l_c: f64 = 1.0 / lambda;
 
-    // Settlement decreases with increasing soil modulus
-    let e_s_stiff: f64 = 80_000.0;
-    let s_stiff: f64 = q * b * (1.0 - nu * nu) * iw_square / e_s_stiff;
-    assert!(
-        s_stiff < s_square,
-        "Stiffer soil: {:.4} m < {:.4} m",
-        s_stiff, s_square
-    );
+    // Verify: lambda^4 = k_s B / (4 EI)
+    let lambda4_check: f64 = k_s * b_beam / (4.0 * ei);
+    assert_close(lambda.powi(4), lambda4_check, 1e-10, "lambda^4 = k_s B/(4EI)");
 
-    // Settlement ratio equals inverse modulus ratio
-    let mod_ratio: f64 = s_stiff / s_square;
-    let mod_ratio_expected: f64 = e_s / e_s_stiff;
-    assert!(
-        (mod_ratio - mod_ratio_expected).abs() / mod_ratio_expected < 1e-10,
-        "Modulus ratio: computed={:.4}, expected={:.4}",
-        mod_ratio, mod_ratio_expected
-    );
+    // The beam is "rigid" if L < pi/(2*lambda), "flexible" if L > pi/lambda
+    let l_rigid: f64 = PI / (2.0 * lambda);
+    let l_flexible: f64 = PI / lambda;
+    assert!(l_flexible > l_rigid, "Flexible length > rigid length");
+    assert_close(l_flexible, 2.0 * l_rigid, 1e-10, "L_flex = 2 L_rigid");
+    assert!(l_c > 0.0, "Characteristic length > 0");
+}
+
+// ================================================================
+// 3. Mat Foundation Stiffness (6-DOF Springs)
+// ================================================================
+//
+// A rigid circular foundation of radius R on a half-space (E_s, nu_s):
+//   Vertical:    K_z = 4 G R / (1 - nu)
+//   Horizontal:  K_h = 8 G R / (2 - nu)
+//   Rocking:     K_r = 8 G R^3 / (3(1 - nu))
+//   Torsional:   K_t = 16 G R^3 / 3
+//
+// G = E_s / (2(1+nu))
+//
+// Reference: Gazetas (1991), "Foundation Vibrations"; Poulos & Davis
+
+#[test]
+fn validation_mat_foundation_stiffness() {
+    let e_s: f64 = 50000.0;   // kN/m2, soil modulus
+    let nu_s: f64 = 0.3;
+    let r: f64 = 5.0;         // m, equivalent circular radius
+
+    let g: f64 = e_s / (2.0 * (1.0 + nu_s));
+    assert_close(g, 50000.0 / 2.6, 1e-10, "G = E/(2(1+nu))");
+
+    // Vertical stiffness
+    let k_z: f64 = 4.0 * g * r / (1.0 - nu_s);
+    let expected_kz: f64 = 4.0 * g * 5.0 / 0.7;
+    assert_close(k_z, expected_kz, 1e-10, "K_z = 4GR/(1-nu)");
+
+    // Horizontal stiffness
+    let k_h: f64 = 8.0 * g * r / (2.0 - nu_s);
+    let expected_kh: f64 = 8.0 * g * 5.0 / 1.7;
+    assert_close(k_h, expected_kh, 1e-10, "K_h = 8GR/(2-nu)");
+
+    // Rocking stiffness
+    let k_r: f64 = 8.0 * g * r.powi(3) / (3.0 * (1.0 - nu_s));
+    let expected_kr: f64 = 8.0 * g * 125.0 / 2.1;
+    assert_close(k_r, expected_kr, 1e-10, "K_r = 8GR^3/(3(1-nu))");
+
+    // Torsional stiffness
+    let k_t: f64 = 16.0 * g * r.powi(3) / 3.0;
+    let expected_kt: f64 = 16.0 * g * 125.0 / 3.0;
+    assert_close(k_t, expected_kt, 1e-10, "K_t = 16GR^3/3");
+
+    // K_z > K_h for nu < 0.5
+    assert!(k_z > k_h, "K_z > K_h for nu < 0.5");
+
+    // K_r/K_z ratio = 2R^2/3
+    let kr_kz_ratio: f64 = k_r / k_z;
+    let expected_ratio: f64 = 2.0 * r * r / 3.0;
+    assert_close(kr_kz_ratio, expected_ratio, 1e-10, "K_r/K_z = 2R^2/3");
+}
+
+// ================================================================
+// 4. Pile Axial Capacity (Meyerhof End Bearing + Side Friction)
+// ================================================================
+//
+// Meyerhof (1976) method for driven piles in sand:
+//   Q_p = A_p * q_p     (end bearing)
+//   Q_s = Sum f_si * A_si  (side friction)
+//   Q_ult = Q_p + Q_s
+//
+// End bearing: q_p = N_q * sigma'_v at tip
+// Side friction: f_s = K_s * sigma'_v * tan(delta)
+//
+// Reference: Meyerhof (1976), ASCE; Das, Ch. 11
+
+#[test]
+fn validation_pile_axial_capacity() {
+    let d: f64 = 0.4;       // m, pile diameter
+    let l: f64 = 15.0;      // m, pile length
+    let gamma: f64 = 18.0;  // kN/m3, unit weight of soil
+    let phi: f64 = 35.0;    // degrees, friction angle
+    let delta: f64 = 0.75 * phi; // pile-soil friction angle
+    let k_s: f64 = 1.2;     // lateral earth pressure coefficient
+
+    // Pile tip area
+    let a_p: f64 = PI * d * d / 4.0;
+    let expected_ap: f64 = PI * 0.16 / 4.0;
+    assert_close(a_p, expected_ap, 1e-10, "Pile tip area");
+
+    // Effective vertical stress at tip
+    let sigma_v_tip: f64 = gamma * l;
+    assert_close(sigma_v_tip, 270.0, 1e-10, "sigma'_v at tip = gamma*L");
+
+    // Bearing capacity factor N_q
+    let phi_rad: f64 = phi * PI / 180.0;
+    let n_q: f64 = (PI * phi_rad.tan()).exp() * (PI / 4.0 + phi_rad / 2.0).tan().powi(2);
+    assert!(n_q > 30.0 && n_q < 40.0, "N_q = {} approx 33 for phi=35", n_q);
+
+    // End bearing capacity
+    let q_p: f64 = n_q * sigma_v_tip;
+    let q_ult_tip: f64 = q_p * a_p;
+
+    // Side friction: f_s = K_s * sigma'_v,avg * tan(delta)
+    let sigma_v_avg: f64 = gamma * l / 2.0;
+    let delta_rad: f64 = delta * PI / 180.0;
+    let f_s: f64 = k_s * sigma_v_avg * delta_rad.tan();
+
+    // Side friction area
+    let a_s: f64 = PI * d * l;
+    let expected_as: f64 = PI * 0.4 * 15.0;
+    assert_close(a_s, expected_as, 1e-10, "Pile side area pi*d*L");
+
+    let q_ult_side: f64 = f_s * a_s;
+
+    // Total capacity
+    let q_ult: f64 = q_ult_tip + q_ult_side;
+    assert!(q_ult > q_ult_tip, "Total > end bearing alone");
+    assert!(q_ult > q_ult_side, "Total > side friction alone");
+
+    // Allowable capacity with FoS = 2.5
+    let fos: f64 = 2.5;
+    let q_allow: f64 = q_ult / fos;
+    assert_close(q_allow, q_ult / 2.5, 1e-10, "Allowable = Q_ult/FoS");
+}
+
+// ================================================================
+// 5. Lateral Pile Response -- Broms Method
+// ================================================================
+//
+// Broms (1964) method for short piles in cohesive soil:
+//   Ultimate lateral capacity: H_u = 9 c_u d (L - 1.5d)  (approx.)
+//
+// For long piles (failure by pile yielding):
+//   M_y = H_u(1.5d + H_u/(18 c_u d))
+//
+// Reference: Broms (1964), ASCE; Poulos & Davis, Ch. 5
+
+#[test]
+fn validation_lateral_pile_broms() {
+    let d: f64 = 0.6;      // m, pile diameter
+    let l: f64 = 8.0;      // m, embedded length
+    let c_u: f64 = 50.0;   // kN/m2, undrained shear strength
+    let m_y: f64 = 500.0;  // kN*m, pile yield moment
+
+    // Broms "short pile" ultimate lateral load (cohesive soil)
+    let h_short: f64 = 9.0 * c_u * d * (l - 1.5 * d);
+    let expected_h: f64 = 9.0 * 50.0 * 0.6 * (8.0 - 0.9);
+    assert_close(h_short, expected_h, 1e-10, "Broms short pile H_u");
+
+    // For "long pile" mode, H_u from M_max = M_y
+    // M_y = H(1.5d + H/(18 c_u d))
+    // Quadratic: H^2/(18 c_u d) + 1.5d H - M_y = 0
+    let a_coeff: f64 = 1.0 / (18.0 * c_u * d);
+    let b_coeff: f64 = 1.5 * d;
+    let c_coeff: f64 = -m_y;
+
+    let discriminant: f64 = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
+    assert!(discriminant > 0.0, "Discriminant > 0 for real solution");
+
+    let h_long: f64 = (-b_coeff + discriminant.sqrt()) / (2.0 * a_coeff);
+    assert!(h_long > 0.0, "H_long > 0");
+
+    // Governing mode: smaller of short and long pile capacities
+    let h_governing: f64 = h_short.min(h_long);
+    assert!(h_governing > 0.0, "Governing H_u > 0");
+
+    // Verify quadratic: a H^2 + b H + c = 0
+    let check: f64 = a_coeff * h_long * h_long + b_coeff * h_long + c_coeff;
+    assert_close(check, 0.0, 1e-8, "Quadratic equation satisfied");
+}
+
+// ================================================================
+// 6. Group Pile Efficiency Factor
+// ================================================================
+//
+// For a pile group of n_r rows x n_c columns at spacing s:
+//   Converse-Labarre efficiency:
+//     eta = 1 - theta[(n_c-1)n_r + (n_r-1)n_c] / (90 n_r n_c)
+//   where theta = atan(d/s) in degrees
+//
+// Reference: Das, Ch. 11; Bowles, Ch. 16
+
+#[test]
+fn validation_group_pile_efficiency() {
+    let d: f64 = 0.4;      // m, pile diameter
+    let s: f64 = 1.2;      // m, center-to-center spacing (= 3d)
+    let n_r: f64 = 3.0;    // rows
+    let n_c: f64 = 3.0;    // columns
+
+    // Converse-Labarre: theta = atan(d/s) in degrees
+    let theta_rad: f64 = (d / s).atan();
+    let theta_deg: f64 = theta_rad * 180.0 / PI;
+    assert_close(theta_deg, (0.4_f64 / 1.2).atan() * 180.0 / PI, 1e-10, "theta in degrees");
+
+    // Efficiency
+    let numerator: f64 = theta_deg * ((n_c - 1.0) * n_r + (n_r - 1.0) * n_c);
+    let denominator: f64 = 90.0 * n_r * n_c;
+    let eta: f64 = 1.0 - numerator / denominator;
+
+    let expected_numer: f64 = theta_deg * 12.0;
+    assert_close(numerator, expected_numer, 1e-10, "Numerator = theta * 12");
+
+    // eta should be between 0 and 1
+    assert!(eta > 0.5 && eta < 1.0, "eta = {} in reasonable range", eta);
+
+    // At larger spacing (s = 6d), efficiency improves
+    let s2: f64 = 6.0 * d;
+    let theta2_deg: f64 = (d / s2).atan() * 180.0 / PI;
+    let eta2: f64 = 1.0 - theta2_deg * 12.0 / denominator;
+    assert!(eta2 > eta, "Wider spacing -> higher efficiency");
+
+    // Group capacity = eta * n * Q_single
+    let n_piles: f64 = n_r * n_c;
+    let q_single: f64 = 500.0; // kN, single pile capacity
+    let q_group: f64 = eta * n_piles * q_single;
+    assert_close(q_group, eta * 9.0 * 500.0, 1e-10, "Group capacity = eta n Q");
+}
+
+// ================================================================
+// 7. Dynamic Impedance Functions (Gazetas)
+// ================================================================
+//
+// Gazetas (1991) dynamic impedance for circular foundation on half-space:
+//   K_z(omega) = K_z,static * [k_z(a0) + i a0 c_z(a0)]
+//
+// where a0 = omega*R/V_s is the dimensionless frequency.
+//
+// Static stiffness: K_z,static = 4GR/(1-nu)
+// Radiation damping: C_z = K_z,static * c_z * R / V_s
+//
+// Reference: Gazetas (1991), Foundation Engineering Handbook
+
+#[test]
+fn validation_dynamic_impedance_gazetas() {
+    let g: f64 = 20000.0;   // kN/m2, shear modulus
+    let nu: f64 = 0.33;
+    let rho: f64 = 1800.0;  // kg/m3, soil density
+    let r: f64 = 4.0;       // m, foundation radius
+
+    // Shear wave velocity: V_s = sqrt(G/rho) (consistent units)
+    let v_s: f64 = (g * 1000.0 / rho).sqrt();
+    let expected_vs: f64 = (20e6_f64 / 1800.0).sqrt();
+    assert_close(v_s, expected_vs, 1e-10, "V_s = sqrt(G/rho)");
+
+    // Static vertical stiffness
+    let k_z_static: f64 = 4.0 * g * r / (1.0 - nu);
+    let expected_kz: f64 = 4.0 * 20000.0 * 4.0 / 0.67;
+    assert_close(k_z_static, expected_kz, 1e-10, "K_z,static = 4GR/(1-nu)");
+
+    // Dimensionless frequency for f = 5 Hz excitation
+    let freq: f64 = 5.0;
+    let omega: f64 = 2.0 * PI * freq;
+    let a0: f64 = omega * r / v_s;
+
+    // Low-frequency coefficients
+    let k_coeff: f64 = 1.0;   // stiffness multiplier ~ 1.0 at low a0
+    let c_coeff: f64 = 0.85;  // damping coefficient
+
+    // Dynamic stiffness (real part)
+    let k_z_dynamic: f64 = k_z_static * k_coeff;
+    assert_close(k_z_dynamic, k_z_static, 1e-10, "K_z(omega) ~ K_z,static at low freq");
+
+    // Radiation damping coefficient
+    let c_z: f64 = k_z_static * c_coeff * r / v_s;
+    assert!(c_z > 0.0, "Radiation damping > 0");
+
+    // Damping ratio: xi = C_z omega / (2 K_z)
+    let xi: f64 = c_z * omega / (2.0 * k_z_dynamic);
+    assert!(xi > 0.0 && xi < 1.0, "Damping ratio {} in physical range", xi);
+
+    // Confirm low-frequency regime
+    assert!(a0 < 2.0, "a0 = {} confirms low-frequency regime", a0);
+}
+
+// ================================================================
+// 8. Foundation Rocking Frequency
+// ================================================================
+//
+// The rocking natural frequency of a rigid foundation on soil:
+//   omega_r = sqrt(K_r / I_mass)
+//
+// where K_r = 8GR^3/(3(1-nu)) is the rocking stiffness
+// and I_mass is the mass moment of inertia about the rocking axis.
+//
+// For a cylindrical foundation of mass m, radius R, height h:
+//   I_base = m(R^2/4 + h^2/3) via parallel axis theorem
+//
+// Reference: Gazetas (1991); Richart, Hall & Woods, "Vibrations of Soils"
+
+#[test]
+fn validation_foundation_rocking_frequency() {
+    let g_soil: f64 = 30000.0;  // kN/m2, shear modulus
+    let nu: f64 = 0.3;
+    let r: f64 = 3.0;           // m, foundation radius
+    let h: f64 = 1.5;           // m, foundation height
+    let rho_c: f64 = 2400.0;    // kg/m3, concrete density
+
+    // Rocking stiffness
+    let k_r: f64 = 8.0 * g_soil * r.powi(3) / (3.0 * (1.0 - nu));
+    let expected_kr: f64 = 8.0 * 30000.0 * 27.0 / 2.1;
+    assert_close(k_r, expected_kr, 1e-10, "K_r = 8GR^3/(3(1-nu))");
+
+    // Foundation mass (kN*s^2/m for structural dynamics)
+    let volume: f64 = PI * r * r * h;
+    let mass: f64 = rho_c * volume / 1000.0;
+    let expected_mass: f64 = 2400.0 * PI * 9.0 * 1.5 / 1000.0;
+    assert_close(mass, expected_mass, 1e-10, "Foundation mass");
+
+    // Mass moment of inertia about base center (rocking axis)
+    let i_mass: f64 = mass * (r * r / 4.0 + h * h / 3.0);
+    let expected_i: f64 = mass * (9.0 / 4.0 + 2.25 / 3.0);
+    assert_close(i_mass, expected_i, 1e-10, "I_mass = m(R^2/4 + h^2/3)");
+
+    // Rocking frequency
+    let omega_r: f64 = (k_r / i_mass).sqrt();
+    let f_r: f64 = omega_r / (2.0 * PI);
+
+    // Verify omega^2 = K_r / I_mass
+    assert_close(omega_r * omega_r, k_r / i_mass, 1e-10, "omega^2 = K_r/I");
+
+    // Rocking period
+    let t_r: f64 = 1.0 / f_r;
+    assert!(t_r > 0.0, "Period > 0");
+    assert_close(t_r, 2.0 * PI / omega_r, 1e-10, "T = 2*pi/omega");
+
+    // Rocking frequency should be in reasonable range
+    assert!(f_r > 1.0 && f_r < 50.0, "f_r = {} Hz in reasonable range", f_r);
 }
