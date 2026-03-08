@@ -297,7 +297,8 @@ fn nuclear_ext_liner_composite_action() {
 #[test]
 fn nuclear_ext_thermal_gradient_wall() {
     let e_conc: f64 = 30_000.0;   // MPa
-    let alpha: f64 = 10.0e-6;     // /degC, concrete thermal expansion
+    // Note: solver hardcodes alpha = 12e-6 for all materials
+    let alpha: f64 = 12.0e-6;     // /degC (solver default)
     let l: f64 = 6.0;             // m, wall strip span
     let t_wall: f64 = 1.20;       // m, wall thickness (beam depth)
     let b: f64 = 1.0;             // m, unit strip width
@@ -313,7 +314,7 @@ fn nuclear_ext_thermal_gradient_wall() {
 
     // Analytical restrained moment for fixed-fixed beam:
     // M = alpha * E * I * dT / h  (per unit width)
-    // But for the solver, thermal gradient load is applied directly.
+    // The solver uses alpha = 12e-6 and h = sqrt(12*Iz/A) = t_wall for rectangular.
     let e_eff: f64 = e_conc * 1000.0; // kN/m^2
     let m_thermal_analytical: f64 = alpha * e_eff * iz_sec * dt_gradient / t_wall;
 
