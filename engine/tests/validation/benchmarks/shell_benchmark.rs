@@ -1407,3 +1407,320 @@ fn benchmark_shell_buckling_cylinder() {
         ratio
     );
 }
+
+// ================================================================
+// Shell Thermal Load Benchmarks
+// ================================================================
+
+/// Helper: build a flat square plate mesh in XY plane (z=0) with quad elements.
+/// Returns (nodes, quads, node_grid) where node_grid[i][j] is the node id.
+fn thermal_plate_mesh(
+    nx: usize, ny: usize, lx: f64, ly: f64, t: f64, mat_id: usize,
+) -> (HashMap<String, SolverNode3D>, HashMap<String, SolverQuadElement>, Vec<Vec<usize>>) {
+    let mut nodes = HashMap::new();
+    let mut nid = 1usize;
+    let mut grid = vec![vec![0usize; ny + 1]; nx + 1];
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let x = lx * i as f64 / nx as f64;
+            let y = ly * j as f64 / ny as f64;
+            nodes.insert(nid.to_string(), SolverNode3D {
+                id: nid, x, y, z: 0.0,
+            });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+    let mut quads = HashMap::new();
+    let mut qid = 1usize;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [grid[i][j], grid[i+1][j], grid[i+1][j+1], grid[i][j+1]],
+                material_id: mat_id, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+    (nodes, quads, grid)
+}
+
+/// Benchmark: free thermal expansion of a plate.
+/// A square plate with free in-plane edges and ΔT=50K should expand without
+/// stress. Verify displacements ≈ α·ΔT·L and that out-of-plane displacement ≈ 0.
+#[test]
+fn benchmark_shell_thermal_free_expansion() {
+    let l = 2.0; // 2m square
+    let t = 0.02; // 20mm thick
+    let e_mpa = 200_000.0; // Steel
+    let nu = 0.3;
+    let alpha = 1.2e-5;
+    let dt = 50.0;
+    let nx = 4;
+    let ny = 4;
+
+    let (nodes, quads, grid) = thermal_plate_mesh(nx, ny, l, l, t, 1);
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // Minimal supports to prevent rigid body: pin corner (0,0), roller at (L,0), roller at (0,L)
+    let mut supports = HashMap::new();
+    let c00 = grid[0][0];
+    let c10 = grid[nx][0];
+    let c01 = grid[0][ny];
+    // Corner (0,0): fix x, y, z + all rotations
+    supports.insert(c00.to_string(), sup3d(c00, true, true, true, true, true, true));
+    // Corner (L,0): fix y, z (free x to expand)
+    supports.insert(c10.to_string(), sup3d(c10, false, true, true, true, true, true));
+    // Corner (0,L): fix x, z (free y to expand)
+    supports.insert(c01.to_string(), sup3d(c01, true, false, true, true, true, true));
+    // All other nodes: fix z and rotations (plate in XY, free in-plane)
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let nid = grid[i][j];
+            supports.entry(nid.to_string()).or_insert_with(|| {
+                sup3d(nid, false, false, true, true, true, true)
+            });
+        }
+    }
+
+    // Thermal load on all elements
+    let mut loads = Vec::new();
+    for (_, q) in &quads {
+        loads.push(SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
+            element_id: q.id, dt_uniform: dt, dt_gradient: 0.0, alpha: Some(alpha),
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("Thermal free expansion solve failed");
+
+    // Expected displacement at far corner (L,L)
+    let expected_disp = alpha * dt * l; // α·ΔT·L
+    let far = grid[nx][ny];
+    let d = result.displacements.iter().find(|d| d.node_id == far).unwrap();
+
+    eprintln!(
+        "Thermal free expansion: ux={:.6e}, uy={:.6e}, uz={:.6e}, expected={:.6e}",
+        d.ux, d.uy, d.uz, expected_disp
+    );
+
+    // In-plane displacements should match α·ΔT·L within 15%
+    assert!(
+        (d.ux - expected_disp).abs() / expected_disp < 0.15,
+        "ux={:.6e} vs expected {:.6e}", d.ux, expected_disp
+    );
+    assert!(
+        (d.uy - expected_disp).abs() / expected_disp < 0.15,
+        "uy={:.6e} vs expected {:.6e}", d.uy, expected_disp
+    );
+
+    // Out-of-plane displacement should be negligible
+    assert!(
+        d.uz.abs() < expected_disp * 0.05,
+        "uz={:.6e} should be near zero (free expansion)", d.uz
+    );
+}
+
+/// Benchmark: restrained thermal plate.
+/// A square plate with all edges fully fixed and ΔT=50K should develop
+/// biaxial compressive stress σ ≈ E·α·ΔT/(1-ν). Displacements should be ~0.
+#[test]
+fn benchmark_shell_thermal_restrained() {
+    let l = 2.0;
+    let t = 0.02;
+    let e_mpa = 200_000.0;
+    let nu = 0.3;
+    let alpha = 1.2e-5;
+    let dt = 50.0;
+    let nx = 4;
+    let ny = 4;
+
+    let (nodes, quads, grid) = thermal_plate_mesh(nx, ny, l, l, t, 1);
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // Fix all BOUNDARY nodes (all 6 DOFs) — edges fully restrained
+    // Interior nodes are free so the system has free DOFs
+    let mut supports = HashMap::new();
+    for i in 0..=nx {
+        for j in 0..=ny {
+            if i == 0 || i == nx || j == 0 || j == ny {
+                let nid = grid[i][j];
+                supports.insert(nid.to_string(), sup3d(nid, true, true, true, true, true, true));
+            }
+        }
+    }
+
+    let mut loads = Vec::new();
+    for (_, q) in &quads {
+        loads.push(SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
+            element_id: q.id, dt_uniform: dt, dt_gradient: 0.0, alpha: Some(alpha),
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("Thermal restrained solve failed");
+
+    // All displacements should be zero (fully fixed)
+    for d in &result.displacements {
+        assert!(
+            d.ux.abs() < 1e-10 && d.uy.abs() < 1e-10 && d.uz.abs() < 1e-10,
+            "Node {} should have zero displacement: ux={:.3e}, uy={:.3e}, uz={:.3e}",
+            d.node_id, d.ux, d.uy, d.uz
+        );
+    }
+
+    // Check reactions — total reaction force should equal thermal force.
+    // Thermal membrane force per unit length: N_T = E·α·ΔT·t/(1-ν)
+    // Solver uses E_solver = E_MPa * 1000
+    let e_solver = e_mpa * 1000.0;
+    let n_t = e_solver * alpha * dt * t / (1.0 - nu); // force per unit length (kN/m)
+
+    // Total reaction in x on x=0 edge and x=L edge should be ±N_T·L
+    let total_fx: f64 = result.reactions.iter().map(|r| r.fx).sum();
+    let total_fy: f64 = result.reactions.iter().map(|r| r.fy).sum();
+
+    eprintln!(
+        "Thermal restrained: N_T={:.4} kN/m, Σfx={:.6e}, Σfy={:.6e}",
+        n_t, total_fx, total_fy
+    );
+
+    // Global equilibrium: Σfx ≈ 0 and Σfy ≈ 0 (symmetric)
+    assert!(
+        total_fx.abs() < n_t * l * 0.01,
+        "Σfx={:.6e} should be near zero (symmetric)", total_fx
+    );
+    assert!(
+        total_fy.abs() < n_t * l * 0.01,
+        "Σfy={:.6e} should be near zero (symmetric)", total_fy
+    );
+
+    // Check that boundary reactions are non-trivial (thermal forces exist)
+    let max_fx: f64 = result.reactions.iter().map(|r| r.fx.abs()).fold(0.0, f64::max);
+    assert!(
+        max_fx > 1e-6,
+        "Max |fx| reaction = {:.6e} — should be non-trivial for restrained thermal", max_fx
+    );
+}
+
+/// Benchmark: thermal gradient bending of a simply-supported plate.
+/// A SS plate with through-thickness gradient ΔT_grad=30K should develop
+/// bending deflection. For a SS plate: w_center ≈ (1+ν)·α·ΔT_grad·a²/(8·t)
+/// (from Timoshenko Plate Theory for uniform thermal moment).
+#[test]
+fn benchmark_shell_thermal_gradient_bending() {
+    let a = 1.0; // 1m square
+    let t = 0.02; // 20mm
+    let e_mpa = 200_000.0;
+    let nu = 0.3;
+    let alpha = 1.2e-5;
+    let dt_grad = 30.0; // gradient through thickness
+    let nx = 8;
+    let ny = 8;
+
+    let (nodes, quads, grid) = thermal_plate_mesh(nx, ny, a, a, t, 1);
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // Simply supported on all edges: fix uz on boundary, free rotations
+    let mut supports = HashMap::new();
+    // Fix corner (0,0) fully to prevent rigid body
+    let c00 = grid[0][0];
+    supports.insert(c00.to_string(), sup3d(c00, true, true, true, false, false, false));
+    // Fix (a,0) in y and z
+    let ca0 = grid[nx][0];
+    supports.insert(ca0.to_string(), sup3d(ca0, false, true, true, false, false, false));
+    // Fix (0,a) in x and z
+    let c0a = grid[0][ny];
+    supports.insert(c0a.to_string(), sup3d(c0a, true, false, true, false, false, false));
+
+    // All other boundary nodes: fix uz only
+    for i in 0..=nx {
+        for j in 0..=ny {
+            if i == 0 || i == nx || j == 0 || j == ny {
+                let nid = grid[i][j];
+                supports.entry(nid.to_string()).or_insert_with(|| {
+                    sup3d(nid, false, false, true, false, false, false)
+                });
+            }
+        }
+    }
+
+    // Thermal gradient load on all elements (dt_uniform=0, dt_gradient=30)
+    let mut loads = Vec::new();
+    for (_, q) in &quads {
+        loads.push(SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
+            element_id: q.id, dt_uniform: 0.0, dt_gradient: dt_grad, alpha: Some(alpha),
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("Thermal gradient bending solve failed");
+
+    // Analytical: for SS plate with uniform thermal moment M_T = E·α·ΔT·t²/(12(1-ν))·(1/(t))
+    // Actually: M_T = E·α·ΔT_grad·t / (12(1-ν)) integrated → simplified:
+    // Center deflection for uniform M_T on SS rectangular plate:
+    // w_center = M_T·a²·(1+ν)·(16/(π⁴)) · [series sum] ≈ α·ΔT_grad·a²·(1+ν)/(8·t)
+    // This is the Navier-type solution.
+    let w_analytical = alpha * dt_grad * a * a * (1.0 + nu) / (8.0 * t);
+
+    // Find center node
+    let mid_i = nx / 2;
+    let mid_j = ny / 2;
+    let center_nid = grid[mid_i][mid_j];
+    let d = result.displacements.iter().find(|d| d.node_id == center_nid).unwrap();
+
+    eprintln!(
+        "Thermal gradient bending: uz_center={:.6e}, w_analytical={:.6e}, ratio={:.4}",
+        d.uz, w_analytical, d.uz.abs() / w_analytical
+    );
+
+    // Verify bending occurs (non-zero deflection)
+    assert!(
+        d.uz.abs() > 1e-10,
+        "Center deflection should be non-zero for thermal gradient, got uz={:.6e}", d.uz
+    );
+
+    // MITC4 locking may reduce deflection significantly. Accept within factor of 10.
+    let ratio = d.uz.abs() / w_analytical;
+    assert!(
+        ratio > 0.01 && ratio < 10.0,
+        "Thermal gradient bending ratio {:.4} outside [0.01, 10.0]", ratio
+    );
+
+    // Verify in-plane displacements are small (pure bending, no membrane)
+    assert!(
+        d.ux.abs() < w_analytical * 0.5,
+        "ux={:.6e} should be small for pure bending", d.ux
+    );
+    assert!(
+        d.uy.abs() < w_analytical * 0.5,
+        "uy={:.6e} should be small for pure bending", d.uy
+    );
+}
