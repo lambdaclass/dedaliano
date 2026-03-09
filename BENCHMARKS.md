@@ -78,7 +78,7 @@ The benchmark suite is only one part of solver verification. A structural solver
    Element stiffness, fixed-end forces, transformations, mass matrices, geometric stiffness, damping terms, and postprocessing formulas.
 2. `Analytical validation`
    Closed-form textbook cases for beams, frames, trusses, buckling, dynamics, thermal loads, Timoshenko beams, cables, staged/prestress sanity checks, and related structural mechanics problems.
-3. `Published benchmark reproduction`
+3. `Reference benchmark validation`
    ANSYS VM, NAFEMS, SAP2000 / Code_Aster cross-checks, textbook benchmark sets, shell benchmarks, and nonlinear benchmark problems.
 4. `Differential / consistency testing`
    Dense vs sparse assembly, 2D vs equivalent 3D cases, small-load linear vs nonlinear consistency, and fixture-based regression comparison across solver paths.

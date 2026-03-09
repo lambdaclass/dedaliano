@@ -62,7 +62,7 @@ Use closed-form and textbook references for:
 
 This is the first public proof layer for structural mechanics correctness.
 
-### 3. Published Benchmark Reproduction
+### 3. Reference Benchmark Validation
 
 Use published benchmark families and solver cross-checks such as:
 
