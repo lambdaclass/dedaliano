@@ -260,10 +260,12 @@ pub fn solve_buckling_3d(
         (k_ff, neg_kg_ff, nf)
     };
 
-    let has_compression = linear.element_forces.iter().any(|ef| {
+    let has_frame_compression = linear.element_forces.iter().any(|ef| {
         (ef.n_start + ef.n_end) / 2.0 < -1e-6
     });
-    if !has_compression {
+    // Also check if quad geometric stiffness has non-trivial entries
+    let has_quad_kg = !input.quads.is_empty() && neg_kg_solve.iter().any(|&v| v.abs() > 1e-15);
+    if !has_frame_compression && !has_quad_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
 

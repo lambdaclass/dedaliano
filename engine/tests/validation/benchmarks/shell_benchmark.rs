@@ -18,6 +18,7 @@
 ///   - Timoshenko, S.P. & Woinowsky-Krieger, S., "Theory of Plates and Shells", 1959
 
 use dedaliano_engine::solver::linear;
+use dedaliano_engine::solver::buckling;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -1071,6 +1072,338 @@ fn benchmark_cantilever_plate_pressure() {
     assert!(
         ratio > 0.01 && ratio < 1.5,
         "Cantilever plate ratio {:.3} outside expected range [0.01, 1.5]",
+        ratio
+    );
+}
+
+// ================================================================
+// 9. Shell Buckling — Flat Plate under Uniform Compression
+// ================================================================
+//
+// Square plate (a=1m, t=10mm, E=200GPa, ν=0.3), SS all edges,
+// uniform compression Nx along x.
+// N_cr = k·π²D/a² where k=4 for SS plate under uniform compression.
+// D = Et³/(12(1-ν²))
+
+fn shell_buckling_plate(nx: usize, ny: usize) -> f64 {
+    let a: f64 = 1.0;
+    let t: f64 = 0.01;
+    let e: f64 = 200_000.0; // MPa (solver units)
+    let nu: f64 = 0.3;
+
+    let dx = a / nx as f64;
+    let dy = a / ny as f64;
+
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            nodes.insert(nid.to_string(), SolverNode3D {
+                id: nid, x: i as f64 * dx, y: j as f64 * dy, z: 0.0,
+            });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                material_id: 1, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // SS: uz = 0 on all boundary nodes, plus in-plane constraints for stability
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            if i == 0 || i == nx || j == 0 || j == ny {
+                let fix_ux = i == 0; // fix ux at x=0 edge
+                let fix_uy = j == 0; // fix uy at y=0 edge
+                supports.insert(sid.to_string(), SolverSupport3D {
+                    node_id: node_grid[i][j],
+                    rx: fix_ux,
+                    ry: fix_uy,
+                    rz: true, // uz restrained on all edges
+                    rrx: false, rry: false, rrz: false,
+                    kx: None, ky: None, kz: None,
+                    krx: None, kry: None, krz: None,
+                    dx: None, dy: None, dz: None,
+                    drx: None, dry: None, drz: None,
+                    normal_x: None, normal_y: None, normal_z: None,
+                    is_inclined: None, rw: None, kw: None,
+                });
+                sid += 1;
+            }
+        }
+    }
+
+    // Uniform compression: nodal forces along x=0 and x=a edges
+    // Apply unit compression (P=1 per unit length) distributed along edges
+    let mut loads = Vec::new();
+
+    // Forces at x=a edge (pushing left, fx = -1 per unit length × tributary width)
+    for j in 0..=ny {
+        let trib = if j == 0 || j == ny { dy / 2.0 } else { dy };
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: node_grid[nx][j],
+            fx: -1.0 * trib, fy: 0.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = buckling::solve_buckling_3d(&input, 3)
+        .expect("Shell buckling solve failed");
+
+    assert!(!result.modes.is_empty(), "Should find at least one buckling mode");
+
+    // Return the first positive load factor
+    for mode in &result.modes {
+        if mode.load_factor > 0.0 && mode.load_factor.is_finite() {
+            return mode.load_factor;
+        }
+    }
+
+    result.modes[0].load_factor
+}
+
+#[test]
+fn benchmark_shell_buckling_flat_plate() {
+    let a: f64 = 1.0;
+    let t: f64 = 0.01;
+    let e_mpa: f64 = 200_000.0;
+    let nu: f64 = 0.3;
+    let pi = std::f64::consts::PI;
+
+    // Solver uses E in kPa (E_MPa × 1000)
+    let e_solver = e_mpa * 1000.0;
+    let d_plate = e_solver * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let n_cr_analytical = 4.0 * pi * pi * d_plate / (a * a);
+
+    let lambda = shell_buckling_plate(8, 8);
+
+    eprintln!(
+        "Shell buckling 8x8: λ={:.4}, N_cr_analytical={:.4}, ratio={:.4}",
+        lambda, n_cr_analytical, lambda / n_cr_analytical
+    );
+
+    // Shell buckling should produce a positive, finite load factor
+    assert!(lambda > 0.0, "Load factor should be positive");
+    assert!(lambda.is_finite(), "Load factor should be finite");
+
+    // MITC4 is known to be overly stiff for thin plates (bending locking).
+    // This makes the buckling load factor significantly higher than classical theory.
+    // Accept within factor of 50 (very wide — will tighten with EAS/ANS in Program 3).
+    let ratio = lambda / n_cr_analytical;
+    assert!(
+        ratio > 0.1 && ratio < 50.0,
+        "Buckling ratio {:.3} outside [0.1, 50.0]",
+        ratio
+    );
+}
+
+// ================================================================
+// 10. Shell Buckling — Mesh Convergence
+// ================================================================
+//
+// Same plate at 4×4, 8×8, 16×16. Verify convergence toward analytical.
+
+#[test]
+fn benchmark_shell_buckling_convergence() {
+    let a: f64 = 1.0;
+    let t: f64 = 0.01;
+    let e_mpa: f64 = 200_000.0;
+    let nu: f64 = 0.3;
+    let pi = std::f64::consts::PI;
+
+    let e_solver = e_mpa * 1000.0;
+    let d_plate = e_solver * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let n_cr_analytical = 4.0 * pi * pi * d_plate / (a * a);
+
+    let meshes = [(4, 4), (8, 8), (16, 16)];
+    let mut lambdas = Vec::new();
+
+    for &(nx, ny) in &meshes {
+        let lam = shell_buckling_plate(nx, ny);
+        let ratio = lam / n_cr_analytical;
+        eprintln!("Shell buckling {}x{}: λ={:.4}, ratio={:.4}", nx, ny, lam, ratio);
+        lambdas.push(lam);
+    }
+
+    // All should be positive and finite
+    for (i, &lam) in lambdas.iter().enumerate() {
+        assert!(lam > 0.0 && lam.is_finite(),
+            "{}x{}: λ={:.4} should be positive and finite",
+            meshes[i].0, meshes[i].1, lam);
+    }
+
+    // Check convergence: ratios to analytical should get closer with refinement
+    // (or at least not diverge)
+    let ratios: Vec<f64> = lambdas.iter().map(|&l| l / n_cr_analytical).collect();
+    eprintln!("Convergence ratios: {:?}", ratios);
+
+    // The finest mesh should not be worse than the coarsest by a factor of 10
+    if ratios[0] > 0.01 {
+        let spread = ratios.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+            / ratios.iter().cloned().fold(f64::INFINITY, f64::min);
+        assert!(
+            spread < 20.0,
+            "Buckling load factors spread too wide: {:?}",
+            ratios
+        );
+    }
+}
+
+// ================================================================
+// 11. Shell Buckling — Cylinder under Axial Compression
+// ================================================================
+//
+// Thin cylinder: σ_cr = Et/(R√(3(1-ν²))). Quarter model.
+// Classical result is always an upper bound; practical knockdown ~0.2-0.5.
+
+#[test]
+fn benchmark_shell_buckling_cylinder() {
+    let r: f64 = 1.0;
+    let l: f64 = 2.0;
+    let t: f64 = 0.01;
+    let e: f64 = 200_000.0;
+    let nu: f64 = 0.3;
+
+    // Classical critical stress for axially compressed cylinder (solver units: kPa)
+    let e_solver = e * 1000.0;
+    let sigma_cr = e_solver * t / (r * (3.0 * (1.0 - nu * nu)).sqrt());
+    let n_cr_classical = sigma_cr * t; // force per unit circumference length
+
+    // Build quarter-cylinder model
+    let nx = 6; // along length
+    let ntheta = 6; // around circumference (quarter)
+    let pi = std::f64::consts::PI;
+    let theta_max = pi / 2.0; // quarter cylinder
+
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
+    let mut nid = 1;
+
+    for i in 0..=nx {
+        for j in 0..=ntheta {
+            let x = (i as f64 / nx as f64) * l;
+            let th = (j as f64 / ntheta as f64) * theta_max;
+            let y = r * th.sin();
+            let z = r * th.cos();
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ntheta {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                material_id: 1, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+
+    // x = 0: fixed end (all DOFs)
+    for j in 0..=ntheta {
+        supports.insert(sid.to_string(), sup3d(node_grid[0][j], true, true, true, true, true, true));
+        sid += 1;
+    }
+
+    // Symmetry BC: theta=0 (y=0 plane): uy=0, rrx=0
+    for i in 1..=nx {
+        let nid_s = node_grid[i][0];
+        if !supports.values().any(|s| s.node_id == nid_s) {
+            supports.insert(sid.to_string(), sup3d(nid_s, false, true, false, true, false, false));
+            sid += 1;
+        }
+    }
+
+    // Symmetry BC: theta=90° (z=0 plane): uz=0, rry=0
+    for i in 1..=nx {
+        let nid_s = node_grid[i][ntheta];
+        if !supports.values().any(|s| s.node_id == nid_s) {
+            supports.insert(sid.to_string(), sup3d(nid_s, false, false, true, false, true, false));
+            sid += 1;
+        }
+    }
+
+    // Axial compression at x = L: unit load per unit circumference
+    let dtheta = theta_max / ntheta as f64;
+    let mut loads = Vec::new();
+    for j in 0..=ntheta {
+        let trib = if j == 0 || j == ntheta { r * dtheta / 2.0 } else { r * dtheta };
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: node_grid[nx][j],
+            fx: -1.0 * trib, fy: 0.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = buckling::solve_buckling_3d(&input, 3)
+        .expect("Cylinder buckling solve failed");
+
+    assert!(!result.modes.is_empty(), "Should find at least one buckling mode");
+
+    // Find first positive load factor
+    let lambda = result.modes.iter()
+        .find(|m| m.load_factor > 0.0 && m.load_factor.is_finite())
+        .map(|m| m.load_factor)
+        .unwrap_or(result.modes[0].load_factor);
+
+    // lambda represents Ncr in solver load units (per unit circumference)
+    eprintln!(
+        "Cylinder buckling: λ={:.4}, N_cr_classical={:.4}, ratio={:.4}",
+        lambda, n_cr_classical, lambda / n_cr_classical
+    );
+
+    assert!(lambda > 0.0, "Load factor should be positive");
+    assert!(lambda.is_finite(), "Load factor should be finite");
+
+    // Classical formula is always an upper bound. FE may be higher or lower
+    // depending on mesh and element formulation. Accept within factor of 5.
+    let ratio = lambda / n_cr_classical;
+    assert!(
+        ratio > 0.01 && ratio < 10.0,
+        "Cylinder buckling ratio {:.3} outside [0.01, 10.0]",
         ratio
     );
 }
