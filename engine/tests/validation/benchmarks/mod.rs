@@ -6,6 +6,7 @@ mod ansys_vm_benchmarks_extended;
 mod ansys_vm_extended;
 mod constraints_benchmark;
 mod contact_benchmark;
+mod creep_shrinkage_benchmark;
 mod corotational_benchmarks;
 mod corotational_benchmarks_extended;
 mod fiber_benchmark;
