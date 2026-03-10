@@ -267,7 +267,7 @@
           {/if}
           {#if tourStore.isLastStep}
             <button class="tour-finish" onclick={() => tourStore.end()}>
-              {t('tour.finish')}
+              {window !== window.parent ? t('tour.tryFullApp') : t('tour.finish')}
             </button>
           {:else if step.waitFor && !tourStore.canAdvance && step.actionButton}
             <!-- Action button replaces "Esperando..." when available -->

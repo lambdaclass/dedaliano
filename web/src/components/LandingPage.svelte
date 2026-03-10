@@ -348,22 +348,22 @@
         <div class="cl-item">
           <div class="cl-dot"></div>
           <div class="cl-date">Mar 2026</div>
-          <div class="cl-text">Landing page, Google Sign-In, 14 languages with auto-detect</div>
+          <div class="cl-text">{t('landing.cl202603')}</div>
         </div>
         <div class="cl-item">
           <div class="cl-dot"></div>
           <div class="cl-date">Feb 2026</div>
-          <div class="cl-text">3D industrial building example, IPN/UPN profiles, crane loads</div>
+          <div class="cl-text">{t('landing.cl202602')}</div>
         </div>
         <div class="cl-item">
           <div class="cl-dot"></div>
           <div class="cl-date">Jan 2026</div>
-          <div class="cl-text">3D diagrams (My, Mz, Vy, Vz, N, T), biaxial stress, torsion</div>
+          <div class="cl-text">{t('landing.cl202601')}</div>
         </div>
         <div class="cl-item">
           <div class="cl-dot"></div>
           <div class="cl-date">Dec 2025</div>
-          <div class="cl-text">3D solver, WebGL viewport, IFC import, spectral analysis</div>
+          <div class="cl-text">{t('landing.cl202512')}</div>
         </div>
       </div>
     </div>

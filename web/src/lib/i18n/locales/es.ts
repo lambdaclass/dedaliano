@@ -150,6 +150,10 @@ const es: Record<string, string> = {
   'landing.changelog': 'Novedades',
   'landing.changelogDesc': 'Dedaliano está en desarrollo activo. Mirá las últimas actualizaciones.',
   'landing.stickyCtaMobile': 'Empezar Gratis',
+  'landing.cl202603': 'Soporte en 14 idiomas con auto-detecci\u00f3n, Modo Educativo (beta), Modo PRO (beta)',
+  'landing.cl202602': 'Ejemplo de nave industrial 3D, perfiles IPN/UPN, cargas de puente gr\u00faa',
+  'landing.cl202601': 'Diagramas 3D (My, Mz, Vy, Vz, N, T), tensiones biaxiales, torsi\u00f3n',
+  'landing.cl202512': 'Solver 3D, viewport WebGL, importaci\u00f3n IFC, an\u00e1lisis espectral',
 
   // ─── App.svelte ───
   'app.hideLeftPanel': 'Ocultar panel izquierdo',
@@ -1411,6 +1415,7 @@ const es: Record<string, string> = {
   'tour.skip': 'Saltar tour',
   'tour.prev': '\u2190 Anterior',
   'tour.finish': 'Finalizar \u2713',
+  'tour.tryFullApp': 'Probar la app completa \u2192',
   'tour.waiting': 'Esperando...',
   'tour.next': 'Siguiente \u2192',
 

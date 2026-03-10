@@ -150,6 +150,10 @@ const en: Record<string, string> = {
   'landing.changelog': "What's new",
   'landing.changelogDesc': 'Dedaliano is under active development. See the latest updates.',
   'landing.stickyCtaMobile': 'Start for Free',
+  'landing.cl202603': '14 languages with auto-detect, Educational mode (beta), PRO mode (beta)',
+  'landing.cl202602': '3D industrial building example, IPN/UPN profiles, crane loads',
+  'landing.cl202601': '3D diagrams (My, Mz, Vy, Vz, N, T), biaxial stress, torsion',
+  'landing.cl202512': '3D solver, WebGL viewport, IFC import, spectral analysis',
 
   // ─── App.svelte ───
   'app.hideLeftPanel': 'Hide left panel',
@@ -1411,6 +1415,7 @@ const en: Record<string, string> = {
   'tour.skip': 'Skip tour',
   'tour.prev': '\u2190 Previous',
   'tour.finish': 'Finish \u2713',
+  'tour.tryFullApp': 'Try the full app \u2192',
   'tour.waiting': 'Waiting...',
   'tour.next': 'Next \u2192',
 
