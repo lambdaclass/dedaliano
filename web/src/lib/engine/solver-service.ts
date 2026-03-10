@@ -4,8 +4,9 @@
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
 import { computeLocalAxes3D } from './solver-3d';
-import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
+import { enrichWithShellStresses } from './shell-stress-recovery';
 import { t } from '../i18n';
 
 import type {
@@ -24,6 +25,9 @@ export interface ModelData {
   loads: Load[];
   materials: Map<number, Material>;
   sections: Map<number, Section>;
+  plates?: Map<number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }>;
+  quads?: Map<number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }>;
+  constraints?: Constraint3D[];
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────
@@ -927,6 +931,57 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
         data: { nodeId: elem.nodeJ, fx: 0, fy: -totalWeight / 2, fz: 0, mx: 0, my: 0, mz: 0 },
       });
     }
+
+    // Self-weight for plates (DKT triangles)
+    if (model.plates) {
+      for (const plate of model.plates.values()) {
+        const mat = model.materials.get(plate.materialId);
+        if (!mat) continue;
+        const ns = plate.nodes.map(nid => model.nodes.get(nid));
+        if (ns.some(n => !n)) continue;
+        const [p0, p1, p2] = ns as [typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}];
+        // Triangle area via cross product
+        const ax = p1.x - p0.x, ay = p1.y - p0.y, az = (p1.z ?? 0) - (p0.z ?? 0);
+        const bx = p2.x - p0.x, by = p2.y - p0.y, bz = (p2.z ?? 0) - (p0.z ?? 0);
+        const area = 0.5 * Math.sqrt(
+          (ay * bz - az * by) ** 2 + (az * bx - ax * bz) ** 2 + (ax * by - ay * bx) ** 2,
+        );
+        const totalWeight = mat.rho * plate.thickness * area; // kN
+        const wPerNode = -totalWeight / 3;
+        for (const nid of plate.nodes) {
+          solverLoads.push({
+            type: 'nodal',
+            data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
+          });
+        }
+      }
+    }
+
+    // Self-weight for quads (MITC4)
+    if (model.quads) {
+      for (const quad of model.quads.values()) {
+        const mat = model.materials.get(quad.materialId);
+        if (!mat) continue;
+        const ns = quad.nodes.map(nid => model.nodes.get(nid));
+        if (ns.some(n => !n)) continue;
+        const [p0, p1, p2, p3] = ns as [typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}];
+        // Quad area ≈ sum of two triangles (0-1-2) + (0-2-3)
+        function triArea(a: typeof p0, b: typeof p0, c: typeof p0): number {
+          const ex = b.x - a.x, ey = b.y - a.y, ez = (b.z ?? 0) - (a.z ?? 0);
+          const fx = c.x - a.x, fy = c.y - a.y, fz = (c.z ?? 0) - (a.z ?? 0);
+          return 0.5 * Math.sqrt((ey * fz - ez * fy) ** 2 + (ez * fx - ex * fz) ** 2 + (ex * fy - ey * fx) ** 2);
+        }
+        const area = triArea(p0, p1, p2) + triArea(p0, p2, p3);
+        const totalWeight = mat.rho * quad.thickness * area;
+        const wPerNode = -totalWeight / 4;
+        for (const nid of quad.nodes) {
+          solverLoads.push({
+            type: 'nodal',
+            data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
+          });
+        }
+      }
+    }
   }
 
   // Convert support types to SolverSupport3D booleans
@@ -1009,6 +1064,9 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       }];
     })),
     loads: solverLoads,
+    plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
+    quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
+    constraints: model.constraints ?? [],
     leftHand,
   };
 }
@@ -1024,11 +1082,21 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes
+  // Check for disconnected nodes (consider elements, plates, and quads)
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
+  }
+  if (model.plates) {
+    for (const plate of model.plates.values()) {
+      for (const nid of plate.nodes) connectedNodes.add(nid);
+    }
+  }
+  if (model.quads) {
+    for (const quad of model.quads.values()) {
+      for (const nid of quad.nodes) connectedNodes.add(nid);
+    }
   }
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
@@ -1049,12 +1117,32 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
   }
 
-  // Check graph connectivity
+  // Check graph connectivity (include plate/quad adjacency)
   const adj = new Map<number, Set<number>>();
   for (const nid of connectedNodes) adj.set(nid, new Set());
   for (const elem of model.elements.values()) {
     adj.get(elem.nodeI)!.add(elem.nodeJ);
     adj.get(elem.nodeJ)!.add(elem.nodeI);
+  }
+  if (model.plates) {
+    for (const plate of model.plates.values()) {
+      for (let i = 0; i < plate.nodes.length; i++) {
+        for (let j = i + 1; j < plate.nodes.length; j++) {
+          adj.get(plate.nodes[i])?.add(plate.nodes[j]);
+          adj.get(plate.nodes[j])?.add(plate.nodes[i]);
+        }
+      }
+    }
+  }
+  if (model.quads) {
+    for (const quad of model.quads.values()) {
+      for (let i = 0; i < quad.nodes.length; i++) {
+        for (let j = i + 1; j < quad.nodes.length; j++) {
+          adj.get(quad.nodes[i])?.add(quad.nodes[j]);
+          adj.get(quad.nodes[j])?.add(quad.nodes[i]);
+        }
+      }
+    }
   }
   const visited = new Set<number>();
   const startNode = connectedNodes.values().next().value!;
@@ -1082,6 +1170,10 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       console.warn(`Solver 3D (${dt.toFixed(1)} ms): ${results}`);
     } else {
       console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+      // Post-process: compute shell stresses if solver didn't return them
+      if (model.quads?.size || model.plates?.size) {
+        enrichWithShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
+      }
     }
     return results;
   } catch (err: any) {

@@ -3,10 +3,13 @@ import type { ExampleAPI } from './model-examples-2d';
 import type { LoadCaseType } from './model.svelte';
 import { t } from '../i18n';
 
-/** Extended API for 3D examples (adds 3D load methods) */
+/** Extended API for 3D examples (adds 3D load methods + shells/constraints) */
 export interface ExampleAPI3D extends ExampleAPI {
   addDistributedLoad3D(elemId: number, qYI: number, qYJ: number, qZI: number, qZJ: number, a?: number, b?: number, caseId?: number): number;
   addNodalLoad3D(nodeId: number, fx: number, fy: number, fz: number, mx: number, my: number, mz: number, caseId?: number): number;
+  addPlate(nodes: [number, number, number], materialId: number, thickness: number): number;
+  addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number;
+  addConstraint(c: import('../engine/types-3d').Constraint3D): void;
 }
 
 /** Load a 3D example by name. Returns true if the example was found. */
@@ -712,6 +715,343 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
           factors: [{ caseId: 1, factor: 0.9 }, { caseId: 4, factor: 1.0 }] },
       ];
       api.nextId.combination = 7;
+
+      return true;
+    }
+
+    case 'pro-edificio-7p': {
+      // ══════════════════════════════════════════════════════════════════════
+      // EDIFICIO H.A. 7 PISOS — Vivienda multifamiliar con caja de ascensor
+      //
+      // Peso propio: automático desde material (rho) × sección/espesor
+      //   → vigas, columnas, losas y tabiques de la caja de ascensor
+      // Cargas D adicionales (contrapiso, terminación, tabiquería) sobre losas
+      // Cargas L según destino de local (CIRSOC 101 Tabla 4.1)
+      // Viento CIRSOC 102 Zona II
+      // ══════════════════════════════════════════════════════════════════════
+      api.model.name = 'Edificio H.A. 7 pisos — PRO';
+
+      // ─── Parámetros geométricos ───
+      const nFloors = 7;
+      const hPB = 3.50;          // PB más alta
+      const hTyp = 3.00;         // pisos tipo
+      const bayX = [6, 5, 5, 2]; // 4 vanos en X: 6+5+5+2m = 18m (último = balcón voladizo)
+      const bayZ = [5, 5];       // 2 vanos en Z: 5+5m = 10m
+      const nColX = bayX.length + 1; // 5 ejes en X
+      const nColZ = bayZ.length + 1; // 3 ejes en Z
+      const slabT = 0.15;        // espesor losa (m)
+
+      // Acumulados en X y Z para posiciones absolutas
+      const posX = [0];
+      for (const b of bayX) posX.push(posX[posX.length - 1] + b);
+      const posZ = [0];
+      for (const b of bayZ) posZ.push(posZ[posZ.length - 1] + b);
+
+      function floorY(f: number): number {
+        return f === 0 ? 0 : hPB + (f - 1) * hTyp;
+      }
+
+      // ─── Materiales ───
+      const matH30 = api.addMaterial({ name: 'H-30 (f\'c=30)', e: 32000, nu: 0.2, rho: 25, fy: 30 });
+      api.addMaterial({ name: 'ADN 420', e: 200000, nu: 0.3, rho: 78.5, fy: 420 });
+
+      // ─── Secciones ───
+      const secCol40 = api.addSection({
+        name: 'Col 40×40', a: 0.16, iz: 2.133e-3, iy: 2.133e-3, j: 3.605e-3,
+        b: 0.40, h: 0.40, shape: 'rect',
+      });
+      const secCol35 = api.addSection({
+        name: 'Col 35×35', a: 0.1225, iz: 1.251e-3, iy: 1.251e-3, j: 2.117e-3,
+        b: 0.35, h: 0.35, shape: 'rect',
+      });
+      const secVP = api.addSection({
+        name: 'VP 30×60', a: 0.18, iz: 5.4e-3, iy: 1.35e-3, j: 4.0e-3,
+        b: 0.30, h: 0.60, shape: 'rect',
+      });
+      const secVS = api.addSection({
+        name: 'VS 25×50', a: 0.125, iz: 2.604e-3, iy: 6.51e-4, j: 1.8e-3,
+        b: 0.25, h: 0.50, shape: 'rect',
+      });
+      // (Escalera removida — se modela aparte si es necesario)
+
+      // ─── Nodos: ng[floor][iz][ix] ───
+      // Base level (f=0): no node at ix=nColX-1 (balcony edge) — no structure there.
+      // Upper floors: all nodes including balcony edge (connected via slab quads).
+      const ng: number[][][] = [];
+      for (let f = 0; f <= nFloors; f++) {
+        ng[f] = [];
+        const y = floorY(f);
+        for (let iz = 0; iz < nColZ; iz++) {
+          ng[f][iz] = [];
+          for (let ix = 0; ix < nColX; ix++) {
+            if (f === 0 && ix === nColX - 1) continue; // no node at base balcony edge
+            ng[f][iz][ix] = api.addNode(posX[ix], y, posZ[iz]);
+          }
+        }
+      }
+
+      // ─── Columnas ───
+      for (let f = 0; f < nFloors; f++) {
+        for (let iz = 0; iz < nColZ; iz++) {
+          for (let ix = 0; ix < nColX; ix++) {
+            if (ix === nColX - 1) continue; // borde balcón: sin columna
+            const eid = api.addElement(ng[f][iz][ix], ng[f + 1][iz][ix], 'frame');
+            api.updateElementMaterial(eid, matH30);
+            api.updateElementSection(eid, f < 3 ? secCol40 : secCol35);
+          }
+        }
+      }
+
+      // ─── Vigas en X ───
+      // Solo hasta ix=nColX-3 (último vano del edificio). El vano del balcón
+      // (ix=3→4) no lleva vigas: la losa en voladizo (quad) transmite las
+      // cargas directamente a los nodos del eje ix=3.
+      for (let f = 1; f <= nFloors; f++) {
+        for (let iz = 0; iz < nColZ; iz++) {
+          for (let ix = 0; ix < nColX - 2; ix++) {
+            const eid = api.addElement(ng[f][iz][ix], ng[f][iz][ix + 1], 'frame');
+            api.updateElementMaterial(eid, matH30);
+            api.updateElementSection(eid, secVP);
+          }
+        }
+      }
+
+      // ─── Vigas en Z ───
+      for (let f = 1; f <= nFloors; f++) {
+        for (let ix = 0; ix < nColX; ix++) {
+          for (let iz = 0; iz < nColZ - 1; iz++) {
+            if (ix === nColX - 1) continue;
+            const eid = api.addElement(ng[f][iz][ix], ng[f][iz + 1][ix], 'frame');
+            api.updateElementMaterial(eid, matH30);
+            api.updateElementSection(eid, secVS);
+          }
+        }
+      }
+
+      // ─── Apoyos empotrados en base ───
+      for (let iz = 0; iz < nColZ; iz++) {
+        for (let ix = 0; ix < nColX - 1; ix++) {
+          api.addSupport(ng[0][iz][ix], 'fixed3d');
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LOSAS DE PISO — Quads por cada vano en cada planta
+      // El peso propio de la losa se calcula automáticamente
+      // (matH30.rho × slabT × area) por el solver con includeSelfWeight
+      // ═══════════════════════════════════════════════════════════
+      for (let f = 1; f <= nFloors; f++) {
+        for (let iz = 0; iz < nColZ - 1; iz++) {
+          for (let ix = 0; ix < nColX - 1; ix++) {
+            // 4 nodos esquina del paño
+            const n00 = ng[f][iz][ix];
+            const n10 = ng[f][iz][ix + 1];
+            const n11 = ng[f][iz + 1][ix + 1];
+            const n01 = ng[f][iz + 1][ix];
+            api.addQuad([n00, n10, n11, n01], matH30, slabT);
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // CAJA DE ASCENSOR — Tabiques H.A. e=20cm como quads
+      // ═══════════════════════════════════════════════════════════
+      const elevW = 2.5;
+      const elevD = 2.5;
+      const wallT = 0.20;
+
+      const elNd: number[][] = [];
+      for (let f = 0; f <= nFloors; f++) {
+        const y = floorY(f);
+        const nA = ng[f][0][0];
+        const nB = api.addNode(elevW, y, 0);
+        const nC = api.addNode(elevW, y, elevD);
+        const nD = api.addNode(0, y, elevD);
+        elNd[f] = [nA, nB, nC, nD];
+      }
+
+      for (let f = 0; f < nFloors; f++) {
+        const bot = elNd[f];
+        const top = elNd[f + 1];
+        api.addQuad([bot[0], bot[3], top[3], top[0]], matH30, wallT); // X=0 wall
+        api.addQuad([bot[0], bot[1], top[1], top[0]], matH30, wallT); // Z=0 wall
+        // Wall B→C (X=2.5) removed — opening towards building interior
+        api.addQuad([bot[2], bot[3], top[3], top[2]], matH30, wallT); // Z=2.5 wall
+      }
+
+      for (let f = 1; f <= nFloors; f++) {
+        api.addConstraint({ type: 'rigidLink', masterNode: ng[f][0][0], slaveNode: elNd[f][1] });
+        api.addConstraint({ type: 'rigidLink', masterNode: ng[f][0][0], slaveNode: elNd[f][2] });
+        api.addConstraint({ type: 'rigidLink', masterNode: ng[f][0][0], slaveNode: elNd[f][3] });
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // DIAFRAGMAS RÍGIDOS — uno por piso
+      // ═══════════════════════════════════════════════════════════
+      for (let f = 1; f <= nFloors; f++) {
+        const slaveNodes: number[] = [];
+        for (let iz = 0; iz < nColZ; iz++) {
+          for (let ix = 0; ix < nColX; ix++) {
+            if (iz === 0 && ix === 0) continue;
+            slaveNodes.push(ng[f][iz][ix]);
+          }
+        }
+        slaveNodes.push(elNd[f][1], elNd[f][2], elNd[f][3]);
+        api.addConstraint({
+          type: 'diaphragm', masterNode: ng[f][0][0], slaveNodes, plane: 'XZ',
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // CASOS DE CARGA — CIRSOC 101
+      // ═══════════════════════════════════════════════════════════
+      //
+      // Peso propio (PP): automático con includeSelfWeight
+      //   Losa: 0.15m × 25 kN/m³ = 3.75 kN/m²  (desde quads)
+      //   Vigas y columnas: desde sección × material
+      //
+      // D adicional (sobre losas): contrapiso + terminación + tabiquería
+      //   Pisos tipo: 1.50 + 1.00 = 2.50 kN/m²
+      //   Cubierta (sin tabiques): 1.50 kN/m²
+      //
+      // CIRSOC 101 Tabla 4.1 — Sobrecargas de uso:
+      //   Vivienda (living/comedor/dormitorio/cocina): 2.0 kN/m²
+      //   Pasillos y escaleras: 3.0 kN/m²
+      //   Balcones voladizos: 3.0 kN/m²
+      //   Cubierta no accesible: 1.0 kN/m²
+
+      api.model.loadCases = [
+        { id: 1, type: 'D' as LoadCaseType, name: 'D — Carga muerta adicional (contrapiso+term+tabiq)' },
+        { id: 2, type: 'L' as LoadCaseType, name: 'L — Vivienda (living/dormitorio/cocina) 2.0 kN/m²' },
+        { id: 3, type: 'L' as LoadCaseType, name: 'L — Pasillo y escalera 3.0 kN/m²' },
+        { id: 4, type: 'L' as LoadCaseType, name: 'L — Balcón voladizo 3.0 kN/m²' },
+        { id: 5, type: 'Lr' as LoadCaseType, name: 'Lr — Cubierta 1.0 kN/m²' },
+        { id: 6, type: 'W' as LoadCaseType, name: 'W — Viento +X (CIRSOC 102)' },
+        { id: 7, type: 'W' as LoadCaseType, name: 'W — Viento −X' },
+      ];
+      api.nextId.loadCase = 8;
+
+      // ─── Helper: aplicar carga superficial sobre un paño como fuerzas nodales ───
+      // Distribuye q (kN/m²) sobre los 4 nodos esquina de un quad (¼ del total a cada nodo)
+      function applyQuadLoad(
+        iz: number, ix: number, f: number,
+        q: number, // kN/m²
+        caseId: number,
+      ) {
+        const area = bayX[ix] * bayZ[iz]; // m²
+        const F = -q * area / 4;          // kN (gravitatoria, -Y)
+        const corners = [ng[f][iz][ix], ng[f][iz][ix + 1], ng[f][iz + 1][ix + 1], ng[f][iz + 1][ix]];
+        for (const nid of corners) {
+          api.addNodalLoad3D(nid, 0, F, 0, 0, 0, 0, caseId);
+        }
+      }
+
+      // ─── Aplicar cargas sobre las losas ───
+      for (let f = 1; f <= nFloors; f++) {
+        const isRoof = f === nFloors;
+        for (let iz = 0; iz < nColZ - 1; iz++) {
+          for (let ix = 0; ix < nColX - 1; ix++) {
+            const isBalcony = ix === nColX - 2;
+
+            // D adicional (contrapiso + terminación + tabiquería)
+            const qD = isRoof ? 1.50 : 2.50; // kN/m²
+            applyQuadLoad(iz, ix, f, qD, 1);
+
+            // Carga viva según destino
+            if (isBalcony) {
+              applyQuadLoad(iz, ix, f, 3.0, 4);   // Balcón: 3.0 kN/m²
+            } else if (isRoof) {
+              applyQuadLoad(iz, ix, f, 1.0, 5);   // Cubierta: 1.0 kN/m²
+            } else {
+              // Zona pasillo (vanos centrales ix=1,2 en iz=0)
+              const isPasillo = (ix === 1 || ix === 2) && iz === 0;
+              if (isPasillo) {
+                applyQuadLoad(iz, ix, f, 3.0, 3); // Pasillo: 3.0 kN/m²
+              } else {
+                applyQuadLoad(iz, ix, f, 2.0, 2); // Vivienda: 2.0 kN/m²
+              }
+            }
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // VIENTO — CIRSOC 102
+      // Zona II (Buenos Aires): V = 45 m/s
+      // q = 0.613 × V² × Kz × Kd (Pa), Kd=0.85, Kzt=1.0
+      // Cp barlovento=+0.8, Cp sotavento=−0.5
+      // ═══════════════════════════════════════════════════════════
+      const V = 45;
+      const Kd = 0.85;
+      function kzExpB(z: number): number {
+        if (z <= 4.6) return 0.57;
+        if (z <= 6.1) return 0.62;
+        if (z <= 7.6) return 0.66;
+        if (z <= 9.1) return 0.70;
+        if (z <= 12.2) return 0.76;
+        if (z <= 15.2) return 0.81;
+        if (z <= 18.3) return 0.85;
+        if (z <= 21.3) return 0.89;
+        if (z <= 24.4) return 0.93;
+        return 0.96;
+      }
+
+      for (let f = 1; f <= nFloors; f++) {
+        const y = floorY(f);
+        const hTrib = f === 1 ? (hPB + hTyp) / 2 : f === nFloors ? hTyp / 2 : hTyp;
+        const kz = kzExpB(y);
+        const qz = 0.613 * V * V * kz * Kd * 1e-3; // kN/m²
+
+        for (let iz = 0; iz < nColZ; iz++) {
+          const zTrib = iz === 0 || iz === nColZ - 1
+            ? bayZ[Math.min(iz, bayZ.length - 1)] / 2
+            : (bayZ[iz - 1] + bayZ[iz]) / 2;
+          const area = hTrib * zTrib;
+
+          const Fbar = 0.8 * qz * area;
+          const Fsot = 0.5 * qz * area;
+          api.addNodalLoad3D(ng[f][iz][0], +Fbar, 0, 0, 0, 0, 0, 6);
+          api.addNodalLoad3D(ng[f][iz][nColX - 2], +Fsot, 0, 0, 0, 0, 0, 6);
+          api.addNodalLoad3D(ng[f][iz][nColX - 2], -Fbar, 0, 0, 0, 0, 0, 7);
+          api.addNodalLoad3D(ng[f][iz][0], -Fsot, 0, 0, 0, 0, 0, 7);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // COMBINACIONES — CIRSOC 201
+      // ═══════════════════════════════════════════════════════════
+      api.model.combinations = [
+        { id: 1, name: 'U1: 1.4D', factors: [
+          { caseId: 1, factor: 1.4 },
+        ]},
+        { id: 2, name: 'U2: 1.2D + 1.6L + 0.5Lr', factors: [
+          { caseId: 1, factor: 1.2 },
+          { caseId: 2, factor: 1.6 }, { caseId: 3, factor: 1.6 }, { caseId: 4, factor: 1.6 },
+          { caseId: 5, factor: 0.5 },
+        ]},
+        { id: 3, name: 'U3: 1.2D + L + 1.6Lr', factors: [
+          { caseId: 1, factor: 1.2 },
+          { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.0 }, { caseId: 4, factor: 1.0 },
+          { caseId: 5, factor: 1.6 },
+        ]},
+        { id: 4, name: 'U4: 1.2D + L + W+X', factors: [
+          { caseId: 1, factor: 1.2 },
+          { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.0 }, { caseId: 4, factor: 1.0 },
+          { caseId: 6, factor: 1.0 },
+        ]},
+        { id: 5, name: 'U5: 1.2D + L + W−X', factors: [
+          { caseId: 1, factor: 1.2 },
+          { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.0 }, { caseId: 4, factor: 1.0 },
+          { caseId: 7, factor: 1.0 },
+        ]},
+        { id: 6, name: 'U6: 0.9D + W+X', factors: [
+          { caseId: 1, factor: 0.9 }, { caseId: 6, factor: 1.0 },
+        ]},
+        { id: 7, name: 'U7: 0.9D + W−X', factors: [
+          { caseId: 1, factor: 0.9 }, { caseId: 7, factor: 1.0 },
+        ]},
+      ];
+      api.nextId.combination = 8;
 
       return true;
     }

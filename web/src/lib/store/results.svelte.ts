@@ -1,7 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic } from '../engine/types';
+import type { ElementForces, FullEnvelope, SolverDiagnostic, ConstraintForce } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult } from '../engine/pdelta';
@@ -72,7 +72,7 @@ function createResultsStore() {
   let deformedScale = $state<number>(100); // Scale factor for deformed shape (1x = true 1:1 real scale)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
-  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio'>('moment');
+  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises'>('moment');
   let showDiagramValues = $state<boolean>(true);
   let animSpeed = $state<number>(1.0); // animation speed multiplier (0.25 - 3x)
 
@@ -134,6 +134,12 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let envelope3D = $state<FullEnvelope3D | null>(null);
 
+  // Diagnostics (2D + 3D parallel)
+  let diagnostics2D = $state<SolverDiagnostic[]>([]);
+  let constraintForces2D = $state<ConstraintForce[]>([]);
+  let diagnostics3DArr = $state<SolverDiagnostic[]>([]);
+  let constraintForces3DArr = $state<ConstraintForce[]>([]);
+
   return {
     get results() { return results; },
     get diagramType() { return diagramType; },
@@ -145,7 +151,7 @@ function createResultsStore() {
     get animateDeformed() { return animateDeformed; },
     set animateDeformed(v: boolean) { animateDeformed = v; },
     get colorMapKind() { return colorMapKind; },
-    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio') { colorMapKind = v; },
+    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises') { colorMapKind = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
     get animSpeed() { return animSpeed; },
@@ -405,6 +411,9 @@ function createResultsStore() {
       perCombo = new Map();
       envelope = null;
       activeComboId = null;
+      // Clear 2D diagnostics on fresh solve
+      diagnostics2D = [];
+      constraintForces2D = [];
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
@@ -467,6 +476,10 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      diagnostics2D = [];
+      constraintForces2D = [];
+      diagnostics3DArr = [];
+      constraintForces3DArr = [];
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
@@ -486,6 +499,9 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      // Clear 3D diagnostics on fresh solve
+      diagnostics3DArr = [];
+      constraintForces3DArr = [];
     },
 
     clear3D() {
@@ -494,6 +510,8 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      diagnostics3DArr = [];
+      constraintForces3DArr = [];
       // Reset diagram state so stale deformed/diagrams are removed from scene
       diagramType = 'none';
       animateDeformed = false;
@@ -561,6 +579,40 @@ function createResultsStore() {
       ));
     },
 
+    // ─── Diagnostics ───────────────────────────────────────────
+    get diagnostics() { return diagnostics2D; },
+    get diagnostics3D() { return diagnostics3DArr; },
+    get constraintForces() { return constraintForces2D; },
+    get constraintForces3D() { return constraintForces3DArr; },
+
+    /** Add diagnostics (appends to existing list) */
+    addDiagnostics(diags: SolverDiagnostic[], is3D: boolean = false) {
+      if (is3D) {
+        diagnostics3DArr = [...diagnostics3DArr, ...diags];
+      } else {
+        diagnostics2D = [...diagnostics2D, ...diags];
+      }
+    },
+
+    /** Set constraint forces */
+    setConstraintForces(forces: ConstraintForce[], is3D: boolean = false) {
+      if (is3D) {
+        constraintForces3DArr = forces;
+      } else {
+        constraintForces2D = forces;
+      }
+    },
+
+    clearDiagnostics(is3D: boolean = false) {
+      if (is3D) {
+        diagnostics3DArr = [];
+        constraintForces3DArr = [];
+      } else {
+        diagnostics2D = [];
+        constraintForces2D = [];
+      }
+    },
+
     getDisplacement(nodeId: number) {
       return results?.displacements.find(d => d.nodeId === nodeId);
     },
@@ -586,12 +638,6 @@ function createResultsStore() {
         Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
       ));
     },
-
-    // Constraint forces & diagnostics (2D + 3D)
-    get constraintForces(): ConstraintForce[] { return results?.constraintForces ?? []; },
-    get diagnostics(): AssemblyDiagnostic[] { return results?.diagnostics ?? []; },
-    get constraintForces3D(): ConstraintForce[] { return results3D?.constraintForces ?? []; },
-    get diagnostics3D(): AssemblyDiagnostic[] { return results3D?.diagnostics ?? []; },
 
     get maxDisplacement(): number {
       if (!results) return 0;

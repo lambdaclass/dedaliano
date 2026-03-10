@@ -14,6 +14,7 @@ import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, cr
 import { createReactionArrow } from '../three/create-load-arrow';
 import { computeElementStress3D } from '../engine/section-stress-3d';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
@@ -30,6 +31,9 @@ export interface ResultsSyncContext {
 
   // Element groups (needed for color map + deformed opacity)
   elementGroups: Map<number, THREE.Group>;
+
+  // Shell groups (needed for shell stress heatmap) — key: "p{id}" or "q{id}"
+  shellGroups: Map<string, THREE.Group>;
 
   // Results groups (replaced on each sync)
   deformedGroup: THREE.Group | null;
@@ -203,15 +207,18 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   const r3d = resultsStore.results3D;
   const dt = resultsStore.diagramType;
 
-  // Restore default colors if not in color mode
+  // Restore default state if not in color mode
   if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap')) {
     if (ctx.colorMapApplied) {
+      clearHeatmapMeshes(ctx);
       for (const [id, group] of ctx.elementGroups) {
+        showOriginalMeshes(group, true);
         const elem = modelStore.elements.get(id);
         const baseColor = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
         const selected = uiStore.selectedElements.has(id);
         setGroupColor(group, selected ? COLORS.elementSelected : baseColor);
       }
+      resetShellColors(ctx);
       ctx.colorMapApplied = false;
     }
     return;
@@ -224,63 +231,203 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   }
 
   if (dt === 'axialColor') {
-    // Color by axial force: tension=red, compression=blue
+    clearHeatmapMeshes(ctx);
     for (const [id, group] of ctx.elementGroups) {
+      showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
       if (!ef) continue;
       const nAvg = (ef.nStart + ef.nEnd) / 2;
       setGroupColor(group, axialForceColor(nAvg));
     }
+    resetShellColors(ctx);
     ctx.colorMapApplied = true;
   } else if (dt === 'colorMap') {
-    // Color by selected variable (moment, shear, axial, stressRatio)
     const cmKind = resultsStore.colorMapKind;
 
-    // Compute values for normalization
-    const values = new Map<number, number>();
-    let maxVal = 0;
-
-    for (const [id] of ctx.elementGroups) {
-      const ef = forcesMap.get(id);
-      if (!ef) continue;
-
-      let val: number;
-      switch (cmKind) {
-        case 'moment':
-          val = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd),
-                        Math.abs(ef.myStart), Math.abs(ef.myEnd));
-          break;
-        case 'shear':
-          val = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd),
-                        Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-          break;
-        case 'axial':
-          val = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-          break;
-        case 'stressRatio': {
-          const elem = modelStore.elements.get(id);
-          if (!elem) { val = 0; break; }
-          const sec = modelStore.sections.get(elem.sectionId);
-          if (!sec) { val = 0; break; }
-          const stress = computeElementStress3D(
-            ef, sec.a, sec.iz, sec.iy ?? sec.iz,
-            sec.h ?? 0, sec.b ?? 0,
-          );
-          val = stress.max.ratio;
-          break;
-        }
+    if (cmKind === 'shellVonMises') {
+      // Shell-only mode: restore frame elements, apply shell heatmap
+      clearHeatmapMeshes(ctx);
+      for (const [id, group] of ctx.elementGroups) {
+        showOriginalMeshes(group, true);
+        setGroupColor(group, 0x888888); // dim frames
       }
-      values.set(id, val);
-      if (val > maxVal) maxVal = val;
+      applyShellHeatmap(ctx, r3d);
+    } else {
+      // Continuous heatmap on frame elements
+      resetShellColors(ctx);
+      applyFrameHeatmap(ctx, forcesMap, cmKind as HeatmapVariable);
     }
 
-    // Apply colors (neutral gray when all values are ~0, e.g. moment on truss-only models)
-    for (const [id, group] of ctx.elementGroups) {
-      const val = values.get(id) ?? 0;
-      const norm = maxVal > 1e-10 ? val / maxVal : 0;
-      setGroupColor(group, maxVal > 1e-10 ? heatmapColor(norm) : 0x888888);
-    }
     ctx.colorMapApplied = true;
+  }
+}
+
+// ─── Heatmap helpers ─────────────────────────────────────────
+
+const SHELL_DEFAULT_COLOR = 0x4ecdc4;
+
+/** Remove all heatmap overlay meshes from element groups */
+function clearHeatmapMeshes(ctx: ResultsSyncContext): void {
+  for (const [, group] of ctx.elementGroups) {
+    const toRemove: THREE.Object3D[] = [];
+    group.traverse((child) => {
+      if (child.userData?.heatmapMesh) toRemove.push(child);
+    });
+    for (const obj of toRemove) {
+      group.remove(obj);
+      disposeObject(obj);
+    }
+  }
+}
+
+/** Show or hide original (non-heatmap) meshes in an element group */
+function showOriginalMeshes(group: THREE.Group, visible: boolean): void {
+  group.traverse((child) => {
+    if (child === group) return;
+    if (child.userData?.heatmapMesh) return;
+    if (child.userData?.pickingHelper) return;
+    child.visible = visible;
+  });
+}
+
+/** Reset shell meshes to default teal */
+function resetShellColors(ctx: ResultsSyncContext): void {
+  for (const [, group] of ctx.shellGroups) {
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const geo = child.geometry;
+        if (geo.hasAttribute('color')) geo.deleteAttribute('color');
+        const mat = child.material as THREE.MeshStandardMaterial;
+        mat.vertexColors = false;
+        mat.color.setHex(SHELL_DEFAULT_COLOR);
+        mat.needsUpdate = true;
+      }
+    });
+  }
+}
+
+/** Build section props for an element */
+function getSectionProps(elemId: number) {
+  const elem = modelStore.elements.get(elemId);
+  if (!elem) return null;
+  const sec = modelStore.sections.get(elem.sectionId);
+  if (!sec) return null;
+  const mat = modelStore.materials.get(elem.materialId);
+  return {
+    A: sec.a,
+    Iz: sec.iz,
+    Iy: sec.iy ?? sec.iz,
+    h: sec.h ?? 0,
+    b: sec.b ?? 0,
+    fy: mat?.fy ?? 355_000,
+  };
+}
+
+/**
+ * Apply continuous per-vertex heatmap on frame elements.
+ * Creates overlay cylinder meshes with color gradients along length.
+ */
+function applyFrameHeatmap(
+  ctx: ResultsSyncContext,
+  forcesMap: Map<number, import('../engine/types-3d').ElementForces3D>,
+  variable: HeatmapVariable,
+): void {
+  // Remove old heatmap meshes first
+  clearHeatmapMeshes(ctx);
+
+  // Pass 1: sample values for all elements and find global max
+  const elemSamples = new Map<number, number[]>();
+  let globalMax = 0;
+
+  for (const [id] of ctx.elementGroups) {
+    const ef = forcesMap.get(id);
+    if (!ef) continue;
+    const sec = getSectionProps(id);
+    if (!sec) continue;
+    const values = sampleElementValues(ef, variable, sec);
+    elemSamples.set(id, values);
+    for (const v of values) {
+      if (v > globalMax) globalMax = v;
+    }
+  }
+
+  // For stressRatio, fix scale at 1.0 (100% of fy)
+  if (variable === 'stressRatio') globalMax = Math.max(globalMax, 1.0);
+
+  // Pass 2: create heatmap meshes
+  for (const [id, group] of ctx.elementGroups) {
+    const values = elemSamples.get(id);
+    if (!values) continue;
+    const ef = forcesMap.get(id);
+    if (!ef) continue;
+
+    // Get node positions
+    const elem = modelStore.elements.get(id);
+    if (!elem) continue;
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+
+    // Hide original mesh, show heatmap overlay
+    showOriginalMeshes(group, false);
+
+    const heatMesh = createHeatmapCylinder(ef.length, values, globalMax);
+    orientHeatmapMesh(heatMesh, nI, nJ);
+    heatMesh.renderOrder = 2;
+    group.add(heatMesh);
+  }
+}
+
+/** Apply Von Mises heatmap on plates and quads */
+function applyShellHeatmap(
+  ctx: ResultsSyncContext,
+  r3d: NonNullable<typeof resultsStore.results3D>,
+): void {
+  let globalMax = 0;
+  const plateMap = new Map<number, number[]>();
+  const quadMap = new Map<number, number[]>();
+
+  if (r3d.plateStresses) {
+    for (const ps of r3d.plateStresses) {
+      // Use nodal values if available, otherwise uniform centroidal vonMises
+      const nvm = ps.nodalVonMises?.length ? [...ps.nodalVonMises] : [ps.vonMises, ps.vonMises, ps.vonMises];
+      plateMap.set(ps.elementId, nvm);
+      for (const v of nvm) if (v > globalMax) globalMax = v;
+    }
+  }
+  if (r3d.quadStresses) {
+    for (const qs of r3d.quadStresses) {
+      const nvm = qs.nodalVonMises?.length ? [...qs.nodalVonMises] : [qs.vonMises, qs.vonMises, qs.vonMises, qs.vonMises];
+      quadMap.set(qs.elementId, nvm);
+      for (const v of nvm) if (v > globalMax) globalMax = v;
+    }
+  }
+
+  if (globalMax < 1e-10) {
+    for (const [, group] of ctx.shellGroups) {
+      group.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.vertexColors = false;
+          mat.color.setHex(0x888888);
+          mat.needsUpdate = true;
+        }
+      });
+    }
+    return;
+  }
+
+  for (const [key, group] of ctx.shellGroups) {
+    const isPlate = key.startsWith('p');
+    const id = parseInt(key.substring(1));
+    const nodalVM = isPlate ? plateMap.get(id) : quadMap.get(id);
+    if (!nodalVM) continue;
+
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        applyShellVertexColors(child, nodalVM, globalMax, !isPlate);
+      }
+    });
   }
 }
 

@@ -16,6 +16,37 @@ function triggerSolve() {
   window.dispatchEvent(new Event('dedaliano-solve'));
 }
 
+const isEmbed = typeof window !== 'undefined' && window !== window.parent;
+
+/** scrollIntoView that works normally inside the iframe but prevents the parent landing page from scrolling */
+function safeScrollIntoView(selector: string) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  if (isEmbed) {
+    // Capture parent scroll position before scrollIntoView
+    let landing: Element | null = null;
+    let savedScroll = 0;
+    try {
+      landing = window.parent.document.querySelector('.landing');
+      if (landing) savedScroll = landing.scrollTop;
+    } catch (_) { /* cross-origin, ignore */ }
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Restore parent scroll — need to keep restoring during the smooth scroll animation
+    if (landing) {
+      const restore = () => { landing!.scrollTop = savedScroll; };
+      restore();
+      requestAnimationFrame(restore);
+      // Keep restoring for 500ms to counteract the smooth scroll
+      const iv = setInterval(restore, 16);
+      setTimeout(() => clearInterval(iv), 500);
+    }
+  } else {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
 export function buildTourSteps(): TourStep[] {
   const is3D = () => uiStore.analysisMode === '3d';
 
@@ -29,7 +60,7 @@ export function buildTourSteps(): TourStep[] {
       position: 'center',
     },
 
-    // ─── 1: Mode toggle ───
+    // ─── 1: Mode toggle (forced 2D for now) ───
     {
       id: 'mode-toggle',
       target: '[data-tour="mode-toggle"]',
@@ -37,18 +68,10 @@ export function buildTourSteps(): TourStep[] {
       description: t('tour.modeToggleDesc'),
       position: 'bottom',
       allowInteraction: true,
-      multiAction: [
-        {
-          label: '2D',
-          action: () => { uiStore.analysisMode = '2d'; },
-          advanceAfter: true,
-        },
-        {
-          label: '3D',
-          action: () => { uiStore.analysisMode = '3d'; },
-          advanceAfter: true,
-        },
-      ],
+      onEnter: () => {
+        // Force 2D path for the demo tour
+        uiStore.analysisMode = '2d';
+      },
     },
 
     // ─── 2: Build options ───
@@ -91,8 +114,7 @@ export function buildTourSteps(): TourStep[] {
           uiStore.leftSidebarOpen = true;
         }
         setTimeout(() => {
-          const el = document.querySelector('[data-tour="examples-section"]');
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          safeScrollIntoView('[data-tour="examples-section"]');
         }, 100);
       },
       onExit: () => {
@@ -179,8 +201,7 @@ export function buildTourSteps(): TourStep[] {
           if (!uiStore.leftSidebarOpen) uiStore.leftSidebarOpen = true;
         }
         setTimeout(() => {
-          const el = document.querySelector('[data-tour="calcular-btn"]');
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          safeScrollIntoView('[data-tour="calcular-btn"]');
         }, 100);
       },
       waitFor: () => resultsStore.results !== null || resultsStore.results3D !== null,
@@ -200,8 +221,7 @@ export function buildTourSteps(): TourStep[] {
           uiStore.leftDrawerOpen = true;
         }
         setTimeout(() => {
-          const el = document.querySelector('[data-tour="results-section"]');
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          safeScrollIntoView('[data-tour="results-section"]');
         }, 100);
       },
     },
@@ -272,7 +292,36 @@ export function buildTourSteps(): TourStep[] {
       },
     },
 
-    // ─── 10: Advanced analysis ───
+    // ─── 10: Peek at 3D (only shown when user chose 2D path) ───
+    {
+      id: 'peek-3d',
+      target: 'none',
+      title: t('tour.peek3dTitle'),
+      description: t('tour.peek3dDesc'),
+      position: 'center',
+      overlayOpacity: 0.2,
+      allowInteraction: true,
+      // Only relevant for 2D users — 3D users already see it
+      skip: () => is3D(),
+      onEnter: () => {
+        // Switch to 3D so user sees the same model rendered in 3D
+        uiStore.analysisMode = '3d';
+        if (uiStore.isMobile) {
+          uiStore.leftDrawerOpen = false;
+          uiStore.rightDrawerOpen = false;
+        }
+        // Re-solve in 3D so there are results to see
+        setTimeout(() => triggerSolve(), 300);
+        setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 600);
+      },
+      onExit: () => {
+        // Return to 2D for the rest of the tour
+        uiStore.analysisMode = '2d';
+        setTimeout(() => triggerSolve(), 200);
+      },
+    },
+
+    // ─── 11: Advanced analysis ───
     {
       id: 'advanced',
       target: '[data-tour="advanced-section"]',
@@ -301,8 +350,7 @@ export function buildTourSteps(): TourStep[] {
         setTimeout(() => {
           window.dispatchEvent(new Event('dedaliano-open-advanced'));
           setTimeout(() => {
-            const el = document.querySelector('[data-tour="advanced-section"]');
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            safeScrollIntoView('[data-tour="advanced-section"]');
           }, 150);
         }, delay);
       },
@@ -330,31 +378,12 @@ export function buildTourSteps(): TourStep[] {
           uiStore.leftSidebarOpen = true;
         }
         setTimeout(() => {
-          const el = document.querySelector('[data-tour="config-project-section"]');
-          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          safeScrollIntoView('[data-tour="config-project-section"]');
         }, 100);
       },
     },
 
-    // ─── 12: Feedback ───
-    {
-      id: 'feedback',
-      target: '[data-tour="feedback-widget"]',
-      title: t('tour.feedbackTitle'),
-      mobileCardMaxHeight: '25vh',
-      mobileCardBottom: '64px',
-      description: t('tour.feedbackDesc'),
-      position: 'left',
-      highlightPadding: 12,
-      onEnter: () => {
-        if (uiStore.isMobile) {
-          uiStore.leftDrawerOpen = false;
-          uiStore.rightDrawerOpen = false;
-        }
-      },
-    },
-
-    // ─── 13: Goodbye ───
+    // ─── 12: Goodbye ───
     {
       id: 'goodbye',
       target: 'none',

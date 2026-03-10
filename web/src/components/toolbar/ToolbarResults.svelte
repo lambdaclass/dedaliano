@@ -277,6 +277,10 @@
             <option value="shear">{t('results.shear')}</option>
             <option value="axial">{t('results.axial')}</option>
             <option value="stressRatio">{t('results.resistance')}</option>
+            <option value="vonMises">Von Mises (σ)</option>
+            {#if uiStore.analysisMode === '3d'}
+              <option value="shellVonMises">{t('results.shellVonMises')}</option>
+            {/if}
           </select>
         </div>
       {/if}

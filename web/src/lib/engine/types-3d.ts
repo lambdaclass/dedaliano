@@ -1,8 +1,8 @@
 // 3D Structural Analysis Types
 // Phase 1: Engine Core — types for 3D frame/truss solver (6 DOF/node)
 
-import type { SolverMaterial } from './types';
-export type { SolverMaterial };
+import type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity } from './types';
+export type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity };
 
 // ─── Geometry ────────────────────────────────────────────────────
 
@@ -121,6 +121,56 @@ export type SolverLoad3D =
   | { type: 'pointOnElement'; data: SolverPointLoad3D }
   | { type: 'thermal'; data: SolverThermalLoad3D };
 
+// ─── Shell / Plate Elements ─────────────────────────────────────
+
+/** DKT triangular plate element (3-node shell) */
+export interface SolverPlateElement {
+  id: number;
+  nodes: [number, number, number]; // 3 node IDs
+  materialId: number;
+  thickness: number; // m
+}
+
+/** MITC4 quadrilateral shell element (4-node shell) */
+export interface SolverQuadElement {
+  id: number;
+  nodes: [number, number, number, number]; // 4 node IDs
+  materialId: number;
+  thickness: number; // m
+}
+
+// ─── Constraints ────────────────────────────────────────────────
+
+export type ConstraintType = 'rigidLink' | 'diaphragm' | 'equalDof' | 'linearMpc';
+
+export interface RigidLinkConstraint {
+  type: 'rigidLink';
+  masterNode: number;
+  slaveNode: number;
+  dofs?: number[]; // optional, empty = all translational
+}
+
+export interface DiaphragmConstraint {
+  type: 'diaphragm';
+  masterNode: number;
+  slaveNodes: number[];
+  plane?: string; // default "XY"
+}
+
+export interface EqualDofConstraint {
+  type: 'equalDof';
+  masterNode: number;
+  slaveNode: number;
+  dofs: number[];
+}
+
+export interface LinearMpcConstraint {
+  type: 'linearMpc';
+  terms: Array<{ nodeId: number; dof: number; coefficient: number }>;
+}
+
+export type Constraint3D = RigidLinkConstraint | DiaphragmConstraint | EqualDofConstraint | LinearMpcConstraint;
+
 // ─── Input ───────────────────────────────────────────────────────
 
 export interface SolverInput3D {
@@ -130,6 +180,9 @@ export interface SolverInput3D {
   elements: Map<number, SolverElement3D>;
   supports: Map<number, SolverSupport3D>;
   loads: SolverLoad3D[];
+  plates?: Map<number, SolverPlateElement>;
+  quads?: Map<number, SolverQuadElement>;
+  constraints?: Constraint3D[];
   leftHand?: boolean;  // Terna izquierda: negate ey in local axes
 }
 
@@ -192,12 +245,42 @@ export interface ElementForces3D {
   pointLoadsZ: Array<{ a: number; p: number }>;
 }
 
+/** Plate stress output (triangular) */
+export interface PlateStress {
+  elementId: number;
+  sigmaXx: number;
+  sigmaYy: number;
+  tauXy: number;
+  mx: number;
+  my: number;
+  mxy: number;
+  sigma1: number;
+  sigma2: number;
+  vonMises: number;
+  nodalVonMises?: number[];
+}
+
+/** Quad stress output */
+export interface QuadStress {
+  elementId: number;
+  sigmaXx: number;
+  sigmaYy: number;
+  tauXy: number;
+  mx: number;
+  my: number;
+  mxy: number;
+  vonMises: number;
+  nodalVonMises?: number[];
+}
+
 export interface AnalysisResults3D {
   displacements: Displacement3D[];
   reactions: Reaction3D[];
   elementForces: ElementForces3D[];
   constraintForces?: import('./types').ConstraintForce[];
   diagnostics?: import('./types').AssemblyDiagnostic[];
+  plateStresses?: PlateStress[];
+  quadStresses?: QuadStress[];
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

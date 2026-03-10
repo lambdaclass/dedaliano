@@ -10,7 +10,7 @@
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentsIntersect2D, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncReactions as _syncReactions, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
 
   let container: HTMLDivElement;
@@ -46,6 +46,7 @@
   let supportsParent: THREE.Group;
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
+  let shellsParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
@@ -162,7 +163,9 @@
     loadsParent.name = 'loads';
     resultsParent = new THREE.Group();
     resultsParent.name = 'results';
-    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent);
+    shellsParent = new THREE.Group();
+    shellsParent.name = 'shells';
+    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
 
     // Camera — isometric-ish view looking at origin
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
@@ -252,6 +255,7 @@
     syncElements();
     syncSupports();
     syncLoads();
+    syncShells();
 
     // Render loop
     function animate() {
@@ -343,8 +347,9 @@
   function initSyncContexts() {
     sceneCtx = {
       initialized: false,
-      nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, scene,
+      nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
       nodeMeshes, elementGroups, supportGizmos,
+      shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
     };
@@ -352,6 +357,7 @@
       initialized: false,
       resultsParent, scene,
       elementGroups,
+      shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
       reactionGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null,
       lastDeformedAnimScale: null,
@@ -364,6 +370,7 @@
   function syncElements() { _syncElements(sceneCtx); }
   function syncSupports() { _syncSupports(sceneCtx); }
   function syncLoads() { _syncLoads(sceneCtx); loadGroup = sceneCtx.loadGroup; }
+  function syncShells() { _syncShells(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
@@ -416,12 +423,19 @@
     syncElements(); // elements depend on nodes for position
     syncSupports();
     syncLoads();
+    syncShells(); // shells depend on node positions
   });
 
   $effect(() => {
     modelStore.elements;
     syncElements();
     syncLoads(); // loads reference elements
+  });
+
+  $effect(() => {
+    modelStore.plates;
+    modelStore.quads;
+    syncShells();
   });
 
   $effect(() => {

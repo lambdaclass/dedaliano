@@ -12,6 +12,7 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
+import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/solver-3d';
 
 /**
@@ -28,12 +29,14 @@ export interface SceneSyncContext {
   supportsParent: THREE.Group;
   loadsParent: THREE.Group;
   resultsParent: THREE.Group;
+  shellsParent: THREE.Group;
   scene: THREE.Scene;
 
   // Reconciliation maps (mutated in place)
   nodeMeshes: Map<number, THREE.Mesh>;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
+  shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
@@ -161,6 +164,44 @@ export function syncSupports(ctx: SceneSyncContext): void {
     );
     ctx.supportsParent.add(gizmo);
     ctx.supportGizmos.set(id, gizmo);
+  }
+}
+
+// ─── Shells (Plates + Quads) ────────────────────────────────
+
+export function syncShells(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  const getNode = (id: number) => {
+    const n = modelStore.nodes.get(id);
+    return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null;
+  };
+
+  // Clear all existing shell meshes (simple rebuild, like elements)
+  for (const [key, group] of ctx.shellGroups) {
+    ctx.shellsParent.remove(group);
+    disposeObject(group);
+  }
+  ctx.shellGroups.clear();
+
+  // Plates (triangular DKT)
+  for (const [id, plate] of modelStore.plates) {
+    const [n0, n1, n2] = plate.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2) continue;
+
+    const group = createPlateMesh(n0, n1, n2, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`p${id}`, group);
+  }
+
+  // Quads (MITC4)
+  for (const [id, quad] of modelStore.quads) {
+    const [n0, n1, n2, n3] = quad.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2 || !n3) continue;
+
+    const group = createQuadMesh(n0, n1, n2, n3, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`q${id}`, group);
   }
 }
 

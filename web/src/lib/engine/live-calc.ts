@@ -33,13 +33,13 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
  * Called from the $effect in App.svelte when liveCalc is enabled.
  * Sets results/errors directly on the stores.
  *
- * @param analysisMode  Current analysis mode ('2d' | '3d')
+ * @param analysisMode  Current analysis mode ('2d' | '3d' | 'edu')
  * @param axisConvention3D  Current 3D axis convention string
  * @param prevDiagram  Diagram type before results were cleared (to restore user selection)
  */
 export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram: string): void {
   try {
-    if (analysisMode === '3d') {
+    if (analysisMode === '3d' || analysisMode === 'pro') {
       liveCalc3D(axisConvention3D, prevDiagram);
     } else {
       liveCalc2D(prevDiagram);
@@ -104,8 +104,10 @@ function liveCalc2D(prevDiagram: string): void {
  * Handles 2D and 3D, combinations, toasts and mobile panel.
  */
 export function runGlobalSolve(): void {
-  if (uiStore.analysisMode === '3d') {
+  if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
     globalSolve3D();
+  } else if (uiStore.analysisMode === 'edu') {
+    globalSolveEdu();
   } else {
     globalSolve2D();
   }
@@ -133,6 +135,22 @@ function globalSolve3D(): void {
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
+}
+
+/** Solve silently for educational mode — results stored but hidden from student */
+function globalSolveEdu(): void {
+  const r = modelStore.solve(uiStore.includeSelfWeight);
+  if (typeof r === 'string') {
+    uiStore.toast(r, 'error');
+    return;
+  }
+  if (!r) {
+    uiStore.toast(t('results.emptyModelError'), 'error');
+    return;
+  }
+  resultsStore.setResults(r);
+  // Dispatch event so EducativePanel knows answers are ready
+  window.dispatchEvent(new Event('dedaliano-edu-solved'));
 }
 
 function globalSolve2D(): void {

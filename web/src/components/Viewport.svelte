@@ -241,8 +241,8 @@
       let globalMax = 0;
       const elemMaxes = new Map<number, number>();
 
-      if (kind === 'stressRatio') {
-        // Stress ratio: σ_vm / fy — absolute scale (1.0 = yield)
+      if (kind === 'stressRatio' || kind === 'vonMises') {
+        // Stress ratio: σ_vm / fy — or absolute Von Mises
         for (const ef of resultsStore.results.elementForces) {
           const elem = modelStore.elements.get(ef.elementId);
           if (!elem) continue;
@@ -250,10 +250,11 @@
           const mat = modelStore.materials.get(elem.materialId);
           if (!sec || !mat || !mat.fy) continue;
           const stress = computeElementStress(ef, sec, mat);
-          const val = stress.ratio ?? 0;
+          const val = kind === 'stressRatio' ? (stress.ratio ?? 0) : (stress.vonMises ?? 0);
           elemMaxes.set(ef.elementId, val);
+          if (kind === 'vonMises' && val > globalMax) globalMax = val;
         }
-        globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
+        if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
       } else {
         for (const ef of resultsStore.results.elementForces) {
           let val: number;

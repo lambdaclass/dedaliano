@@ -28,17 +28,21 @@
   import TabBar from './components/TabBar.svelte';
   import FeedbackWidget from './components/FeedbackWidget.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
+  import ProPanel from './components/pro/ProPanel.svelte';
+  import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
-  import LoginScreen from './components/LoginScreen.svelte';
+  import LandingPage from './components/LandingPage.svelte';
   import { authStore } from './lib/store/auth.svelte';
 
   const authRequired = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const needsLogin = $derived(authRequired && !authStore.isLoggedIn);
+  const isEmbedDemo = new URLSearchParams(location.search).has('embed');
+  if (isEmbedDemo) authStore.setReady();
+  const needsLogin = $derived(authRequired && !authStore.isLoggedIn && !isEmbedDemo);
 
   let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
@@ -226,16 +230,16 @@
         }
       }
 
-      // If live calc is ON, auto-solve
-      if (_lc) {
-        runLiveCalc(_mode, prevDiagram);
+      // If live calc is ON, auto-solve (skip in PRO/EDU mode — manual solve only)
+      if (_lc && _mode !== 'pro' && _mode !== 'edu') {
+        runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
       }
     });
   });
 </script>
 
 {#if needsLogin}
-  <LoginScreen />
+  <LandingPage />
 {/if}
 
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-login={needsLogin}>
@@ -244,8 +248,11 @@
       <span class="logo-icon">△</span>
       <span class="logo-text">Dedaliano</span>
       <div class="mode-toggle" data-tour="mode-toggle">
-        <button class:active={uiStore.analysisMode === '2d'} onclick={() => uiStore.analysisMode = '2d'}>2D</button>
-        <button class:active={uiStore.analysisMode === '3d'} onclick={() => uiStore.analysisMode = '3d'}>3D</button>
+        <button class:active={uiStore.appMode === 'basico'} onclick={() => { if (uiStore.analysisMode !== '2d' && uiStore.analysisMode !== '3d') uiStore.analysisMode = '2d'; }}>
+          {t('app.modeBasic')}
+        </button>
+        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => uiStore.analysisMode = 'edu'}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => uiStore.analysisMode = 'pro'}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
       </div>
     </div>
     <span class="separator">|</span>
@@ -291,25 +298,29 @@
   {/if}
 
   <div class="app-body">
-    {#if !uiStore.isMobile}
-      {#if uiStore.leftSidebarOpen}
-        <aside class="sidebar left">
-          <Toolbar />
-        </aside>
+    {#if uiStore.appMode === 'basico'}
+      {#if !uiStore.isMobile}
+        {#if uiStore.leftSidebarOpen}
+          <aside class="sidebar left">
+            <Toolbar />
+          </aside>
+        {/if}
+        <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? t('app.hideLeftPanel') : t('app.showLeftPanel')}>
+          {uiStore.leftSidebarOpen ? '◂' : '▸'}
+        </button>
       {/if}
-      <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? t('app.hideLeftPanel') : t('app.showLeftPanel')}>
-        {uiStore.leftSidebarOpen ? '◂' : '▸'}
-      </button>
     {/if}
 
     <div class="main-area">
       <main class="viewport-container">
-        {#if uiStore.analysisMode === '2d'}
-          <Viewport {showResults} />
+        {#if uiStore.analysisMode === '2d' || uiStore.analysisMode === 'edu'}
+          <Viewport showResults={uiStore.analysisMode === '2d' && showResults} />
         {:else}
           <Viewport3D />
         {/if}
-        <FloatingTools />
+        {#if uiStore.appMode === 'basico'}
+          <FloatingTools />
+        {/if}
         <WhatIfPanel />
         <SectionStressPanel />
         <KinematicPanel />
@@ -318,24 +329,34 @@
     </div>
 
     {#if !uiStore.isMobile}
-      <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-        {uiStore.rightSidebarOpen ? '▸' : '◂'}
-      </button>
-      {#if uiStore.rightSidebarOpen}
-        <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
-          {#if dsmStepsStore.isOpen}
-            <StepWizard />
-          {:else}
-            <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-              {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
-            </button>
-            {#if uiStore.showDataTable}
-              <div class="data-table-sidebar">
-                <DataTable />
-              </div>
-            {/if}
-          {/if}
+      {#if uiStore.appMode === 'pro'}
+        <aside class="sidebar right pro-sidebar">
+          <ProPanel />
         </aside>
+      {:else if uiStore.appMode === 'educativo'}
+        <aside class="sidebar right edu-sidebar">
+          <EducativePanel />
+        </aside>
+      {:else}
+        <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
+          {uiStore.rightSidebarOpen ? '▸' : '◂'}
+        </button>
+        {#if uiStore.rightSidebarOpen}
+          <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
+            {#if dsmStepsStore.isOpen}
+              <StepWizard />
+            {:else}
+              <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
+                {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
+              </button>
+              {#if uiStore.showDataTable}
+                <div class="data-table-sidebar">
+                  <DataTable />
+                </div>
+              {/if}
+            {/if}
+          </aside>
+        {/if}
       {/if}
     {/if}
   </div>
@@ -347,7 +368,7 @@
   {/if}
 
   <!-- Mobile drawers (overlay on top of canvas) -->
-  {#if uiStore.isMobile && uiStore.leftDrawerOpen}
+  {#if uiStore.isMobile && uiStore.leftDrawerOpen && uiStore.appMode === 'basico'}
     <div class="drawer-backdrop" onclick={() => uiStore.leftDrawerOpen = false}></div>
     <aside class="drawer drawer-left">
       <Toolbar />
@@ -482,7 +503,8 @@
 {/if}
 
 {#if !uiStore.embedMode}
-  <FeedbackWidget />
+  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
+  <!-- <FeedbackWidget /> -->
 {/if}
 
 <TourOverlay />
@@ -543,24 +565,28 @@
   }
 
   .mode-toggle {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 0;
     border-radius: 4px;
     overflow: hidden;
     border: 1px solid #334;
     margin-left: 0.25rem;
+    min-width: 180px;
   }
 
   .mode-toggle button {
     background: transparent;
     border: none;
     color: #888;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    padding: 0.2rem 0.5rem;
+    padding: 0.2rem 0.35rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .mode-toggle button:hover {
@@ -571,6 +597,57 @@
   .mode-toggle button.active {
     background: #e94560;
     color: white;
+  }
+
+  .mode-toggle button.edu-mode-btn {
+    background: linear-gradient(135deg, #1a1a3a, #0f1a30);
+    color: #4ecdc4;
+    border-left: 1px solid #334;
+  }
+
+  .mode-toggle button.edu-mode-btn.active {
+    background: linear-gradient(135deg, #2a8a7a, #1a6a5a);
+    color: white;
+  }
+
+  .mode-toggle button.pro-mode-btn {
+    background: linear-gradient(135deg, #1a1a3a, #0f1a30);
+    color: #f0a500;
+    border-left: 1px solid #334;
+  }
+
+  .mode-toggle button.pro-mode-btn.active {
+    background: linear-gradient(135deg, #e94560, #c73e54);
+    color: white;
+  }
+
+  .demo-badge {
+    font-size: 0.45rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+  }
+
+  .mode-toggle button.active .demo-badge {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
+  }
+
+  .pro-sidebar {
+    width: 540px;
+    min-width: 540px;
+    max-width: 540px;
+  }
+
+  .edu-sidebar {
+    width: 420px;
+    min-width: 420px;
+    max-width: 420px;
   }
 
   .project-name {

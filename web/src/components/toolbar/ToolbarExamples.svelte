@@ -47,6 +47,7 @@
     { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
     { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
+    { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
   ];
 
   function handleDuplicateAxis() {

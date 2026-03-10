@@ -14,7 +14,7 @@ export interface TabState {
   id: string;
   name: string;
   modelSnapshot: ModelSnapshot;
-  analysisMode: '2d' | '3d';
+  analysisMode: '2d' | '3d' | 'pro' | 'edu';
   // Results visualization state (results themselves are NOT serialized — too large)
   diagramType: DiagramType;
   deformedScale: number;

@@ -1,7 +1,7 @@
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/solver-js';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';
 import { load2DExample } from './model-examples-2d';
 import { load3DExample } from './model-examples-3d';
@@ -190,6 +190,20 @@ export interface LoadCombination {
   factors: Array<{ caseId: number; factor: number }>;
 }
 
+export interface Plate {
+  id: number;
+  nodes: [number, number, number];
+  materialId: number;
+  thickness: number;
+}
+
+export interface Quad {
+  id: number;
+  nodes: [number, number, number, number];
+  materialId: number;
+  thickness: number;
+}
+
 export interface StructureModel {
   name: string;
   nodes: Map<number, Node>;
@@ -200,6 +214,9 @@ export interface StructureModel {
   loads: Load[];
   loadCases: LoadCase[];
   combinations: LoadCombination[];
+  plates: Map<number, Plate>;
+  quads: Map<number, Quad>;
+  constraints: Constraint3D[];
 }
 
 export type { AnalysisResults };
@@ -241,6 +258,9 @@ function createModelStore() {
       { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
       { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
     ],
+    plates: new Map(),
+    quads: new Map(),
+    constraints: [],
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -255,6 +275,8 @@ function createModelStore() {
     load: 1,
     loadCase: 5,
     combination: 5,
+    plate: 1,
+    quad: 1,
   });
 
 
@@ -324,6 +346,9 @@ function createModelStore() {
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
+    get plates() { return model.plates; },
+    get quads() { return model.quads; },
+    get constraints() { return model.constraints; },
     get kinematicResult() { return lastKinematicResult; },
 
     snapshot(): ModelSnapshot {
@@ -345,6 +370,9 @@ function createModelStore() {
         loads: snap.loads as ModelSnapshot['loads'],
         loadCases: snap.loadCases as ModelSnapshot['loadCases'],
         combinations: snap.combinations as ModelSnapshot['combinations'],
+        plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
+        quads: Array.from(snap.quads.entries()) as ModelSnapshot['quads'],
+        constraints: snap.constraints as ModelSnapshot['constraints'],
         nextId: snapId as ModelSnapshot['nextId'],
       };
       return result;
@@ -394,6 +422,9 @@ function createModelStore() {
       model.combinations = s.combinations
         ? s.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) }))
         : [];
+      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
+      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
+      model.constraints = (s as any).constraints ? (s as any).constraints.map((c: Constraint3D) => ({ ...c })) : [];
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;
@@ -402,6 +433,8 @@ function createModelStore() {
       nextId.load = s.nextId.load;
       nextId.loadCase = s.nextId.loadCase ?? 3;
       nextId.combination = s.nextId.combination ?? 1;
+      nextId.plate = s.nextId.plate ?? 1;
+      nextId.quad = s.nextId.quad ?? 1;
     },
 
     addNode(x: number, y: number, z?: number): number {
@@ -584,6 +617,49 @@ function createModelStore() {
       );
     },
 
+    addPlate(nodes: [number, number, number], materialId: number, thickness: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.plate++;
+      model.plates.set(id, { id, nodes, materialId, thickness });
+      model.plates = new Map(model.plates);
+      return id;
+    },
+
+    removePlate(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.plates.delete(id);
+      model.plates = new Map(model.plates);
+    },
+
+    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.quad++;
+      model.quads.set(id, { id, nodes, materialId, thickness });
+      model.quads = new Map(model.quads);
+      return id;
+    },
+
+    removeQuad(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.quads.delete(id);
+      model.quads = new Map(model.quads);
+    },
+
+    addConstraint(c: Constraint3D): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = [...model.constraints, { ...c }];
+    },
+
+    removeConstraint(index: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = model.constraints.filter((_, i) => i !== index);
+    },
+
+    clearConstraints(): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = [];
+    },
+
     removeLoad(loadId: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
@@ -721,6 +797,9 @@ function createModelStore() {
       model.elements = new Map();
       model.supports = new Map();
       model.loads = [];
+      model.plates = new Map();
+      model.quads = new Map();
+      model.constraints = [];
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);
@@ -744,6 +823,8 @@ function createModelStore() {
       nextId.load = 1;
       nextId.loadCase = 5;
       nextId.combination = 5;
+      nextId.plate = 1;
+      nextId.quad = 1;
       lastKinematicResult = null;
     },
 
@@ -1260,7 +1341,8 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: model.plates, quads: model.quads },
         includeSelfWeight, leftHand,
       );
     },
@@ -1269,7 +1351,8 @@ function createModelStore() {
     solve3D(includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: model.plates, quads: model.quads },
         includeSelfWeight, leftHand,
       );
     },
@@ -1278,7 +1361,8 @@ function createModelStore() {
     solveCombinations3D(includeSelfWeight = false, leftHand = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       return solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: model.plates, quads: model.quads },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },
@@ -1322,6 +1406,9 @@ function createModelStore() {
         toggleHinge: this.toggleHinge.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),
+        addPlate: this.addPlate.bind(this),
+        addQuad: this.addQuad.bind(this),
+        addConstraint: this.addConstraint.bind(this),
         model,
         nextId,
       };

@@ -136,6 +136,8 @@
         }
       }
       uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
+      // Show diagnostics toast if any issues were found
+      showDiagnosticsToast(false);
     } else {
       uiStore.toast(t('results.emptyModelError'), 'error');
     }
@@ -144,6 +146,16 @@
       uiStore.leftDrawerOpen = false;
       uiStore.mobileResultsPanelOpen = true;
     }
+  }
+
+  function showDiagnosticsToast(is3D: boolean) {
+    const diags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    if (diags.length === 0) return;
+    const errors = diags.filter(d => d.severity === 'error').length;
+    const warnings = diags.filter(d => d.severity === 'warning').length;
+    if (errors === 0 && warnings === 0) return;
+    const msg = t('diag.toastSummary').replace('{errors}', String(errors)).replace('{warnings}', String(warnings));
+    uiStore.toast(msg, errors > 0 ? 'error' : 'warning');
   }
 
   function handleSolve3D() {
@@ -173,6 +185,8 @@
         `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,
         'success',
       );
+      // Show diagnostics toast if any issues were found
+      showDiagnosticsToast(true);
     } else {
       uiStore.toast(t('results.emptyModelError'), 'error');
     }
@@ -516,6 +530,16 @@
     </div>
   </div>
 
+  <!-- 2D/3D dimension toggle (only in Básico mode) -->
+  {#if uiStore.appMode === 'basico'}
+    <div class="toolbar-section dim-toggle-section">
+      <div class="dim-toggle">
+        <button class:active={uiStore.analysisMode === '2d'} onclick={() => uiStore.analysisMode = '2d'}>2D</button>
+        <button class:active={uiStore.analysisMode === '3d'} onclick={() => uiStore.analysisMode = '3d'}>3D</button>
+      </div>
+    </div>
+  {/if}
+
   <ToolbarResults />
   <ToolbarAdvanced />
   <ToolbarExamples />
@@ -582,6 +606,46 @@
   .undo-redo-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .dim-toggle-section {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .dim-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #1a4a7a;
+  }
+
+  .dim-toggle button {
+    background: #0a1a30;
+    border: none;
+    color: #778;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.3rem 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    text-align: center;
+  }
+
+  .dim-toggle button:first-child {
+    border-right: 1px solid #1a4a7a;
+  }
+
+  .dim-toggle button:hover {
+    background: #1a3860;
+    color: #ccc;
+  }
+
+  .dim-toggle button.active {
+    background: #e94560;
+    color: white;
   }
 
   .solve-btn {
