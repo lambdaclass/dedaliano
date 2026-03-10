@@ -35,6 +35,7 @@ It is:
 - verification hardening
 - performance and scale
 - deeper reference-benchmark coverage on the newest advanced paths
+- long-tail nonlinear maturity on hard real models
 
 Recent milestones that changed the priority order:
 
@@ -43,6 +44,79 @@ Recent milestones that changed the priority order:
 - diagnostics now propagate through solver result types
 - constraint-force output is broadly propagated across solver families
 - reference benchmark validation is materially in place for shells, contact, fiber 3D, SSI, imperfections, creep/shrinkage, reduction, and constraints
+
+## What Still Separates Dedaliano From The Strongest Open Solvers
+
+Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, the remaining gaps are not “missing the basics.” They are:
+
+1. `Shell endgame maturity`
+   Strong MITC4 coverage now exists, but broader curved-shell workflows, distortion robustness, and the hemisphere / membrane-locking decision still separate Dedaliano from the strongest mature shell stacks.
+
+2. `Long-tail nonlinear maturity`
+   More years of hardened edge cases are still needed in mixed nonlinear workflows:
+   - contact + nonlinear + staging
+   - shell + nonlinear interaction
+   - difficult convergence cases
+
+3. `Performance / scale maturity`
+   Sparse-first 3D is now real, but the solver still needs stronger large-model runtime discipline, ordering quality, and broader sparse-path reuse.
+
+4. `Full solver-path consistency`
+   Dense vs sparse, constrained vs unconstrained, shell vs frame-shell mixed, and advanced nonlinear paths must keep converging to the same behavior.
+
+5. `Benchmark moat expansion`
+   Dedaliano is already strong here, but broader external-reference proof is also the most realistic path to becoming the best open structural solver.
+
+This changes the strategic target:
+
+- not `be broader than every open-source mechanics framework`
+- but `be the strongest open structural solver product with the deepest visible proof of correctness`
+
+## Ranked Priorities
+
+If the goal is `best open structural solver`, the current priority order is:
+
+1. `Shell endgame maturity`
+   Finish the remaining shell program cleanly:
+   - curved-shell validation
+   - distortion robustness
+   - shell workflow completeness
+   - clear decision on whether the hemisphere gap justifies `EAS-7` or a broader shell family
+
+2. `Performance and scale`
+   Turn sparse-first 3D and current performance infrastructure into real large-model runtime wins.
+
+3. `Verification hardening`
+   Keep building the proof moat with:
+   - benchmark gates
+   - acceptance models
+   - invariants
+   - property-based tests
+   - fuzzing
+
+4. `Long-tail nonlinear hardening`
+   Harden the hardest mixed workflows:
+   - contact + nonlinear + staging
+   - shell + nonlinear interaction
+   - difficult convergence edge cases
+
+5. `Solver-path consistency`
+   Keep dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows converging to the same behavior.
+
+6. `Constraint-system maturity`
+   Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
+
+7. `Advanced contact maturity`
+   Push harder convergence, richer contact laws, and tougher mixed contact states.
+
+8. `Diagnostics, model health checks, and explainability`
+   Make failures clearer, model issues easier to detect, and hard solves easier to understand.
+
+9. `Reference benchmark expansion`
+   Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
+
+10. `Reduction, staged/PT coupling, and other second-tier depth`
+    Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
 
@@ -59,26 +133,30 @@ The current near-term sequence is:
    - mixed tri/quad and beam-shell workflows
    - stress-recovery consistency
 
-3. `Diagnostics surfaced in the app/API`
-   Solver-side diagnostics exist; the next step is making them visible and actionable in the product surface.
-
-4. `Remaining constraint deepening`
-   Finish the last workflow-completeness items such as:
-   - chained constraints
-   - connector depth
-   - eccentric workflow polish
-   - any remaining cross-solver parity gaps
-
-5. `Reference benchmark expansion`
-   Keep extending external-reference coverage for:
-   - contact
-   - fiber 3D
-   - SSI
-   - creep/shrinkage
-   - broader shell workflows
-
-6. `Full-model performance work`
+3. `Full-model performance work`
    Use acceptance models and workflow benchmarks to drive sparse, parallel, conditioning, and memory improvements on representative models.
+
+4. `Verification hardening`
+   Expand:
+   - benchmark gates
+   - acceptance models
+   - invariants
+   - property-based tests
+   - fuzzing
+
+5. `Long-tail nonlinear hardening`
+   Focus on the hardest mixed cases:
+   - contact + nonlinear + staging
+   - shell + nonlinear interaction
+   - difficult convergence edge cases
+
+6. `Solver-path consistency and remaining maturity work`
+   Finish:
+   - dense vs sparse parity hardening
+   - constrained vs unconstrained parity hardening
+   - remaining constraint deepening
+   - advanced contact maturity
+   - diagnostics surfaced in the app/API
 
 ## Priority Stack
 
@@ -87,26 +165,26 @@ The current near-term sequence is:
 | Priority | Topic | Why now |
 |---|---|---|
 | 1 | Shell release gates and workflow hardening | MITC4 with ANS plus EAS-4 now produces credible results (Scordelis-Lo 80%, Navier 93%, buckling 102%, modal 99.9%). Shell benchmark gates are expanded and tightened. Next: curved-shell workflows, distortion studies, and deciding whether the remaining hemisphere gap justifies EAS-7 or a broader shell family. |
-| 2 | Diagnostics surfaced in the app/API | Diagnostics now exist in solver outputs; exposing them cleanly is the fastest product-quality multiplier attached to the latest solver work. |
-| 3 | Constraint-system reuse and workflow maturity | Reusable constrained reductions now exist; the next step is consistent use across solver families plus the last remaining workflow gaps. |
-| 4 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
-| 5 | Performance and scale engineering | Sparse assembly, conditioning diagnostics, and parallel paths now exist; the next step is full-model performance wins. |
-| 6 | Advanced contact variants | Basic and advanced contact are present; the next layer is harder convergence cases, richer contact laws, and broader benchmark depth. |
-| 7 | Acceptance-model expansion | The acceptance suite is now real; the next step is to grow it carefully around the hardest workflows. |
-| 8 | Failure diagnostics and model health checks | Better warnings, pre-solve checks, and conditioning/reporting can make the solver feel dramatically more mature in practice. |
+| 2 | Performance and scale engineering | Sparse assembly, conditioning diagnostics, and parallel paths now exist; the next step is full-model runtime wins and broader sparse-path maturity. |
+| 3 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
+| 4 | Long-tail nonlinear maturity | The biggest remaining gap versus the deepest open solvers is robustness on hard nonlinear mixed workflows, not missing whole categories. |
+| 5 | Solver-path consistency | Dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows must keep converging to the same behavior. |
+| 6 | Constraint-system maturity | Reusable constrained reductions now exist; the next step is consistent use across solver families plus the last remaining workflow gaps. |
+| 7 | Advanced contact maturity | Basic and advanced contact are present; the next layer is harder convergence cases, richer contact laws, and broader benchmark depth. |
+| 8 | Failure diagnostics, health checks, and explainability | Better warnings, pre-solve checks, conditioning/reporting, and solve visibility can make the solver materially more mature in practice. |
 
 ### 3-6 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 9 | Remaining constraint deepening | Chained constraints, connector depth, eccentric workflows, and any remaining cross-solver parity gaps should be finished once the shell-driven stabilization pass settles. |
-| 10 | Reference benchmark expansion | Keep extending external-reference coverage as new solver paths and deeper shell/contact/fiber/SSI workflows land. |
+| 9 | Reference benchmark expansion | Keep extending external-reference coverage as new solver paths and deeper shell/contact/fiber/SSI workflows land; this is the main moat against stronger mature open solvers. |
+| 10 | Acceptance-model expansion | Grow the acceptance suite carefully around the hardest workflows and use it as a release discipline layer. |
 | 11 | Model reduction / substructuring workflow maturity | Valuable once the core nonlinear and shell stack is hardened. |
 | 12 | Deeper prestress / staged time-dependent coupling | Prestress exists; long-term staged PT workflows still need more coupling depth. |
 | 13 | Specialized shell breadth | Curved shells, broader mixed interpolation, folded-plate workflows, and wider production shell coverage remain a real solver program after the current shell stabilization pass. |
 | 14 | Deterministic behavior and numerical robustness policy | Convergence criteria, warnings, fallback behavior, and solver-path consistency should become standardized across the engine. |
-| 15 | Result explainability and solve progress | Engineers need clearer iteration/progress visibility, active-set/yield reporting, and balance diagnostics on hard models. |
-| 16 | Golden acceptance-model suite | A very small flagship set of public must-pass models should become part of the trust story. |
+| 15 | Golden acceptance-model suite | A very small flagship set of public must-pass models should become part of the trust story. |
+| 16 | Result explainability and solve progress | Engineers need clearer iteration/progress visibility, active-set/yield reporting, and balance diagnostics on hard models. |
 
 ### 12 months+
 
@@ -117,7 +195,7 @@ The current near-term sequence is:
 | 19 | Bridge-specific advanced workflows | High-value specialization once the core solver is fully hardened. |
 | 20 | Broader domain expansion | Additional specialty areas should come after the mainstream structural core is clearly dominant. |
 
-## Four Active Programs
+## Five Active Programs
 
 ### 1. Shell Maturity
 
@@ -169,20 +247,7 @@ Focus:
 Why it matters:
 Real structural models rely heavily on diaphragms, rigid links, MPCs, and eccentric connectivity. Inconsistent constrained behavior destroys trust.
 
-### 3. Verification Hardening
-
-Focus:
-- benchmark gates
-- acceptance models
-- invariants
-- property-based tests
-- fuzzing
-- differential consistency tests
-
-Why it matters:
-This is how the solver becomes visibly trustworthy rather than merely feature-rich.
-
-### 4. Performance and Scale
+### 3. Performance and Scale
 
 Focus:
 - workflow benchmarks
@@ -205,18 +270,42 @@ Next steps:
 Why it matters:
 A solver is not elite if it only works well on small clean examples.
 
+### 4. Verification Hardening
+
+Focus:
+- benchmark gates
+- acceptance models
+- invariants
+- property-based tests
+- fuzzing
+- differential consistency tests
+
+Why it matters:
+This is how the solver becomes visibly trustworthy rather than merely feature-rich.
+
+### 5. Long-Tail Nonlinear Hardening
+
+Focus:
+- mixed contact + nonlinear + staged cases
+- shell/nonlinear interaction hardening
+- difficult convergence edge cases
+- stronger fallback and failure behavior on ill-conditioned real models
+
+Why it matters:
+This is the main remaining place where mature open solvers still have more years of hardened behavior than Dedaliano.
+
 ## Ten Next Tasks
 
 1. Make shell benchmark and shell acceptance suites hard CI/release gates.
 2. Fix shell issues exposed by those gates.
-3. Surface diagnostics cleanly in the app/API.
-4. Finish remaining constraint deepening.
-5. Expand external-reference validation for contact.
-6. Expand external-reference validation for fiber 3D.
-7. Expand external-reference validation for SSI.
-8. Expand external-reference validation for creep/shrinkage.
-9. Use acceptance/workflow models to drive full-model performance work.
-10. Grow the acceptance and verification layers carefully.
+3. Use workflow and criterion models to drive sparse 3D runtime wins.
+4. Expand invariants, property tests, fuzzing, and acceptance models around the newest solver paths.
+5. Harden long-tail nonlinear mixed workflows.
+6. Keep dense vs sparse and constrained vs unconstrained paths aligned.
+7. Finish remaining constraint deepening.
+8. Deepen advanced contact behavior and benchmark depth.
+9. Expand external-reference validation for contact, fiber 3D, SSI, and creep/shrinkage.
+10. Improve diagnostics, model health checks, and hard-solve explainability.
 
 ## Related Docs
 
