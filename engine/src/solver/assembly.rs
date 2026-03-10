@@ -811,6 +811,17 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
             [qn3.x, qn3.y, qn3.z],
         ];
         let qm = crate::element::quad::quad_quality_metrics(&coords);
+        let (_, _, has_neg_j) = crate::element::quad::quad_check_jacobian(&coords);
+        if has_neg_j {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id,
+                element_type: "quad".into(),
+                metric: "negative_jacobian".into(),
+                value: -1.0,
+                threshold: 0.0,
+                message: format!("Quad {} has negative Jacobian determinant (inverted element)", quad.id),
+            });
+        }
         if qm.aspect_ratio > 10.0 {
             diagnostics.push(crate::types::AssemblyDiagnostic {
                 element_id: quad.id,
@@ -819,6 +830,16 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 value: qm.aspect_ratio,
                 threshold: 10.0,
                 message: format!("Quad {} aspect ratio {:.1} exceeds 10", quad.id, qm.aspect_ratio),
+            });
+        }
+        if qm.warping > 0.01 && qm.warping <= 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id,
+                element_type: "quad".into(),
+                metric: "warping_moderate".into(),
+                value: qm.warping,
+                threshold: 0.01,
+                message: format!("Quad {} moderate warping {:.3} (0.01-0.1 range)", quad.id, qm.warping),
             });
         }
         if qm.warping > 0.1 {

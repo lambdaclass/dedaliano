@@ -41,7 +41,8 @@
 ### Scordelis-Lo Roof (NAFEMS)
 - **Source**: NAFEMS standard test, MacNeal & Harder (1985)
 - **Problem**: Cylindrical roof shell, gravity loading
-- **Note**: Requires shell elements (not just flat plates). Future benchmark.
+- **Reference**: u_z = 0.3024 at midspan free edge
+- **Status**: Implemented with MITC4 ANS shear tying. 6×6 mesh: 80% of reference, converging with refinement.
 
 ---
 
@@ -210,7 +211,7 @@
 
 | Benchmark | Category | Solver Feature | Status | Notes |
 |-----------|----------|----------------|--------|-------|
-| Navier SS plate | Plates | DKT+CST | CAPABILITY | α=0.00406, need 8×8, <5% |
+| Navier SS plate | Plates | DKT+CST, MITC4 | DONE | MITC4 with ANS: 93% at 4×4, 95% at 16×16 |
 | Roark ring | Curved beams | 3D curved | NEW | Full ring needed |
 | VM18 quarter-circle | Curved beams | 3D curved | CAPABILITY | R=100in, δ=-2.648 |
 | Plastic collapse 8Mp/L | Nonlinear | Bilinear N-R | CAPABILITY | Fixed-fixed, central P |

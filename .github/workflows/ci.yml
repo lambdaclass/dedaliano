@@ -44,7 +44,7 @@ jobs:
 
       - name: Shell benchmarks gate
         working-directory: engine
-        run: cargo nextest run --profile ci -E 'test(/benchmark_shell/) + test(/benchmark_beam_shell/)'
+        run: cargo nextest run --profile ci -E 'test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)'
 
       - name: Shell acceptance gate
         working-directory: engine

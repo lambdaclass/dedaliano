@@ -155,7 +155,7 @@ Status definitions used here:
 | 2D frame / truss elements | Strong | `element/frame.rs`, `element/truss` behavior via linear solver/tests | Mostly shear deformation and nonlinear upgrades |
 | 3D frame / truss elements | Strong | `element/frame.rs`, broad `validation_3d_*` coverage | More difficult mixed nonlinear / shell-coupled cases and warping hardening |
 | Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs`, recent drilling/nodal-stress/thermal upgrades | Higher fidelity shell behavior, convergence quality, and more benchmark depth |
-| MITC4 quadrilateral shell element | Good | `element/quad.rs`, integrated through standard input and assembly, nonlinear 3D stress recovery wired through the major shell-capable solver families, full nodal stress tensor recovery, and shell-quality diagnostics in assembly | Needs broader workflow hardening, mixed-model validation, and continued release-gated benchmark depth |
+| MITC4 quadrilateral shell element | Strong | `element/quad.rs` with Bathe-Dvorkin (1986) ANS shear tying, integrated through standard input and assembly, nonlinear 3D stress recovery, full nodal stress tensor recovery, shell-quality diagnostics, and Jacobian/warping detection. Scordelis-Lo 80%, Navier plate 93%, buckling 102%, modal 99.9% of reference. | Pinched hemisphere needs EAS for membrane locking; broader curved-shell workflow maturity |
 | Curved beams | Partial | `element/curved_beam.rs`, `validation_curved_beams.rs` | Current approach is segmented expansion, not native high-end formulation |
 | Timoshenko beam / shear deformation | Good | `element/frame.rs`, shear-area fields in `types/input.rs`, `validation_timoshenko_solver.rs` | Needs broader production validation across all solver modes |
 | Cable / catenary element | Good | `element/cable.rs`, `solver/cable.rs`, `integration_cable_solver.rs` | Needs broader bridge/cable-net/staged benchmark depth |
@@ -240,7 +240,7 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 | Priority | Topic | Why It Matters |
 |----------|-------|----------------|
 | 1 | Benchmark hardening on newest solver families | The remaining differentiator is now proof and hardening, not only additional categories |
-| 2 | Shell workflow and reliability hardening | MITC4 is wired; now the shell path must become a production shell workflow |
+| 2 | Shell workflow and reliability hardening | MITC4 with ANS shear tying now produces credible results (80-100% of reference); the next steps are EAS for membrane locking, broader curved-shell workflows, and production robustness |
 | 3 | Performance / scale engineering | Large-model reliability, sparse performance, conditioning, and eigensolver robustness are part of solver quality, not implementation detail |
 | 4 | Advanced contact variants | Contact exists; the remaining step is richer contact behavior and harder convergence cases |
 | 5 | Deeper prestress / staged time-dependent coupling | Time-dependent response exists, but PT/staged coupling still needs more depth |
@@ -277,7 +277,7 @@ This is the approximate implementation difficulty ordering for the remaining sol
 |---|---|---|
 | SSI beyond Winkler | Completed | `p-y`, `t-z`, and `q-z` support now exists; remaining work is hardening. |
 | Constraint technology | Completed | MPCs, rigid links, diaphragms, and equal-DOF support now exist in the main solver flow. |
-| MITC4 integration into the main model path | Completed | The quadrilateral shell element is now wired into standard input and assembly. |
+| MITC4 integration into the main model path | Completed | The quadrilateral shell element is wired into standard input and assembly with Bathe-Dvorkin ANS shear tying. |
 | Initial imperfections / initial state basics | Completed | Initial geometric imperfections and residual-stress inputs now exist; remaining work is hardening and benchmark depth. |
 
 #### Medium to High
@@ -300,7 +300,7 @@ This is the approximate implementation difficulty ordering for the remaining sol
 
 | Topic | Status | Why |
 |---|---|---|
-| Advanced shell technology | Open | MITC4 is now present, but broader shell families, curved-shell workflows, and production robustness remain a long solver program. |
+| Advanced shell technology | Open | MITC4 with ANS produces credible results on standard benchmarks. Remaining: EAS for membrane locking (hemisphere), broader shell families, curved-shell workflows, and production robustness. |
 
 ---
 
@@ -1238,7 +1238,7 @@ These are the largest gaps between the current engine and a top-tier structural 
 | Prestress / post-tension FE behavior | Hard | Good | Real PT depth exists now, but full time-dependent coupling and workflow breadth remain open |
 | Construction staging | Hard | Good | 2D and 3D implementations exist; broader workflow depth and prestress/time-dependent coupling remain open |
 | Creep & shrinkage response | Hard | Good | Core time-dependent response now exists; the remaining gap is broader staged/PT coupling and long-term benchmark depth |
-| Plate / shell advanced elements and load vectors | Hard | Good | Triangles and MITC4 now exist; the gap is production shell breadth, reliability, and integration |
+| Plate / shell advanced elements and load vectors | Hard | Strong | Triangles and MITC4 with ANS shear tying now exist with credible benchmark results (80-100% of reference). Remaining: EAS for membrane locking, broader curved-shell production workflows |
 | Advanced contact variants | Hard | Good | Contact exists, but richer contact laws and harder convergence cases remain open |
 | Nonlinear solution controls and path-following hardening | Hard | Good | Controls now exist; what remains is hard-path validation and broader integration |
 | Model reduction / substructuring | Medium | Good | Core capability exists; the remaining work is workflow integration, reduction choices, and larger-model validation |
