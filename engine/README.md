@@ -39,7 +39,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
 - **Fiber nonlinear beam-columns** (2D & 3D): distributed plasticity / section-integration solvers
 - **Creep / shrinkage**: time-dependent structural response with EC2-style models
-- **Plate/shell** (3D): DKT/DKMT triangular plates and MITC4 quadrilateral shells with pressure, drilling stabilization, and thermal support
+- **Plate/shell** (3D): DKT/DKMT triangular plates and MITC4 quadrilateral shells with ANS shear tying, EAS-4 membrane softening, pressure, drilling stabilization, and thermal support
 - **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows
 - **Section analysis**: polygon-based cross-section properties and section metrics
 
@@ -58,11 +58,11 @@ It also runs explicit gate steps for shell benchmarks, shell acceptance models, 
 
 ## Validation Test Suite
 
-Latest reported full-suite status: **6344 passing tests, 0 failures**.
+Latest reported full-suite status: **5856 passing tests, 0 failures**.
 
 The engine is backed by:
 
-- a validation suite measured in the low `6000+` range
+- a validation suite measured in the `5800+` range
 - `25` integration test files
 - dedicated property / differential fuzz coverage
 - benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
@@ -157,7 +157,7 @@ Phase 2 is complete — constraint unification, contact refinement, connector el
 
 - shell release-gating and shell-driven fixes from the newest benchmark/acceptance suites
 - real-model acceptance tests and full-workflow performance benchmarks
-- deeper shell maturity (mixed mesh, folded plates, convergence studies)
+- deeper shell maturity (broader curved-shell families, hemisphere/membrane-locking limit decisions, folded plates)
 - advanced contact variants (friction cycles, multi-gap mixed states)
 - CI hardening and release-grade benchmark gates
 - performance at scale and production solver polish
@@ -179,6 +179,6 @@ Compact must-pass suites validating the newest solver families:
 |-------|------|----------|
 | Constraints | `benchmarks/constraints_benchmark.rs` | Rigid links, diaphragms, equal-DOF, eccentric connections, constraint forces |
 | Contact | `benchmarks/contact_benchmark.rs` | Gap elements, tension/compression-only, friction, augmented Lagrangian |
-| Shells | `benchmarks/shell_benchmark.rs` | MITC4 quads, membrane/bending, thermal, mesh quality, mixed frame+shell |
+| Shells | `benchmarks/shell_benchmark.rs` | MITC4 quads, membrane/bending, thermal, mesh quality, mixed frame+shell, distortion robustness, pinched cylinder, self-weight, edge loads, warped elements |
 | Reduction | `benchmarks/reduction_benchmark.rs` | Guyan condensation, Craig-Bampton, substructuring workflows |
 | Sparse | `benchmarks/sparse_benchmark.rs` | Sparse assembly, sparse Cholesky, conditioning diagnostics |

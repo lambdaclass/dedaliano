@@ -62,10 +62,10 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 
 Latest reported milestone:
 
-- `6345` tests passing, `0` failures
-- explicit CI gate stages for shell benchmarks (including plate bending, Navier convergence, Scordelis-Lo, buckling, modal, and thin-plate locking), shell acceptance, and constraint benchmarks ahead of the full suite
-- MITC4 quad shell element upgraded with Bathe-Dvorkin (1986) ANS shear tying, eliminating transverse shear locking: Scordelis-Lo 6×6 from 14% to 80% of reference, Navier plate from 8% to 93%, modal frequencies from ~6× error to 0.1%
-- major recent work in constraint-system unification, shell stress recovery, shell diagnostics, contact refinement, performance architecture, and shell benchmark hardening
+- `5856` tests passing, `0` failures
+- shell workflow maturity now covers distortion robustness, pinched cylinder (MacNeal-Harder), self-weight loading, edge loads, thermal convergence, and warped element degradation studies
+- MITC4 quad shell element with Bathe-Dvorkin (1986) ANS shear tying plus EAS-4 membrane softening: Scordelis-Lo 6x6 at 80% of reference, Navier plate at 93%, buckling at 102%, modal frequencies at 0.1% error
+- explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks ahead of the full suite
 - diagnostics now propagate through solver result types; the main remaining product-side gap is surfacing them cleanly in the app/API
 
 What exists today at a high level:
@@ -118,7 +118,7 @@ At a high level, the current solver supports:
 - 2D and 3D corotational and material nonlinear analysis
 - plastic analysis, staged construction, prestress / post-tension workflows, cable analysis, contact / gap behavior, and nonlinear SSI
 - initial imperfections / residual stress modeling and time-dependent creep / shrinkage workflows
-- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying
+- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-4 membrane softening
 - constraints including rigid links, diaphragms, equal-DOF constraints, general linear MPCs, and reusable constrained-solver reduction/expansion paths
 - 2D and 3D fiber beam-column nonlinear solvers
 - model reduction and substructuring workflows including Guyan and Craig-Bampton reduction

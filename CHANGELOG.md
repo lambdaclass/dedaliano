@@ -2,21 +2,31 @@
 
 ## Unreleased
 
+### Shell validation and hardening
+
+- added `QuadSelfWeight` body force load type (density, gx, gy, gz) with consistent Gauss integration, wired into assembly
+- added mesh distortion robustness study: aspect ratio, parallelogram skew, trapezoidal taper, and random perturbation sweeps against Navier analytical
+- added MacNeal-Harder pinched cylinder benchmark (R=300, L=600, t=3, E=3×10⁶) at 6×6 and 8×8 meshes
+- added edge load validation: normal (in-plane) and tangential (axial extension) against beam theory
+- added thermal gradient convergence sweep: 4×4, 8×8, 16×16 with monotonic convergence and tightened tolerances
+- added warped element accuracy study: cantilever strip at 0%, 5%, 10%, 20% warp with graceful degradation tracking
+- 11 new shell benchmark tests; full suite at 5856 tests, 0 failures
+
 ### MITC4 shell element: Bathe-Dvorkin ANS shear tying
 
 - implemented true assumed natural strain (ANS) transverse shear interpolation (Bathe & Dvorkin, 1986) in the MITC4 quad shell element
 - uses covariant strain tying at 4 edge midpoints with Jacobian-correct transformation at each Gauss point, eliminating transverse shear locking on thin plates
+- added EAS-4 membrane softening to the MITC4 quad shell element via static condensation
 - benchmark improvements: Scordelis-Lo 6×6 ratio from 0.14 to 0.80, Navier plate from 0.08 to 0.93, cantilever pressure from 0.10 to 1.05, buckling from wide tolerance to 1.02, modal frequencies from ~6× error to 0.1% error
 - tightened shell benchmark tolerances across the board to lock in the formulation quality
 - added `quad_check_jacobian()` for negative/degenerate Jacobian detection
 - added moderate warping diagnostics (0.01-0.1 range) in assembly
 - added dedicated thin-plate locking test (a/t = 1000) to prevent regression
 - expanded CI shell benchmark gate to cover plate bending, Navier convergence, Scordelis-Lo, cantilever, hemisphere, and thin-plate tests
-- latest reported full-suite status reached `6345` passing tests with `0` failures
+- latest reported full-suite status reached `6347` passing tests with `0` failures
+- EAS-4 is mathematically correct and stable, but pinched hemisphere remains a known membrane-locking limit; that boundary is now documented explicitly
 
 ### Solver quality milestone
-
-- latest reported full-suite status reached `6344` passing tests with `0` failures
 - fixed the staged fixed-end-force accumulation bug by tracking cumulative loads across stages
 - corrected four pre-existing TME validation expectations involving formulas, sign conventions, and a wrong midspan-node assumption
 

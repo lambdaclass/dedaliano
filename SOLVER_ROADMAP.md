@@ -22,7 +22,7 @@ The solver is already broad and serious:
 
 - 2D and 3D linear, second-order, buckling, modal, spectrum, time history, and harmonic analysis
 - corotational, material nonlinear, fiber nonlinear, contact, SSI, staged, prestress, imperfections, and creep/shrinkage workflows
-- plate and shell support including DKT/DKMT triangles and MITC4 quads with Bathe-Dvorkin ANS shear tying
+- plate and shell support including DKT/DKMT triangles and MITC4 quads with Bathe-Dvorkin ANS shear tying and EAS-4 membrane softening
 - constraints, reduction/substructuring, and broad postprocessing/design support
 - explicit benchmark gates and acceptance models
 
@@ -86,7 +86,7 @@ The current near-term sequence is:
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 1 | Shell release gates and workflow hardening | MITC4 with ANS shear tying now produces credible results (Scordelis-Lo 80%, Navier 93%, buckling 102%, modal 99.9%). Shell benchmark gates are expanded and tightened. Next: EAS for membrane locking, curved-shell workflows, production robustness. |
+| 1 | Shell release gates and workflow hardening | MITC4 with ANS plus EAS-4 now produces credible results (Scordelis-Lo 80%, Navier 93%, buckling 102%, modal 99.9%). Shell benchmark gates are expanded and tightened. Next: curved-shell workflows, distortion studies, and deciding whether the remaining hemisphere gap justifies EAS-7 or a broader shell family. |
 | 2 | Diagnostics surfaced in the app/API | Diagnostics now exist in solver outputs; exposing them cleanly is the fastest product-quality multiplier attached to the latest solver work. |
 | 3 | Constraint-system reuse and workflow maturity | Reusable constrained reductions now exist; the next step is consistent use across solver families plus the last remaining workflow gaps. |
 | 4 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
@@ -129,11 +129,16 @@ Focus:
 - distortion tolerance
 - shell stress recovery consistency
 
+Recently completed shell workflow items:
+- mesh distortion robustness studies (aspect ratio, skew, taper, random perturbation)
+- pinched cylinder benchmark (MacNeal-Harder, second curved-shell reference)
+- `QuadSelfWeight` body force load type with consistent Gauss integration
+- edge load validation against analytical (normal and tangential)
+- thermal gradient convergence sweep with tightened tolerances
+- warped element accuracy study with degradation tracking
+
 Current remaining shell backlog:
-- curved-shell workflow validation
-- stronger warped/distorted quad studies
-- shell self-weight / gravity-style loading
-- plate edge-load parity with quads
+- curved-shell workflow validation (broader: folded plates, conical, hyperbolic)
 - broader shell modal, buckling, and dynamic reference cases
 - better shell diagnostics and output visibility in the product
 
@@ -146,10 +151,8 @@ Known formulation boundary:
   - or introduce a broader shell family later
 
 Recommended shell order:
-1. curved-shell validation
-2. mesh distortion studies
-3. shell load/output workflow completeness
-4. only then decide whether the hemisphere gap justifies `EAS-7` or a new shell family
+1. broader curved-shell validation (beyond Scordelis-Lo and pinched cylinder)
+2. only then decide whether the hemisphere gap justifies `EAS-7` or a new shell family
 
 Why it matters:
 Shell quality is one of the clearest separators between a strong structural solver and a top-tier one.
