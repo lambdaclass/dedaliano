@@ -1,5 +1,10 @@
 # Dedaliano Positioning
 
+Read next:
+- entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+
 ## What Dedaliano Is
 
 Dedaliano is an `open-source structural solver` and an emerging `structural engineering platform`.
@@ -21,8 +26,8 @@ The stronger current claim is:
 
 That claim is now supported by more than raw category count:
 
-- latest reported full-suite status of `6344` passing tests and `0` failures
-- explicit benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+- latest reported full-suite status of `5872` passing tests and `0` failures
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
 - solver-core work that now includes constraints, shells, contact, SSI, fiber nonlinear analysis, imperfections, creep / shrinkage, and reduction
 
 ## What It Is Not
@@ -82,6 +87,7 @@ That credibility should be built visibly. The strongest long-term trust program 
 - selective proof-oriented rigor on small critical kernels
 
 This document is about market framing, not the full solver inventory.
+Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for capability/proof and [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for execution order.
 
 ## Best Competitive Wedge
 
@@ -149,6 +155,7 @@ Good adjacent markets:
 - structural education
 - engineering automation and report generation
 - structural optimization and design review
+- architect-friendly conceptual structural analysis as a later, guardrailed product layer
 
 Bad adjacent markets for now:
 

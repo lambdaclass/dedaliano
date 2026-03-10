@@ -73,6 +73,8 @@ pub struct AnalysisResults {
     pub constraint_forces: Vec<ConstraintForce>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<AssemblyDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solver_diagnostics: Vec<SolverDiagnostic>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -96,6 +98,17 @@ pub struct AssemblyDiagnostic {
     pub value: f64,
     pub threshold: f64,
     pub message: String,
+}
+
+// ==================== Solver Diagnostics ====================
+
+/// Diagnostic emitted by the solver (path choice, conditioning, fallbacks).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverDiagnostic {
+    pub category: String,   // "solver_path", "conditioning", "fallback"
+    pub message: String,
+    pub severity: String,   // "info", "warning", "error"
 }
 
 // ==================== 3D Output Types ====================
@@ -188,6 +201,8 @@ pub struct AnalysisResults3D {
     pub constraint_forces: Vec<ConstraintForce>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<AssemblyDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solver_diagnostics: Vec<SolverDiagnostic>,
 }
 
 // ==================== Quad Stress Output ====================

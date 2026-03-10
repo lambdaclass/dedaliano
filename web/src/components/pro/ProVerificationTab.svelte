@@ -13,7 +13,7 @@
   import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
-  import { isDesignCheckAvailable } from '../../lib/engine/wasm-solver';
+  import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
 
   /** Normative code options for design checks */
@@ -104,10 +104,80 @@
     };
   }
 
+  /** Build generic check payload from model data for WASM-based design checks */
+  function buildWasmCheckPayload() {
+    if (!results) return null;
+    const members: any[] = [];
+    for (const ef of results.elementForces) {
+      const elem = modelStore.elements.get(ef.elementId);
+      if (!elem) continue;
+      const sec = modelStore.sections.get(elem.sectionId);
+      const mat = modelStore.materials.get(elem.materialId);
+      const nI = modelStore.nodes.get(elem.nodeI);
+      const nJ = modelStore.nodes.get(elem.nodeJ);
+      if (!sec || !mat || !nI || !nJ) continue;
+      const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = (nJ.z ?? 0) - (nI.z ?? 0);
+      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      members.push({
+        elementId: ef.elementId,
+        length: L,
+        section: { b: sec.b, h: sec.h, a: sec.a, iz: sec.iz, iy: sec.iy, profileName: sec.profileName },
+        material: { e: mat.e, fy: mat.fy, fu: mat.fu, rho: mat.rho },
+        forces: {
+          nStart: ef.nStart, nEnd: ef.nEnd,
+          vyStart: ef.vyStart, vyEnd: ef.vyEnd,
+          vzStart: ef.vzStart, vzEnd: ef.vzEnd,
+          mzStart: ef.mzStart, mzEnd: ef.mzEnd,
+          myStart: ef.myStart, myEnd: ef.myEnd,
+          mxStart: ef.mxStart, mxEnd: ef.mxEnd,
+        },
+      });
+    }
+    return { members };
+  }
+
+  // Store WASM-based verification results for non-CIRSOC codes
+  let wasmCheckResults = $state<any[] | null>(null);
+
   function runVerification() {
     verifyError = null;
+    wasmCheckResults = null;
     if (!results) {
       verifyError = t('pro.solveFirst');
+      return;
+    }
+
+    // If non-CIRSOC code selected, dispatch to WASM
+    if (!isCirsocSelected) {
+      const payload = buildWasmCheckPayload();
+      if (!payload) { verifyError = t('pro.solveFirst'); return; }
+      let checkResult: any = null;
+      try {
+        switch (selectedNormative) {
+          case 'aci-aisc':
+            checkResult = checkRcMembers(payload) ?? checkSteelMembers(payload);
+            break;
+          case 'eurocode':
+            checkResult = checkEc2Members(payload) ?? checkEc3Members(payload);
+            break;
+          case 'nds':
+            checkResult = checkTimberMembers(payload);
+            break;
+          case 'masonry':
+            checkResult = checkMasonryMembers(payload);
+            break;
+        }
+      } catch (e: any) {
+        verifyError = e.message || t('pro.wasmCheckError');
+        return;
+      }
+      if (checkResult && Array.isArray(checkResult.members)) {
+        wasmCheckResults = checkResult.members;
+      } else if (checkResult) {
+        wasmCheckResults = [checkResult];
+      } else {
+        verifyError = t('pro.wasmCheckUnavailable');
+      }
       return;
     }
 
@@ -1061,16 +1131,52 @@
         </table>
       </div>
       {#if storyDrifts.length === 0}
-        <div class="pro-empty">No se detectaron pisos con desplazamientos laterales.</div>
+        <div class="pro-empty">{t('pro.noDriftDetected')}</div>
       {/if}
     {/if}
 
+  {:else if wasmCheckResults && wasmCheckResults.length > 0}
+    <!-- Generic WASM check results display -->
+    <div class="pro-verif-wasm">
+      <div class="pro-verif-summary">
+        <span class="status-ok">{wasmCheckResults.filter((m: any) => m.status === 'ok' || m.ratio < 1).length} ✓</span>
+        <span class="status-fail">{wasmCheckResults.filter((m: any) => m.status === 'fail' || m.ratio >= 1).length} ✗</span>
+      </div>
+      <div class="pro-verif-scroll">
+        {#each wasmCheckResults as member}
+          <div class="wasm-check-card" class:fail={member.status === 'fail' || member.ratio >= 1}>
+            <div class="wasm-check-header">
+              <strong>E{member.elementId ?? '?'}</strong>
+              {#if member.ratio != null}
+                <span class="wasm-ratio" class:fail={member.ratio >= 1}>{(member.ratio * 100).toFixed(0)}%</span>
+              {/if}
+              {#if member.status}
+                <span class="wasm-status">{member.status}</span>
+              {/if}
+            </div>
+            {#if member.checks && Array.isArray(member.checks)}
+              <div class="wasm-checks">
+                {#each member.checks as check}
+                  <div class="wasm-check-line">
+                    <span class="wasm-check-name">{check.name ?? check.type ?? ''}</span>
+                    {#if check.ratio != null}
+                      <span class="wasm-check-ratio" class:fail={check.ratio >= 1}>{(check.ratio * 100).toFixed(0)}%</span>
+                    {/if}
+                    {#if check.message}<span class="wasm-check-msg">{check.message}</span>{/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </div>
   {:else if !verifyError}
     <div class="pro-empty">
       {#if hasResults}
         {t('pro.verifyPrompt')}
       {:else}
-        Primero resolvé la estructura (pestaña Resultados)
+        {t('pro.solveFirst')}
       {/if}
     </div>
   {/if}
@@ -1399,4 +1505,19 @@
     color: #8ba;
     padding: 2px 10px 4px;
   }
+
+  /* ─── WASM check results ─── */
+  .pro-verif-wasm { padding: 8px; overflow-y: auto; flex: 1; }
+  .wasm-check-card { padding: 6px 8px; margin-bottom: 4px; background: #0d1b33; border: 1px solid #1a3a5a; border-radius: 4px; font-size: 0.72rem; }
+  .wasm-check-card.fail { border-color: #e94560; }
+  .wasm-check-header { display: flex; align-items: center; gap: 8px; }
+  .wasm-ratio { font-weight: 700; color: #4ecdc4; }
+  .wasm-ratio.fail { color: #e94560; }
+  .wasm-status { font-size: 0.65rem; color: #778; }
+  .wasm-checks { margin-top: 4px; padding-left: 8px; border-left: 2px solid #1a3a5a; }
+  .wasm-check-line { display: flex; gap: 6px; font-size: 0.65rem; color: #aaa; padding: 1px 0; }
+  .wasm-check-name { color: #8ab; }
+  .wasm-check-ratio { font-weight: 600; color: #4ecdc4; }
+  .wasm-check-ratio.fail { color: #e94560; }
+  .wasm-check-msg { color: #888; font-size: 0.6rem; }
 </style>

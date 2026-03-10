@@ -38,6 +38,10 @@
 
 Use the docs by question:
 
+- [`DOCS.md`](/Users/unbalancedparen/projects/dedaliano/DOCS.md)
+  document index and suggested reading order
+- [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+  current solver snapshot, biggest strengths, biggest remaining gaps, and next priorities
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   source of truth for solver capability, validation coverage, benchmark status, and remaining solver gaps
 - [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
@@ -62,41 +66,12 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 
 Latest reported milestone:
 
-- `6344` tests passing, `0` failures
-- explicit CI gate stages for shell benchmarks, shell acceptance, and constraint benchmarks ahead of the full suite
-- major recent work in constraint-system unification, shell stress recovery, shell diagnostics, contact refinement, performance architecture, and shell benchmark hardening
-- diagnostics now propagate through solver result types; the main remaining product-side gap is surfacing them cleanly in the app/API
+- broad 2D and 3D structural analysis coverage, including staged, contact, SSI, fiber nonlinear, imperfections, and creep/shrinkage workflows
+- shell maturity now includes MITC4 ANS plus EAS-7, explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, thermal convergence coverage, and broader shell benchmark tracking
+- sparse-first 3D assembly and solve path is live, with dense-vs-sparse parity coverage and large memory wins on shell models
+- benchmark gates, acceptance models, integration tests, property/differential fuzz coverage, and a large public benchmark program back the solver-quality story
 
-What exists today at a high level:
-
-- browser-native modeling and visualization
-- a substantial Rust structural solver in `engine/`
-- 2D and 3D linear, second-order, dynamic, staged, cable, and nonlinear analysis paths
-- model reduction and substructuring utilities for larger-model workflows
-- design-check and postprocess modules for steel, concrete, timber, masonry, serviceability, connections, and foundations
-- a large benchmark and validation program tracked in [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
-
-The solver currently combines:
-
-- broad structural analysis coverage
-- serious nonlinear capability
-- contact and soil-structure interaction
-- staged construction and prestress / PT workflows
-- warping torsion
-- 3D fiber beam-column nonlinear analysis
-- initial imperfections and residual-stress modeling
-- time-dependent creep / shrinkage response
-- dynamic analysis
-- strong postprocessing and design layers
-- broad validation coverage
-
-The main remaining differentiators are:
-
-- robustness on hard real models
-- performance at scale
-- benchmark credibility
-- shell maturity and workflow quality
-- consistent solver-path behavior across constrained and unconstrained workflows
+For the concise current snapshot and canonical test-count status, see [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md).
 
 A reasonable description today is:
 
@@ -117,7 +92,7 @@ At a high level, the current solver supports:
 - 2D and 3D corotational and material nonlinear analysis
 - plastic analysis, staged construction, prestress / post-tension workflows, cable analysis, contact / gap behavior, and nonlinear SSI
 - initial imperfections / residual stress modeling and time-dependent creep / shrinkage workflows
-- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells
+- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-7 membrane enhancement
 - constraints including rigid links, diaphragms, equal-DOF constraints, general linear MPCs, and reusable constrained-solver reduction/expansion paths
 - 2D and 3D fiber beam-column nonlinear solvers
 - model reduction and substructuring workflows including Guyan and Craig-Bampton reduction

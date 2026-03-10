@@ -142,12 +142,19 @@ export interface AssemblyDiagnostic {
   message: string;
 }
 
+export interface SolverDiagnostic {
+  category: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
   elementForces: ElementForces[];
   constraintForces?: ConstraintForce[];
   diagnostics?: AssemblyDiagnostic[];
+  solverDiagnostics?: SolverDiagnostic[];
 }
 
 /** Envolvente puntual pre-computada para un elemento */

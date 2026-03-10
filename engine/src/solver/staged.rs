@@ -225,6 +225,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             element_forces: vec![],
             constraint_forces: vec![],
             diagnostics: vec![],
+            solver_diagnostics: vec![],
         });
 
     Ok(StagedAnalysisResults {
@@ -526,6 +527,7 @@ fn build_results_from_u(
         element_forces,
         constraint_forces: vec![],
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }
 
@@ -910,6 +912,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             quad_nodal_stresses: vec![],
             constraint_forces: vec![],
             diagnostics: vec![],
+            solver_diagnostics: vec![],
         });
 
     Ok(StagedAnalysisResults3D {
@@ -931,6 +934,7 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),
+        quad9s: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -968,6 +972,7 @@ fn build_stage_solver_input_3d(
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),
+        quad9s: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -1253,5 +1258,6 @@ fn build_results_from_u_3d(
         quad_nodal_stresses: vec![],
         constraint_forces: vec![],
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }

@@ -577,6 +577,7 @@ const hi: Translations = {
   'resultsTable.reactions': 'प्रतिक्रियाएँ',
   'resultsTable.internalForces': 'आंतरिक बल',
   'resultsTable.envelope': 'आवरण',
+  'resultsTable.diagnostics': 'निदान',
 
   // ─── Tables — common ───
   'table.addNode': '+ नोड',

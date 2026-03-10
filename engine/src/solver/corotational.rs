@@ -607,6 +607,7 @@ fn build_final_results(
         element_forces,
         constraint_forces,
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     })
 }
 
@@ -1335,6 +1336,7 @@ fn build_final_results_3d(
         quad_nodal_stresses: vec![],
         constraint_forces,
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     })
 }
 

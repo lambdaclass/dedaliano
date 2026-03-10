@@ -2,7 +2,21 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
-  let resultsSubTab = $state<'displacements' | 'reactions' | 'forces'>('displacements');
+  let resultsSubTab = $state<'displacements' | 'reactions' | 'forces' | 'diagnostics'>('displacements');
+
+  // Merge assembly + solver diagnostics into a single list
+  const allDiagnostics = $derived((() => {
+    const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
+    const asmDiags = uiStore.analysisMode === '3d' ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    for (const d of asmDiags) {
+      items.push({ source: `Elem ${d.elementId} (${d.elementType})`, type: d.metric, message: d.message, severity: 'warning' });
+    }
+    const solverDiags = uiStore.analysisMode === '3d' ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    for (const d of solverDiags) {
+      items.push({ source: d.category, type: d.category, message: d.message, severity: d.severity });
+    }
+    return items;
+  })());
 </script>
 
 {#if resultsStore.hasCombinations}
@@ -17,6 +31,11 @@
   <button class:active={resultsSubTab === 'displacements'} onclick={() => resultsSubTab = 'displacements'}>{t('resultsTable.displacements')}</button>
   <button class:active={resultsSubTab === 'reactions'} onclick={() => resultsSubTab = 'reactions'}>{t('resultsTable.reactions')}</button>
   <button class:active={resultsSubTab === 'forces'} onclick={() => resultsSubTab = 'forces'}>{t('resultsTable.internalForces')}</button>
+  {#if allDiagnostics.length > 0}
+    <button class:active={resultsSubTab === 'diagnostics'} onclick={() => resultsSubTab = 'diagnostics'}>
+      {t('resultsTable.diagnostics')} ({allDiagnostics.length})
+    </button>
+  {/if}
 </div>
 
 <div class="results-content">
@@ -146,6 +165,24 @@
       </table>
     {/if}
   {/if}
+
+  {#if resultsSubTab === 'diagnostics' && allDiagnostics.length > 0}
+    <table>
+      <thead>
+        <tr><th>Fuente</th><th>Tipo</th><th>Mensaje</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        {#each allDiagnostics as d}
+          <tr>
+            <td class="id-cell">{d.source}</td>
+            <td>{d.type}</td>
+            <td>{d.message}</td>
+            <td class={d.severity === 'warning' ? 'severity-warn' : d.severity === 'error' ? 'severity-err' : ''}>{d.severity}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
 </div>
 
 <style>
@@ -226,4 +263,7 @@
     flex: 1;
     overflow: auto;
   }
+
+  .severity-warn { color: #e9c46a; font-weight: 600; }
+  .severity-err { color: #e94560; font-weight: 600; }
 </style>

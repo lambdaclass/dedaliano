@@ -578,6 +578,7 @@ const ko: Translations = {
   'resultsTable.reactions': '반력',
   'resultsTable.internalForces': '내력',
   'resultsTable.envelope': '포락선',
+  'resultsTable.diagnostics': '진단',
 
   // ─── Tables — common ───
   'table.addNode': '+ 절점',

@@ -578,6 +578,7 @@ const ja: Translations = {
   'resultsTable.reactions': '反力',
   'resultsTable.internalForces': '内力',
   'resultsTable.envelope': '包絡線',
+  'resultsTable.diagnostics': '診断',
 
   // ─── Tables — common ───
   'table.addNode': '+ 節点',

@@ -581,6 +581,7 @@ const en: Record<string, string> = {
   'resultsTable.reactions': 'Reactions',
   'resultsTable.internalForces': 'Internal Forces',
   'resultsTable.envelope': 'Envelope',
+  'resultsTable.diagnostics': 'Diagnostics',
 
   // ─── Tables — common ───
   'table.addNode': '+ Node',
@@ -2489,5 +2490,21 @@ const en: Record<string, string> = {
   'pro.elemTypeBeam': 'Beam',
   'pro.elemTypeWall': 'Wall',
   'pro.elemTypeColumn': 'Column',
+
+  // ─── PRO Verification (WASM checks) ───
+  'pro.wasmCheckError': 'Error running design check',
+  'pro.wasmCheckUnavailable': 'Design check not available — requires WASM compilation for this code.',
+  'pro.noDriftDetected': 'No stories with lateral displacements detected.',
+
+  // ─── PRO Results Tab (constraint forces & diagnostics) ───
+  'pro.constraintForces': 'Constraint forces',
+  'pro.nodeLabel': 'Node',
+  'pro.forceLabel': 'Force (kN / kN·m)',
+  'pro.diagnosticsTitle': 'Diagnostics',
+  'pro.elemLabel': 'Elem',
+  'pro.metricLabel': 'Metric',
+  'pro.valueLabel': 'Value',
+  'pro.thresholdLabel': 'Threshold',
+  'pro.messageLabel': 'Message',
 };
 export default en;

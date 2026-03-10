@@ -312,6 +312,7 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
             force: cf.force * factor,
         }).collect(),
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }
 
@@ -579,5 +580,6 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
             force: cf.force * factor,
         }).collect(),
         diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }

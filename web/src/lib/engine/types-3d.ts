@@ -281,6 +281,7 @@ export interface AnalysisResults3D {
   diagnostics?: import('./types').AssemblyDiagnostic[];
   plateStresses?: PlateStress[];
   quadStresses?: QuadStress[];
+  solverDiagnostics?: import('./types').SolverDiagnostic[];
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

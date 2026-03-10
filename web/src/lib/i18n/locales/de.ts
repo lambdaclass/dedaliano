@@ -577,6 +577,7 @@ const de: Translations = {
   'resultsTable.reactions': 'Auflagerreaktionen',
   'resultsTable.internalForces': 'Schnittgrößen',
   'resultsTable.envelope': 'Einhüllende',
+  'resultsTable.diagnostics': 'Diagnosen',
 
   // ─── Tables — common ───
   'table.addNode': '+ Knoten',

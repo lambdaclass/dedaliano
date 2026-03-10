@@ -581,6 +581,7 @@ const es: Record<string, string> = {
   'resultsTable.reactions': 'Reacciones',
   'resultsTable.internalForces': 'Fuerzas Internas',
   'resultsTable.envelope': 'Envolvente',
+  'resultsTable.diagnostics': 'Diagnósticos',
 
   // ─── Tables — common ───
   'table.addNode': '+ Nodo',
@@ -2489,5 +2490,21 @@ const es: Record<string, string> = {
   'pro.elemTypeBeam': 'Viga',
   'pro.elemTypeWall': 'Tabique',
   'pro.elemTypeColumn': 'Columna',
+
+  // ─── PRO Verificación (WASM checks) ───
+  'pro.wasmCheckError': 'Error al ejecutar la verificación normativa',
+  'pro.wasmCheckUnavailable': 'Verificación no disponible — requiere compilación WASM para esta normativa.',
+  'pro.noDriftDetected': 'No se detectaron pisos con desplazamientos laterales.',
+
+  // ─── PRO Results Tab (fuerzas de vínculo y diagnósticos) ───
+  'pro.constraintForces': 'Fuerzas en vínculos',
+  'pro.nodeLabel': 'Nodo',
+  'pro.forceLabel': 'Fuerza (kN / kN·m)',
+  'pro.diagnosticsTitle': 'Diagnósticos',
+  'pro.elemLabel': 'Elem',
+  'pro.metricLabel': 'Métrica',
+  'pro.valueLabel': 'Valor',
+  'pro.thresholdLabel': 'Umbral',
+  'pro.messageLabel': 'Mensaje',
 };
 export default es;

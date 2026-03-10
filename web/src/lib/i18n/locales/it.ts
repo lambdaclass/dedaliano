@@ -577,6 +577,7 @@ const it: Translations = {
   'resultsTable.reactions': 'Reazioni',
   'resultsTable.internalForces': 'Sollecitazioni interne',
   'resultsTable.envelope': 'Inviluppo',
+  'resultsTable.diagnostics': 'Diagnostica',
 
   // ─── Tables — common ───
   'table.addNode': '+ Nodo',

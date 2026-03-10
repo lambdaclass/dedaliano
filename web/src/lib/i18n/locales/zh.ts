@@ -578,6 +578,7 @@ const zh: Translations = {
   'resultsTable.reactions': '反力',
   'resultsTable.internalForces': '内力',
   'resultsTable.envelope': '包络',
+  'resultsTable.diagnostics': '诊断',
 
   // ─── Tables — common ───
   'table.addNode': '+ 节点',

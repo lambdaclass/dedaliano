@@ -137,7 +137,8 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         reactions,
         element_forces,
         constraint_forces: vec![],
-        diagnostics: vec![],
+        diagnostics: asm.diagnostics,
+        solver_diagnostics: vec![],
     })
 }
 
@@ -161,12 +162,11 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         return Err("No free DOFs — all nodes are fully restrained".into());
     }
 
-    let asm = assemble_3d(input, &dof_num);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
+    let nr = n - nf;
 
     // Build prescribed displacement vector u_r for restrained DOFs
-    let nr = n - nf;
     let mut u_r = vec![0.0; nr];
     for sup in input.supports.values() {
         let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
@@ -183,87 +183,242 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         }
     }
 
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let mut f_f = extract_subvec(&asm.f, &free_idx);
+    if nf >= SPARSE_THRESHOLD {
+        // ── Sparse path: O(nnz) assembly, no dense n×n matrix ──
+        let asm = assemble_sparse_3d(input, &dof_num);
+        let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
 
-    // F_f_modified = F_f - K_fr * u_r
-    let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
-    for i in 0..nf {
-        f_f[i] -= k_fr_ur[i];
-    }
-
-    let u_f = if nf >= SPARSE_THRESHOLD {
-        let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
-        match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
-            Some(u) => u,
-            None => {
-                let mut k_work = k_ff;
-                let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
-            }
+        // Sparse diagonal conditioning check
+        let cond = sparse_diagonal_conditioning(&asm.k_ff);
+        if cond > 1e12 {
+            solver_diags.push(SolverDiagnostic {
+                category: "conditioning".into(),
+                message: format!("Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned", cond),
+                severity: "warning".into(),
+            });
+        } else if cond > 1e8 {
+            solver_diags.push(SolverDiagnostic {
+                category: "conditioning".into(),
+                message: format!("High diagonal ratio {:.2e} — potential conditioning issues", cond),
+                severity: "warning".into(),
+            });
         }
+
+        // F_f modified for prescribed displacements: F_f -= K_fr * u_r
+        let mut f_f: Vec<f64> = asm.f[..nf].to_vec();
+        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+        if has_prescribed {
+            let kfr_ur = asm.k_full.sparse_cross_block_matvec(&u_r, nf);
+            for i in 0..nf { f_f[i] -= kfr_ur[i]; }
+        }
+
+        // Dense LU fallback: used when sparse Cholesky fails or gives bad residual
+        let dense_lu_fallback = || -> Result<Vec<f64>, String> {
+            let asm_d = assemble_3d(input, &dof_num);
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let rest_idx: Vec<usize> = (nf..n).collect();
+            let k_fr = extract_submatrix(&asm_d.k, n, &free_idx, &rest_idx);
+            let kfr_ur_d = mat_vec_rect(&k_fr, &u_r, nf, nr);
+            let mut f_work = extract_subvec(&asm_d.f, &free_idx);
+            for i in 0..nf { f_work[i] -= kfr_ur_d[i]; }
+            let mut k_ff_d = extract_submatrix(&asm_d.k, n, &free_idx, &free_idx);
+            lu_solve(&mut k_ff_d, &mut f_work, nf)
+                .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())
+        };
+
+        // Solve Kff * u_f = f_f
+        let u_f = match sparse_cholesky_solve_full(&asm.k_ff, &f_f) {
+            Some(u) => {
+                // Verify Cholesky solution quality via residual check.
+                let ku = asm.k_ff.sym_mat_vec(&u);
+                let mut res_norm2 = 0.0f64;
+                let mut f_norm2 = 0.0f64;
+                for i in 0..nf {
+                    res_norm2 += (ku[i] - f_f[i]).powi(2);
+                    f_norm2 += f_f[i].powi(2);
+                }
+                let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
+                if rel_residual < 1e-6 {
+                    solver_diags.push(SolverDiagnostic {
+                        category: "solver_path".into(),
+                        message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                        severity: "info".into(),
+                    });
+                    u
+                } else {
+                    solver_diags.push(SolverDiagnostic {
+                        category: "fallback".into(),
+                        message: format!(
+                            "Sparse Cholesky residual too large ({:.2e}), fell back to dense LU",
+                            rel_residual
+                        ),
+                        severity: "warning".into(),
+                    });
+                    dense_lu_fallback()?
+                }
+            }
+            None => {
+                solver_diags.push(SolverDiagnostic {
+                    category: "fallback".into(),
+                    message: "Sparse Cholesky failed (likely drilling DOFs), fell back to dense LU".into(),
+                    severity: "warning".into(),
+                });
+                dense_lu_fallback()?
+            }
+        };
+
+        // Build full displacement vector
+        let mut u_full = vec![0.0; n];
+        u_full[..nf].copy_from_slice(&u_f);
+        for i in 0..nr { u_full[nf + i] = u_r[i]; }
+
+        // Reactions via full-K sym_mat_vec: R[i] = (K*u)[i] - F[i] for restrained DOFs
+        let ku = asm.k_full.sym_mat_vec(&u_full);
+        let mut reactions_vec = vec![0.0; nr];
+        let f_r: Vec<f64> = asm.f[nf..].to_vec();
+        for i in 0..nr {
+            reactions_vec[i] = ku[nf + i] - f_r[i];
+        }
+
+        // Reverse inclined support rotations on displacements
+        for it in &asm.inclined_transforms {
+            reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
+        }
+
+        let displacements = build_displacements_3d(&dof_num, &u_full);
+        let mut reactions = build_reactions_3d_inclined(
+            input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+        );
+        reactions.sort_by_key(|r| r.node_id);
+        let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+        element_forces.sort_by_key(|ef| ef.element_id);
+
+        let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
+
+        Ok(AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
+            constraint_forces: vec![],
+            diagnostics: asm.diagnostics,
+            solver_diagnostics: solver_diags,
+        })
     } else {
-        let mut k_work = k_ff.clone();
-        match cholesky_solve(&mut k_work, &f_f, nf) {
-            Some(u) => u,
-            None => {
-                let mut k_work = k_ff;
-                let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+        // ── Dense path: small models (nf < 64) ──
+        let asm = assemble_3d(input, &dof_num);
+        let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
+
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let rest_idx: Vec<usize> = (nf..n).collect();
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let mut f_f = extract_subvec(&asm.f, &free_idx);
+
+        // Dense conditioning check
+        let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
+        for w in &cond_report.warnings {
+            solver_diags.push(SolverDiagnostic {
+                category: "conditioning".into(),
+                message: w.clone(),
+                severity: "warning".into(),
+            });
+        }
+
+        // F_f_modified = F_f - K_fr * u_r
+        let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
+        let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+        for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
+
+        let u_f = {
+            let mut k_work = k_ff.clone();
+            match cholesky_solve(&mut k_work, &f_f, nf) {
+                Some(u) => u,
+                None => {
+                    let mut k_work = k_ff;
+                    let mut f_work = f_f.clone();
+                    lu_solve(&mut k_work, &mut f_work, nf)
+                        .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+                }
+            }
+        };
+
+        solver_diags.push(SolverDiagnostic {
+            category: "solver_path".into(),
+            message: format!("Dense solver ({} free DOFs)", nf),
+            severity: "info".into(),
+        });
+
+        let mut u_full = vec![0.0; n];
+        for i in 0..nf { u_full[i] = u_f[i]; }
+        for i in 0..nr { u_full[nf + i] = u_r[i]; }
+
+        // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
+        let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
+        let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
+        let f_r = extract_subvec(&asm.f, &rest_idx);
+        let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+        let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+        let mut reactions_vec = vec![0.0; nr];
+        for i in 0..nr {
+            reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+        }
+
+        // Reverse inclined support rotations on displacements
+        for it in &asm.inclined_transforms {
+            reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
+        }
+
+        let displacements = build_displacements_3d(&dof_num, &u_full);
+        let mut reactions = build_reactions_3d_inclined(
+            input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+        );
+        reactions.sort_by_key(|r| r.node_id);
+        let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+        element_forces.sort_by_key(|ef| ef.element_id);
+
+        let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
+
+        Ok(AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
+            constraint_forces: vec![],
+            diagnostics: asm.diagnostics,
+            solver_diagnostics: solver_diags,
+        })
+    }
+}
+
+/// Compute diagonal conditioning ratio for a sparse CSC matrix.
+/// Returns max(diag) / min(nonzero diag), or 0 if degenerate.
+fn sparse_diagonal_conditioning(k: &CscMatrix) -> f64 {
+    let n = k.n;
+    let mut max_diag = 0.0f64;
+    let mut min_nonzero_diag = f64::MAX;
+
+    for j in 0..n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            if k.row_idx[p] == j {
+                let d = k.values[p].abs();
+                if d > max_diag { max_diag = d; }
+                if d > 1e-30 && d < min_nonzero_diag { min_nonzero_diag = d; }
+                break;
             }
         }
-    };
-
-    let mut u_full = vec![0.0; n];
-    for i in 0..nf {
-        u_full[i] = u_f[i];
-    }
-    for i in 0..nr {
-        u_full[nf + i] = u_r[i];
     }
 
-    // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
-    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
-    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
-    let f_r = extract_subvec(&asm.f, &rest_idx);
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+    if min_nonzero_diag < f64::MAX && min_nonzero_diag > 0.0 {
+        max_diag / min_nonzero_diag
+    } else {
+        0.0
     }
-
-    // Reverse inclined support rotations on displacements
-    for it in &asm.inclined_transforms {
-        reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
-    }
-
-    let displacements = build_displacements_3d(&dof_num, &u_full);
-    let mut reactions = build_reactions_3d_inclined(
-        input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-    let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
-    element_forces.sort_by_key(|ef| ef.element_id);
-
-    let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
-    let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
-
-    Ok(AnalysisResults3D {
-        displacements,
-        reactions,
-        element_forces,
-        plate_stresses,
-        quad_stresses,
-        quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
-        constraint_forces: vec![],
-        diagnostics: asm.diagnostics,
-    })
 }
 
 pub(crate) fn build_displacements_2d(dof_num: &DofNumbering, u: &[f64]) -> Vec<Displacement> {
@@ -1116,6 +1271,35 @@ pub(crate) fn compute_quad_stresses(
         });
     }
 
+    // Quad9 (MITC9) stress recovery
+    for q9 in input.quad9s.values() {
+        let mat = mat_map[&q9.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let mut coords = [[0.0; 3]; 9];
+        for (i, &nid) in q9.nodes.iter().enumerate() {
+            let n = node_map[&nid];
+            coords[i] = [n.x, n.y, n.z];
+        }
+        let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
+        let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
+        let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
+        let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_q9, 54);
+        let s = crate::element::quad9::quad9_stresses(&coords, &u_local_vec, e, nu, q9.thickness);
+        let nodal_vm = crate::element::quad9::quad9_nodal_von_mises(&coords, &u_local_vec, e, nu, q9.thickness);
+        stresses.push(QuadStress {
+            element_id: q9.id,
+            sigma_xx: s.sigma_xx,
+            sigma_yy: s.sigma_yy,
+            tau_xy: s.tau_xy,
+            mx: s.mx,
+            my: s.my,
+            mxy: s.mxy,
+            von_mises: s.von_mises,
+            nodal_von_mises: nodal_vm,
+        });
+    }
+
     stresses
 }
 
@@ -1157,8 +1341,28 @@ pub(crate) fn compute_quad_nodal_stresses(
 
         let nodal = crate::element::quad::quad_stress_at_nodes(&coords, &u_local, e, nu, quad.thickness);
         for mut ns in nodal {
-            // Map local corner index to global node ID
             ns.node_index = quad.nodes[ns.node_index];
+            stresses.push(ns);
+        }
+    }
+
+    // Quad9 (MITC9) nodal stress recovery
+    for q9 in input.quad9s.values() {
+        let mat = mat_map[&q9.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let mut coords = [[0.0; 3]; 9];
+        for (i, &nid) in q9.nodes.iter().enumerate() {
+            let n = node_map[&nid];
+            coords[i] = [n.x, n.y, n.z];
+        }
+        let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
+        let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
+        let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
+        let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_q9, 54);
+        let nodal = crate::element::quad9::quad9_stress_at_nodes(&coords, &u_local_vec, e, nu, q9.thickness);
+        for mut ns in nodal {
+            ns.node_index = q9.nodes[ns.node_index];
             stresses.push(ns);
         }
     }

@@ -578,6 +578,7 @@ const ar: Translations = {
   'resultsTable.reactions': 'ردود الفعل',
   'resultsTable.internalForces': 'القوى الداخلية',
   'resultsTable.envelope': 'الغلاف',
+  'resultsTable.diagnostics': 'التشخيصات',
 
   // ─── Tables — common ───
   'table.addNode': '+ عقدة',

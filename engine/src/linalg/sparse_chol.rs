@@ -163,8 +163,26 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
     // Dense column accumulator
     let mut x = vec![0.0f64; n];
 
-    // Row index lookup for L: for column j, l_row_to_pos[row] = position in l_values
-    // We build this lazily per column.
+    // Track maximum diagonal for relative pivot threshold
+    let mut max_diag = 0.0f64;
+
+    // Precompute nonzero-column lists: for each row j, which columns k < j have L[j,k] != 0.
+    // Also precompute the position of L[j,k] in l_values for O(1) lookup.
+    // This converts the O(n^2) left-looking scan into O(nnz(L)) total.
+    let mut nz_cols_for_row: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n]; // (col_k, position_of_L[j,k])
+    for k in 0..n {
+        for p in sym.l_col_ptr[k]..sym.l_col_ptr[k + 1] {
+            let i = sym.l_row_idx[p];
+            if i > k {
+                nz_cols_for_row[i].push((k, p));
+            }
+        }
+    }
+
+    // Also precompute: for each column k, the position where rows >= j start.
+    // We need to find all entries in column k with row >= j for the update.
+    // Build a lookup: for column k and row j, find the index into l_values where row j appears.
+    // Since rows are sorted within each column, we can use binary search.
 
     for j in 0..n {
         // Clear accumulator for rows in L[:,j]
@@ -181,37 +199,33 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
 
         // Left-looking updates: for each k < j where L[j,k] != 0
         // subtract L[j:,k] * L[j,k] from x
-        for k in 0..j {
-            let lk_start = sym.l_col_ptr[k];
-            let lk_end = sym.l_col_ptr[k + 1];
-
-            // Find L[j,k] — search for row j in column k of L
-            let mut ljk = 0.0;
-            let mut found = false;
-            for p in lk_start..lk_end {
-                if sym.l_row_idx[p] == j {
-                    ljk = l_values[p];
-                    found = true;
-                    break;
-                }
-            }
-            if !found || ljk.abs() < 1e-30 {
+        for &(k, pos_jk) in &nz_cols_for_row[j] {
+            let ljk = l_values[pos_jk];
+            if ljk.abs() < 1e-30 {
                 continue;
             }
 
+            let lk_end = sym.l_col_ptr[k + 1];
+
             // Update: x[i] -= L[i,k] * L[j,k] for all i >= j in L[:,k]
-            for p in lk_start..lk_end {
+            // pos_jk points to L[j,k]; entries after it in column k have row > j
+            for p in pos_jk..lk_end {
                 let i = sym.l_row_idx[p];
-                if i >= j {
-                    x[i] -= l_values[p] * ljk;
-                }
+                x[i] -= l_values[p] * ljk;
             }
         }
 
         // Compute L[j,j] = sqrt(x[j])
         let diag = x[j];
-        if diag <= 1e-15 {
-            return None; // Not SPD
+        if j == 0 {
+            max_diag = diag;
+        } else if diag > max_diag {
+            max_diag = diag;
+        }
+        // Relative pivot threshold: reject if diag is negligible relative to largest seen
+        let threshold = 1e-12 * max_diag;
+        if diag <= threshold {
+            return None; // Not SPD or near-singular
         }
         let ljj = diag.sqrt();
 

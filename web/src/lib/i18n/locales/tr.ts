@@ -577,6 +577,7 @@ const tr: Translations = {
   'resultsTable.reactions': 'Tepkiler',
   'resultsTable.internalForces': 'İç Kuvvetler',
   'resultsTable.envelope': 'Zarf',
+  'resultsTable.diagnostics': 'Tanılama',
 
   // ─── Tables — common ───
   'table.addNode': '+ Düğüm',

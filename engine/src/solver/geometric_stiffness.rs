@@ -439,6 +439,55 @@ pub fn add_plate_geometric_stiffness_3d(
     }
 }
 
+/// Add quad9 (MITC9) geometric stiffness to a pre-built Kg matrix, given displacements.
+pub fn add_quad9_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for quad9 in input.quad9s.values() {
+        let mat = mat_by_id[&quad9.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let mut coords = [[0.0f64; 3]; 9];
+        for (i, &nid) in quad9.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        // Get element displacements
+        let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
+        let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
+        let u_local_vec = transform_displacement(&u_global, &t_q9, 54);
+        let mut u_local = [0.0; 54];
+        u_local.copy_from_slice(&u_local_vec);
+
+        // Compute membrane stress resultants (force/length = stress × thickness)
+        let s = crate::element::quad9::quad9_stresses(&coords, &u_local, e, nu, quad9.thickness);
+        let nxx = s.sigma_xx * quad9.thickness;
+        let nyy = s.sigma_yy * quad9.thickness;
+        let nxy = s.tau_xy * quad9.thickness;
+
+        // Build local geometric stiffness
+        let kg_local = crate::element::quad9::quad9_geometric_stiffness(&coords, nxx, nyy, nxy);
+        let kg_global = transform_stiffness(&kg_local, &t_q9, 54);
+
+        let ndof = q9_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[q9_dofs[i] * n + q9_dofs[j]] += kg_global[i * ndof + j];
+            }
+        }
+    }
+}
+
 /// Add 3D geometric stiffness from current displacements.
 pub fn add_geometric_stiffness_3d(
     input: &SolverInput3D,

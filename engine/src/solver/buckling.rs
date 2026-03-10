@@ -228,7 +228,7 @@ pub fn solve_buckling_3d(
     let mut kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
 
     // Add quad shell geometric stiffness from membrane stress resultants
-    if !input.quads.is_empty() {
+    if !input.quads.is_empty() || !input.quad9s.is_empty() {
         // Reconstruct displacement vector from linear results
         let mut u_full = vec![0.0; n];
         for d in &linear.displacements {
@@ -239,9 +239,16 @@ pub fn solve_buckling_3d(
                 }
             }
         }
-        super::geometric_stiffness::add_quad_geometric_stiffness_3d(
-            input, &dof_num, &u_full, &mut kg_full,
-        );
+        if !input.quads.is_empty() {
+            super::geometric_stiffness::add_quad_geometric_stiffness_3d(
+                input, &dof_num, &u_full, &mut kg_full,
+            );
+        }
+        if !input.quad9s.is_empty() {
+            super::geometric_stiffness::add_quad9_geometric_stiffness_3d(
+                input, &dof_num, &u_full, &mut kg_full,
+            );
+        }
     }
 
     // Add plate (DKT triangle) geometric stiffness from membrane stress resultants
@@ -280,7 +287,7 @@ pub fn solve_buckling_3d(
         (ef.n_start + ef.n_end) / 2.0 < -1e-6
     });
     // Also check if shell geometric stiffness has non-trivial entries
-    let has_shell_kg = (!input.quads.is_empty() || !input.plates.is_empty())
+    let has_shell_kg = (!input.quads.is_empty() || !input.plates.is_empty() || !input.quad9s.is_empty())
         && neg_kg_solve.iter().any(|&v| v.abs() > 1e-15);
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());

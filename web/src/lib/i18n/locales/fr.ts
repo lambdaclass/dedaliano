@@ -577,6 +577,7 @@ const fr: Translations = {
   'resultsTable.reactions': 'Réactions',
   'resultsTable.internalForces': 'Efforts internes',
   'resultsTable.envelope': 'Enveloppe',
+  'resultsTable.diagnostics': 'Diagnostics',
 
   // ─── Tables — common ───
   'table.addNode': '+ Nœud',

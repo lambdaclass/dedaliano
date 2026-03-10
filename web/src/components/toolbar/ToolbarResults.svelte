@@ -115,6 +115,14 @@
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
       }
+      // Show diagnostics warnings if present
+      const diagWarnings = [
+        ...(results.diagnostics ?? []).filter(d => d.metric === 'negative_jacobian').map(d => d.message),
+        ...(results.solverDiagnostics ?? []).filter(d => d.severity === 'warning').map(d => d.message),
+      ];
+      if (diagWarnings.length > 0) {
+        uiStore.toast(diagWarnings.join(' | '), 'info');
+      }
       uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
     } else {
       uiStore.toast(t('results.emptyModelError'), 'error');
@@ -148,6 +156,14 @@
           resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
+      }
+      // Show diagnostics warnings if present
+      const diagWarnings3D = [
+        ...(results.diagnostics ?? []).filter((d: { metric: string }) => d.metric === 'negative_jacobian').map((d: { message: string }) => d.message),
+        ...(results.solverDiagnostics ?? []).filter((d: { severity: string }) => d.severity === 'warning').map((d: { message: string }) => d.message),
+      ];
+      if (diagWarnings3D.length > 0) {
+        uiStore.toast(diagWarnings3D.join(' | '), 'info');
       }
       uiStore.toast(
         `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,

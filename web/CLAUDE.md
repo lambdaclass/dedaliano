@@ -356,4 +356,5 @@ Cada feedback incluye automáticamente:
 - Overlay comparison (Comparar selector): only works in 2D. In 3D, switching loads/combos works but overlay rendering is not yet implemented.
 - Influence lines: 2D only
 - Moving loads: 2D only
-- P-Delta, Buckling, Modal, Plastic, Spectral: 2D only (3D versions planned)
+- Plastic collapse: 2D only (3D not yet implemented in WASM/JS engine)
+- P-Delta, Buckling, Modal, Spectral: available in both 2D and 3D

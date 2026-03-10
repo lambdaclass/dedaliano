@@ -578,6 +578,7 @@ const id: Translations = {
   'resultsTable.reactions': 'Reaksi',
   'resultsTable.internalForces': 'Gaya Dalam',
   'resultsTable.envelope': 'Selubung',
+  'resultsTable.diagnostics': 'Diagnostik',
 
   // ─── Tables — common ───
   'table.addNode': '+ Titik Simpul',

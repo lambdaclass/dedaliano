@@ -25,6 +25,10 @@
 ///   5J. Contact 3D + rigid link
 ///   5K. Time integration 2D + diaphragm
 ///   5L. Time integration 3D + rigid link
+///   6A. Quad9 shell cantilever (MITC9)
+///   6B. Mixed beam+quad9 slab on columns
+///   6C. Quad9 cylindrical tank wall under hydrostatic pressure
+///   6D. Quad9 modal analysis of simply-supported plate
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -36,6 +40,7 @@ use dedaliano_engine::solver::contact::{self, ContactInput, ContactInput3D, Cont
 use dedaliano_engine::solver::fiber_nonlinear::{self, FiberNonlinearInput, FiberNonlinearInput3D};
 use dedaliano_engine::solver::reduction::{self, GuyanInput};
 use dedaliano_engine::solver::time_integration;
+use dedaliano_engine::solver::modal;
 use dedaliano_engine::element::fiber_beam::{rectangular_fiber_section, Fiber, FiberMaterial, FiberSectionDef};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
@@ -422,7 +427,7 @@ fn acceptance_3e_mixed_frame_shell() {
         loads,
         constraints: vec![],
         plates: HashMap::new(),
-        quads,
+        quads, quad9s: HashMap::new(),
         left_hand: None,
         curved_beams: vec![],
         connectors: HashMap::new(),
@@ -735,7 +740,7 @@ fn acceptance_4b_frame_quad_slab() {
 
     let input = SolverInput3D {
         nodes: nodes_map, materials, sections, elements, supports, loads,
-        constraints: vec![], plates: HashMap::new(), quads,
+        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -1193,7 +1198,7 @@ fn acceptance_4f_shell_cantilever() {
         nodes: nodes_map, materials,
         sections: HashMap::new(), elements: HashMap::new(),
         supports, loads,
-        constraints: vec![], plates: HashMap::new(), quads,
+        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -1487,7 +1492,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
                 plane: "XY".into(),
             }),
         ],
-        plates: HashMap::new(), quads,
+        plates: HashMap::new(), quads, quad9s: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -2695,5 +2700,591 @@ fn acceptance_5l_time_integration_3d_rigid_link() {
     if let Some(h) = ecc_hist {
         assert!(h.ux.iter().any(|&v| v.abs() > 1e-10),
             "Eccentric node should have dynamic response");
+    }
+}
+
+// ================================================================
+// Quad9 (MITC9) Acceptance Models
+// ================================================================
+
+/// Build a structured 9-node quad mesh on a flat or mapped domain.
+/// Returns (nodes, quad9s, grid) where grid is (2*nx+1) × (2*ny+1).
+fn build_q9_acceptance_mesh<F>(
+    nx: usize, ny: usize, coord_fn: F,
+) -> (HashMap<String, SolverNode3D>, HashMap<String, SolverQuad9Element>, Vec<Vec<usize>>)
+where
+    F: Fn(f64, f64) -> (f64, f64, f64),
+{
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; cols]; rows];
+    let mut nid = 1;
+
+    for i in 0..rows {
+        for j in 0..cols {
+            let xi = i as f64 / (rows - 1) as f64;
+            let eta = j as f64 / (cols - 1) as f64;
+            let (x, y, z) = coord_fn(xi, eta);
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quad9s = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            let bi = 2 * i;
+            let bj = 2 * j;
+            let nodes_9 = [
+                grid[bi][bj],
+                grid[bi + 2][bj],
+                grid[bi + 2][bj + 2],
+                grid[bi][bj + 2],
+                grid[bi + 1][bj],
+                grid[bi + 2][bj + 1],
+                grid[bi + 1][bj + 2],
+                grid[bi][bj + 1],
+                grid[bi + 1][bj + 1],
+            ];
+            quad9s.insert(qid.to_string(), SolverQuad9Element {
+                id: qid,
+                nodes: nodes_9,
+                material_id: 1,
+                thickness: 0.0,
+            });
+            qid += 1;
+        }
+    }
+
+    (nodes, quad9s, grid)
+}
+
+fn sup3d_full(node_id: usize) -> SolverSupport3D {
+    SolverSupport3D {
+        node_id,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        kx: None, ky: None, kz: None,
+        krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None,
+        drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    }
+}
+
+fn sup3d_custom(node_id: usize, rx: bool, ry: bool, rz: bool, rrx: bool, rry: bool, rrz: bool) -> SolverSupport3D {
+    SolverSupport3D {
+        node_id,
+        rx, ry, rz, rrx, rry, rrz,
+        kx: None, ky: None, kz: None,
+        krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None,
+        drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    }
+}
+
+// ── 6A: Quad9 Shell Cantilever ───────────────────────────────────────
+// 4×8 quad9 mesh cantilever: fixed at x=0, point load Fz at tip.
+// Mirrors acceptance_4f but with MITC9 elements.
+
+#[test]
+fn acceptance_6a_q9_shell_cantilever() {
+    let e = 200_000.0;
+    let nu = 0.3;
+    let t = 0.01;
+    let length = 2.0;
+    let width = 0.5;
+    let nx = 8;
+    let ny = 4;
+
+    let (nodes_map, mut quad9s, grid) = build_q9_acceptance_mesh(nx, ny, |xi, eta| {
+        (xi * length, eta * width, 0.0)
+    });
+    for q in quad9s.values_mut() {
+        q.thickness = t;
+    }
+
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // Fixed supports at x=0 (i=0, all j)
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for j in 0..cols {
+        supports.insert(sid.to_string(), sup3d_full(grid[0][j]));
+        sid += 1;
+    }
+
+    // Point load Fz=-1 kN at tip center node
+    let tip_center = grid[rows - 1][cols / 2];
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: tip_center,
+        fx: 0.0, fy: 0.0, fz: -1.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    })];
+
+    let input = SolverInput3D {
+        nodes: nodes_map, materials,
+        sections: HashMap::new(), elements: HashMap::new(),
+        supports, loads,
+        constraints: vec![], plates: HashMap::new(),
+        quads: HashMap::new(), quad9s,
+        left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("solve_3d failed on 6A Q9 cantilever");
+
+    // 1. Tip deflects downward
+    let tip_disp = result.displacements.iter()
+        .find(|d| d.node_id == tip_center)
+        .expect("Tip center node not found");
+    assert!(tip_disp.uz < 0.0,
+        "Tip should deflect downward, got uz={:.8}", tip_disp.uz);
+
+    // 2. Quad stresses present and non-trivial
+    assert_eq!(result.quad_stresses.len(), nx * ny,
+        "Expected {} quad stresses", nx * ny);
+    let n_with_bending = result.quad_stresses.iter()
+        .filter(|qs| qs.mx.abs() > 1e-10 || qs.my.abs() > 1e-10)
+        .count();
+    assert!(n_with_bending >= nx * ny / 2,
+        "Expected at least half of quads with bending, got {}/{}", n_with_bending, nx * ny);
+
+    // 3. Vertical equilibrium: sum of reaction Fz ≈ +1 kN
+    let sum_fz: f64 = result.reactions.iter().map(|r| r.fz).sum();
+    assert!((sum_fz - 1.0).abs() < 0.01,
+        "Vertical equilibrium: sum_fz={:.6}, expected ≈ 1.0", sum_fz);
+
+    // 4. Bending gradient: root > tip
+    let root_avg: f64 = result.quad_stresses.iter()
+        .filter(|qs| qs.element_id <= ny)
+        .map(|qs| qs.mx.abs() + qs.my.abs())
+        .sum::<f64>() / ny as f64;
+    let tip_avg: f64 = result.quad_stresses.iter()
+        .filter(|qs| qs.element_id > (nx - 1) * ny)
+        .map(|qs| qs.mx.abs() + qs.my.abs())
+        .sum::<f64>() / ny as f64;
+    assert!(root_avg > tip_avg,
+        "Root bending ({:.6}) should exceed tip bending ({:.6})", root_avg, tip_avg);
+
+    // 5. No NaN/Inf
+    for d in &result.displacements {
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+            "NaN/Inf at node {}", d.node_id);
+    }
+
+    // 6. Nodal stresses present
+    assert!(!result.quad_nodal_stresses.is_empty(),
+        "Expected quad nodal stresses for Q9 elements");
+
+    eprintln!("6A Q9 cantilever: tip_uz={:.6e}, sum_fz={:.4}, {} quad stresses",
+        tip_disp.uz, sum_fz, result.quad_stresses.len());
+}
+
+// ── 6B: Mixed Beam + Quad9 Slab on Columns ──────────────────────────
+// 4 columns (beam elements) supporting a 2×2 quad9 slab with gravity + lateral load.
+// Tests the full mixed beam-shell workflow with quad9 elements.
+
+#[test]
+fn acceptance_6b_mixed_beam_q9_slab() {
+    let e_concrete = 30_000.0;
+    let nu = 0.2;
+    let col_a = 0.16;       // 400×400mm column
+    let iy = 2.133e-3;
+    let iz_val = 2.133e-3;
+    let j_val = 3.6e-3;
+    let slab_t = 0.2;       // 200mm slab
+    let h = 3.5;            // story height
+    let span = 6.0;         // slab span
+
+    let mut nodes_map = HashMap::new();
+    let mut node_id = 1usize;
+
+    // 4 base nodes (z=0) at slab corners
+    let corners = [(0.0, 0.0), (span, 0.0), (span, span), (0.0, span)];
+    let mut base_ids = Vec::new();
+    for &(x, y) in &corners {
+        nodes_map.insert(node_id.to_string(), SolverNode3D { id: node_id, x, y, z: 0.0 });
+        base_ids.push(node_id);
+        node_id += 1;
+    }
+
+    // 2×2 quad9 slab at z=h → (2*2+1)×(2*2+1) = 5×5 = 25 nodes
+    let nx = 2usize;
+    let ny = 2usize;
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+    let mut slab_grid = vec![vec![0usize; cols]; rows];
+    for i in 0..rows {
+        for j in 0..cols {
+            let x = (i as f64 / (rows - 1) as f64) * span;
+            let y = (j as f64 / (cols - 1) as f64) * span;
+            nodes_map.insert(node_id.to_string(), SolverNode3D { id: node_id, x, y, z: h });
+            slab_grid[i][j] = node_id;
+            node_id += 1;
+        }
+    }
+
+    // Column tops = slab grid corner nodes
+    let top_ids = [slab_grid[0][0], slab_grid[rows-1][0], slab_grid[rows-1][cols-1], slab_grid[0][cols-1]];
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e: e_concrete, nu });
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), SolverSection3D {
+        id: 1, name: None, a: col_a, iy, iz: iz_val, j: j_val,
+        cw: None, as_y: None, as_z: None,
+    });
+
+    // 4 column elements
+    let mut elements = HashMap::new();
+    let mut eid = 1usize;
+    for ci in 0..4 {
+        elements.insert(eid.to_string(), SolverElement3D {
+            id: eid, elem_type: "frame".to_string(),
+            node_i: base_ids[ci], node_j: top_ids[ci],
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+        eid += 1;
+    }
+
+    // 2×2 quad9 mesh
+    let mut quad9s = HashMap::new();
+    let mut qid = 1usize;
+    for i in 0..nx {
+        for j in 0..ny {
+            let bi = 2 * i;
+            let bj = 2 * j;
+            let nodes_9 = [
+                slab_grid[bi][bj],
+                slab_grid[bi + 2][bj],
+                slab_grid[bi + 2][bj + 2],
+                slab_grid[bi][bj + 2],
+                slab_grid[bi + 1][bj],
+                slab_grid[bi + 2][bj + 1],
+                slab_grid[bi + 1][bj + 2],
+                slab_grid[bi][bj + 1],
+                slab_grid[bi + 1][bj + 1],
+            ];
+            quad9s.insert(qid.to_string(), SolverQuad9Element {
+                id: qid,
+                nodes: nodes_9,
+                material_id: 1,
+                thickness: slab_t,
+            });
+            qid += 1;
+        }
+    }
+
+    // Fixed supports at base
+    let mut supports = HashMap::new();
+    for (i, &nid) in base_ids.iter().enumerate() {
+        supports.insert((i + 1).to_string(), sup3d_full(nid));
+    }
+
+    // Gravity on all slab nodes + lateral at slab center
+    let total_slab_nodes = rows * cols;
+    let grav_per_node = -5.0 * span * span / total_slab_nodes as f64;
+    let mut loads = Vec::new();
+    for i in 0..rows {
+        for j in 0..cols {
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: slab_grid[i][j],
+                fx: 0.0, fy: 0.0, fz: grav_per_node,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+    }
+    // Lateral load at corner
+    loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: slab_grid[rows-1][cols-1],
+        fx: 10.0, fy: 0.0, fz: 0.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    }));
+
+    let input = SolverInput3D {
+        nodes: nodes_map, materials, sections, elements, supports, loads,
+        constraints: vec![],
+        plates: HashMap::new(), quads: HashMap::new(), quad9s,
+        left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("solve_3d failed on 6B mixed beam+Q9");
+
+    // 1. No NaN/Inf
+    for d in &result.displacements {
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+            "NaN/Inf at node {}", d.node_id);
+    }
+
+    // 2. Slab center deflects downward
+    let center = slab_grid[nx][ny];
+    let center_disp = result.displacements.iter()
+        .find(|d| d.node_id == center)
+        .expect("Slab center not found");
+    assert!(center_disp.uz < 0.0,
+        "Slab center should deflect down, got uz={:.6}", center_disp.uz);
+
+    // 3. Column forces present
+    assert_eq!(result.element_forces.len(), 4, "Expected 4 column forces");
+
+    // 4. Quad stresses present
+    assert_eq!(result.quad_stresses.len(), 4, "Expected 4 quad stresses (2×2 Q9 mesh)");
+
+    // 5. Vertical equilibrium
+    let sum_fz: f64 = result.reactions.iter().map(|r| r.fz).sum();
+    let applied_fz: f64 = total_slab_nodes as f64 * grav_per_node;
+    assert!((sum_fz + applied_fz).abs() < 1.0,
+        "Vertical equilibrium: sum_fz={:.4}, applied={:.4}", sum_fz, applied_fz);
+
+    // 6. Lateral response: loaded corner drifts in +x
+    let corner_disp = result.displacements.iter()
+        .find(|d| d.node_id == slab_grid[rows-1][cols-1])
+        .expect("Loaded corner not found");
+    assert!(corner_disp.ux > 0.0,
+        "Loaded corner should drift in +x, got ux={:.8}", corner_disp.ux);
+
+    eprintln!("6B mixed beam+Q9: center_uz={:.6e}, sum_fz={:.4}, corner_ux={:.6e}",
+        center_disp.uz, sum_fz, corner_disp.ux);
+}
+
+// ── 6C: Quad9 Cylindrical Tank Wall Under Hydrostatic Pressure ──────
+// Quarter-cylinder wall (R=5m, H=10m, t=0.3m), fixed at base,
+// free at top, with linearly varying pressure (hydrostatic).
+// Tests curved Q9 geometry with pressure loading.
+
+#[test]
+fn acceptance_6c_q9_cylindrical_tank() {
+    let r = 5.0;
+    let height = 10.0;
+    let t = 0.3;
+    let e_mpa = 30_000.0;
+    let nu = 0.2;
+
+    let pi = std::f64::consts::PI;
+    let nx = 4; // around circumference (quarter)
+    let ny = 6; // along height
+
+    let (nodes_map, mut quad9s, grid) = build_q9_acceptance_mesh(nx, ny, |xi, eta| {
+        let theta = xi * pi / 2.0; // 0 to 90°
+        let z = eta * height;      // 0 to H
+        let x = r * theta.cos();
+        let y = r * theta.sin();
+        (x, y, z)
+    });
+    for q in quad9s.values_mut() {
+        q.thickness = t;
+    }
+
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+
+    // Fixed base: z=0 (j=0)
+    for i in 0..rows {
+        supports.insert(sid.to_string(), sup3d_full(grid[i][0]));
+        sid += 1;
+    }
+
+    // Symmetry at theta=0 (XZ plane): uy=0, rrx=0, rrz=0
+    for j in 1..cols {
+        supports.insert(sid.to_string(), sup3d_custom(grid[0][j], false, true, false, true, false, true));
+        sid += 1;
+    }
+
+    // Symmetry at theta=90° (YZ plane): ux=0, rry=0, rrz=0
+    for j in 1..cols {
+        let nid = grid[rows - 1][j];
+        if !supports.values().any(|s| s.node_id == nid) {
+            supports.insert(sid.to_string(), sup3d_custom(nid, true, false, false, false, true, true));
+            sid += 1;
+        }
+    }
+
+    // Hydrostatic pressure: p = γ·(H - z), γ = 10 kN/m³ (water)
+    // Apply as nodal loads (tributary area × pressure at node)
+    // For simplicity, use Quad9Pressure at average depth per element
+    let gamma_w = 10.0; // kN/m³
+    let mut loads = Vec::new();
+    for q in quad9s.values() {
+        // Average z of all 9 nodes
+        let avg_z: f64 = q.nodes.iter()
+            .map(|&nid| {
+                let n = nodes_map.get(&nid.to_string()).unwrap();
+                n.z
+            })
+            .sum::<f64>() / 9.0;
+        let p = gamma_w * (height - avg_z); // pressure at avg depth (kN/m²)
+        if p > 0.0 {
+            loads.push(SolverLoad3D::Quad9Pressure(SolverPressureLoad {
+                element_id: q.id,
+                pressure: p / 1000.0, // convert to MPa-consistent units (kN/m² / 1000 → MPa)
+            }));
+        }
+    }
+
+    let input = SolverInput3D {
+        nodes: nodes_map, materials,
+        sections: HashMap::new(), elements: HashMap::new(),
+        supports, loads,
+        constraints: vec![], plates: HashMap::new(),
+        quads: HashMap::new(), quad9s,
+        left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("solve_3d failed on 6C Q9 tank");
+
+    // 1. No NaN/Inf
+    for d in &result.displacements {
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+            "NaN/Inf at node {}", d.node_id);
+    }
+
+    // 2. Wall should bulge outward (radial displacement > 0)
+    // At mid-height, mid-circumference: the radial direction is (cos θ, sin θ, 0)
+    // At θ=45°, radial = (ux + uy)/√2
+    let mid_i = rows / 2;
+    let mid_j = cols / 2;
+    let mid_node = grid[mid_i][mid_j];
+    let mid_disp = result.displacements.iter()
+        .find(|d| d.node_id == mid_node)
+        .expect("Mid-wall node not found");
+
+    let theta_mid = (mid_i as f64 / (rows - 1) as f64) * pi / 2.0;
+    let radial_disp = mid_disp.ux * theta_mid.cos() + mid_disp.uy * theta_mid.sin();
+    assert!(radial_disp > 0.0,
+        "Wall should bulge outward under internal pressure, radial={:.6e}", radial_disp);
+
+    // 3. Base nodes at z=0 should have zero displacement (fixed)
+    let base_disps: Vec<f64> = (0..rows).map(|i| {
+        let nid = grid[i][0];
+        result.displacements.iter()
+            .find(|d| d.node_id == nid)
+            .map(|d| (d.ux * d.ux + d.uy * d.uy + d.uz * d.uz).sqrt())
+            .unwrap_or(0.0)
+    }).collect();
+    let base_max = base_disps.iter().cloned().fold(0.0_f64, f64::max);
+    assert!(base_max < 1e-10, "Base should be fixed, got max disp={:.6e}", base_max);
+
+    // 4. Quad stresses present
+    assert_eq!(result.quad_stresses.len(), nx * ny,
+        "Expected {} quad stresses", nx * ny);
+
+    // 5. Hoop stress (membrane) should be dominant
+    let has_membrane = result.quad_stresses.iter()
+        .any(|qs| qs.sigma_xx.abs() > 1e-6 || qs.sigma_yy.abs() > 1e-6);
+    assert!(has_membrane, "Expected non-zero membrane stresses in tank wall");
+
+    eprintln!("6C Q9 tank: radial_mid={:.6e}, base_max={:.6e}, {} stresses",
+        radial_disp, base_max, result.quad_stresses.len());
+}
+
+// ── 6D: Quad9 Modal Analysis of Simply-Supported Plate ──────────────
+// 4×4 quad9 mesh, SS plate, compare first few frequencies to analytical.
+// Tests the full mass matrix + eigenvalue pipeline for MITC9.
+
+#[test]
+fn acceptance_6d_q9_modal_plate() {
+    let a = 1.0;       // plate side (m)
+    let t = 0.01;      // thickness (m)
+    let e_mpa = 200_000.0;
+    let nu = 0.3;
+    let rho = 7850.0;  // steel density (kg/m³)
+
+    let nx = 4;
+    let ny = 4;
+
+    let (nodes_map, mut quad9s, grid) = build_q9_acceptance_mesh(nx, ny, |xi, eta| {
+        (xi * a, eta * a, 0.0)
+    });
+    for q in quad9s.values_mut() {
+        q.thickness = t;
+    }
+
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // SS boundary: uz=0 on all edges, pin corner for in-plane stability
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for i in 0..rows {
+        for j in 0..cols {
+            let on_edge = i == 0 || i == rows - 1 || j == 0 || j == cols - 1;
+            if on_edge {
+                let is_origin = i == 0 && j == 0;
+                let is_x_edge = i == rows - 1 && j == 0;
+                supports.insert(sid.to_string(), sup3d_custom(
+                    grid[i][j],
+                    is_origin,                      // rx: pin origin
+                    is_origin || is_x_edge,         // ry: pin x-edge
+                    true,                           // rz: all edges
+                    false, false, false,
+                ));
+                sid += 1;
+            }
+        }
+    }
+
+    let input = SolverInput3D {
+        nodes: nodes_map, materials,
+        sections: HashMap::new(), elements: HashMap::new(),
+        supports, loads: vec![],
+        constraints: vec![], plates: HashMap::new(),
+        quads: HashMap::new(), quad9s,
+        left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
+    };
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), rho);
+
+    let modal_result = modal::solve_modal_3d(&input, &densities, 5)
+        .expect("Modal solve failed for 6D Q9 plate");
+
+    // Analytical: f_mn = (π/2) * sqrt(D_SI / (ρ·t)) * (m²/a² + n²/b²)
+    let pi = std::f64::consts::PI;
+    let e_si = e_mpa * 1.0e6;
+    let d_si = e_si * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let f_11 = (pi / 2.0) * (d_si / (rho * t)).sqrt() * (1.0 / (a * a) + 1.0 / (a * a));
+
+    // 1. Found at least 3 modes
+    assert!(modal_result.modes.len() >= 3,
+        "Expected ≥3 modes, got {}", modal_result.modes.len());
+
+    // 2. All frequencies positive and finite
+    for (i, mode) in modal_result.modes.iter().enumerate() {
+        assert!(mode.frequency > 0.0 && mode.frequency.is_finite(),
+            "Mode {}: frequency={:.4} invalid", i, mode.frequency);
+    }
+
+    // 3. First frequency close to analytical
+    let f1 = modal_result.modes[0].frequency;
+    let ratio = f1 / f_11;
+    eprintln!("6D Q9 modal: f1={:.2} Hz, analytical={:.2} Hz, ratio={:.4}", f1, f_11, ratio);
+    assert!(ratio > 0.9 && ratio < 1.1,
+        "First frequency ratio {:.4} outside [0.9, 1.1]", ratio);
+
+    // 4. Frequencies sorted ascending
+    for i in 1..modal_result.modes.len() {
+        assert!(modal_result.modes[i].frequency >= modal_result.modes[i - 1].frequency - 1e-6,
+            "Frequencies not sorted at mode {}", i);
     }
 }

@@ -292,6 +292,30 @@ pub fn assemble_mass_matrix_3d(
         }
     }
 
+    // Assemble quad9 (MITC9 shell) element masses
+    for quad9 in input.quad9s.values() {
+        let density = densities.get(&quad9.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 9];
+        for (i, &nid) in quad9.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        let m_local = crate::element::quad9::quad9_consistent_mass(&coords, density / 1000.0, quad9.thickness);
+
+        let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        for i in 0..54 {
+            for j in 0..54 {
+                let val = m_local[i * 54 + j];
+                if val.abs() > 1e-30 {
+                    m_global[q9_dofs[i] * n + q9_dofs[j]] += val;
+                }
+            }
+        }
+    }
+
     m_global
 }
 
@@ -443,6 +467,37 @@ pub fn compute_total_mass_3d(
         let a2 = (c2[0] * c2[0] + c2[1] * c2[1] + c2[2] * c2[2]).sqrt() / 2.0;
 
         total += density * (a1 + a2) * quad.thickness / 1000.0;
+    }
+
+    // Add quad9 (MITC9 shell) element masses
+    for quad9 in input.quad9s.values() {
+        let density = densities.get(&quad9.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = node_by_id[&quad9.nodes[0]];
+        let n1 = node_by_id[&quad9.nodes[1]];
+        let n2 = node_by_id[&quad9.nodes[2]];
+        let n3 = node_by_id[&quad9.nodes[3]];
+
+        let tri1_v1 = [n1.x - n0.x, n1.y - n0.y, n1.z - n0.z];
+        let tri1_v2 = [n3.x - n0.x, n3.y - n0.y, n3.z - n0.z];
+        let c1 = [
+            tri1_v1[1] * tri1_v2[2] - tri1_v1[2] * tri1_v2[1],
+            tri1_v1[2] * tri1_v2[0] - tri1_v1[0] * tri1_v2[2],
+            tri1_v1[0] * tri1_v2[1] - tri1_v1[1] * tri1_v2[0],
+        ];
+        let a1 = (c1[0] * c1[0] + c1[1] * c1[1] + c1[2] * c1[2]).sqrt() / 2.0;
+
+        let tri2_v1 = [n1.x - n2.x, n1.y - n2.y, n1.z - n2.z];
+        let tri2_v2 = [n3.x - n2.x, n3.y - n2.y, n3.z - n2.z];
+        let c2 = [
+            tri2_v1[1] * tri2_v2[2] - tri2_v1[2] * tri2_v2[1],
+            tri2_v1[2] * tri2_v2[0] - tri2_v1[0] * tri2_v2[2],
+            tri2_v1[0] * tri2_v2[1] - tri2_v1[1] * tri2_v2[0],
+        ];
+        let a2 = (c2[0] * c2[0] + c2[1] * c2[1] + c2[2] * c2[2]).sqrt() / 2.0;
+
+        total += density * (a1 + a2) * quad9.thickness / 1000.0;
     }
 
     total

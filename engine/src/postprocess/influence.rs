@@ -271,6 +271,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
         left_hand: input.solver.left_hand,
         plates: input.solver.plates.clone(),
         quads: input.solver.quads.clone(),
+        quad9s: input.solver.quad9s.clone(),
         curved_beams: input.solver.curved_beams.clone(),
         connectors: HashMap::new(),
     };

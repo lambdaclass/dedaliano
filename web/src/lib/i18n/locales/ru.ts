@@ -578,6 +578,7 @@ const ru: Translations = {
   'resultsTable.reactions': 'Реакции',
   'resultsTable.internalForces': 'Внутренние усилия',
   'resultsTable.envelope': 'Огибающая',
+  'resultsTable.diagnostics': 'Диагностика',
 
   // ─── Tables — common ───
   'table.addNode': '+ Узел',
