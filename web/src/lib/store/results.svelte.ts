@@ -5,10 +5,14 @@ import type { ElementForces, FullEnvelope, SolverDiagnostic, ConstraintForce, As
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult } from '../engine/pdelta';
+import type { PDeltaResult3D } from '../engine/pdelta-3d';
 import type { ModalResult } from '../engine/modal';
+import type { ModalResult3D } from '../engine/modal-3d';
 import type { BucklingResult } from '../engine/buckling';
+import type { BucklingResult3D } from '../engine/buckling-3d';
 import type { PlasticResult } from '../engine/plastic';
 import type { SpectralResult } from '../engine/spectral';
+import type { SpectralResult3D } from '../engine/spectral-3d';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types
@@ -110,6 +114,11 @@ function createResultsStore() {
   let plasticResult = $state<PlasticResult | null>(null);
   let plasticStep = $state<number>(0);
   let spectralResult = $state<SpectralResult | null>(null);
+  // 3D advanced analysis results
+  let pdeltaResult3D = $state<PDeltaResult3D | null>(null);
+  let modalResult3D = $state<ModalResult3D | null>(null);
+  let bucklingResult3D = $state<BucklingResult3D | null>(null);
+  let spectralResult3D = $state<SpectralResult3D | null>(null);
   let showReactions = $state<boolean>(true);
   let movingLoadShowEnvelope = $state<boolean>(false);
 
@@ -271,6 +280,10 @@ function createResultsStore() {
       movingLoadEnvelope = null;
       activeMovingLoadPosition = 0;
       movingLoadShowEnvelope = false;
+      pdeltaResult3D = null;
+      modalResult3D = null;
+      bucklingResult3D = null;
+      spectralResult3D = null;
     },
 
     /** Individual clear methods (for toggle-off behavior) */
@@ -358,6 +371,56 @@ function createResultsStore() {
       spectralResult = r;
     },
 
+    // ─── 3D Advanced Analysis Results ─────────────────────────────
+    get pdeltaResult3D() { return pdeltaResult3D; },
+    setPDeltaResult3D(r: PDeltaResult3D) {
+      this.clearAdvanced();
+      pdeltaResult3D = r;
+      results3D = r.results;
+      diagramType = 'deformed';
+    },
+    clearPDelta3D() {
+      pdeltaResult3D = null;
+    },
+
+    get modalResult3D() { return modalResult3D; },
+    setModalResult3D(r: ModalResult3D) {
+      this.clearAdvanced();
+      modalResult3D = r;
+      activeModeIndex = 0;
+      diagramType = 'modeShape';
+    },
+    clearModal3D() {
+      modalResult3D = null;
+      activeModeIndex = 0;
+      spectralResult3D = null;
+      if (diagramType === 'modeShape') diagramType = 'deformed';
+    },
+
+    get bucklingResult3D() { return bucklingResult3D; },
+    setBucklingResult3D(r: BucklingResult3D) {
+      this.clearAdvanced();
+      bucklingResult3D = r;
+      activeBucklingMode = 0;
+      diagramType = 'bucklingMode';
+    },
+    clearBuckling3D() {
+      bucklingResult3D = null;
+      activeBucklingMode = 0;
+      if (diagramType === 'bucklingMode') diagramType = 'deformed';
+    },
+
+    get spectralResult3D() { return spectralResult3D; },
+    setSpectralResult3D(r: SpectralResult3D) {
+      pdeltaResult3D = null;
+      bucklingResult3D = null;
+      activeBucklingMode = 0;
+      spectralResult3D = r;
+    },
+    clearSpectral3D() {
+      spectralResult3D = null;
+    },
+
     get showReactions() { return showReactions; },
     set showReactions(v: boolean) { showReactions = v; },
 
@@ -411,9 +474,9 @@ function createResultsStore() {
       perCombo = new Map();
       envelope = null;
       activeComboId = null;
-      // Clear 2D diagnostics on fresh solve
+      // Extract diagnostics and constraint forces from results
       diagnostics2D = [];
-      constraintForces2D = [];
+      constraintForces2D = r.constraintForces ?? [];
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
@@ -499,9 +562,9 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
-      // Clear 3D diagnostics on fresh solve
+      // Extract diagnostics and constraint forces from results
       diagnostics3DArr = [];
-      constraintForces3DArr = [];
+      constraintForces3DArr = r.constraintForces ?? [];
     },
 
     clear3D() {
@@ -512,6 +575,10 @@ function createResultsStore() {
       envelope3D = null;
       diagnostics3DArr = [];
       constraintForces3DArr = [];
+      pdeltaResult3D = null;
+      modalResult3D = null;
+      bucklingResult3D = null;
+      spectralResult3D = null;
       // Reset diagram state so stale deformed/diagrams are removed from scene
       diagramType = 'none';
       animateDeformed = false;

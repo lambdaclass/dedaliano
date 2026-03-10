@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
 
   let solveError = $state<string | null>(null);
@@ -348,16 +349,17 @@
         </details>
       {/if}
 
-      {#if results.constraintForces?.length}
+      {#if (results.constraintForces?.length ?? 0) > 0 || resultsStore.constraintForces3D.length > 0}
+        {@const cForces = results.constraintForces?.length ? results.constraintForces : resultsStore.constraintForces3D}
         <details class="res-detail">
-          <summary class="pro-res-section-title">Fuerzas en vínculos <span class="res-count">({results.constraintForces.length})</span></summary>
+          <summary class="pro-res-section-title">{t('pro.constraintForces')} <span class="res-count">({cForces.length})</span></summary>
           <div class="pro-res-table-wrap">
             <table class="pro-res-table">
               <thead><tr>
-                <th>Nodo</th><th>DOF</th><th>Fuerza (kN / kN·m)</th>
+                <th>{t('pro.nodeLabel')}</th><th>DOF</th><th>{t('pro.forceLabel')}</th>
               </tr></thead>
               <tbody>
-                {#each results.constraintForces as cf}
+                {#each cForces as cf}
                   <tr>
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
@@ -372,11 +374,11 @@
 
       {#if results.diagnostics?.length}
         <details class="res-detail">
-          <summary class="pro-res-section-title">Diagnósticos <span class="res-count">({results.diagnostics.length})</span></summary>
+          <summary class="pro-res-section-title">{t('pro.diagnosticsTitle')} <span class="res-count">({results.diagnostics.length})</span></summary>
           <div class="pro-res-table-wrap">
             <table class="pro-res-table">
               <thead><tr>
-                <th>Elem</th><th>Métrica</th><th>Valor</th><th>Umbral</th><th>Mensaje</th>
+                <th>{t('pro.elemLabel')}</th><th>{t('pro.metricLabel')}</th><th>{t('pro.valueLabel')}</th><th>{t('pro.thresholdLabel')}</th><th>{t('pro.messageLabel')}</th>
               </tr></thead>
               <tbody>
                 {#each results.diagnostics as diag}

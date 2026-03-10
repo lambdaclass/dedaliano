@@ -1,7 +1,11 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
+  import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
+  import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
+  import { solveSpectral3D as jsSpectral3D } from '../../lib/engine/spectral-3d';
   import { cirsoc103Spectrum } from '../../lib/engine/spectral';
   import { getPredefinedTrains } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
@@ -233,6 +237,100 @@
     }
   }
 
+  const is3D = $derived(uiStore.analysisMode === '3d');
+
+  function handlePDelta3D() {
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    try {
+      const t0 = performance.now();
+      let result: any;
+      try { result = wasmPDelta3D(input); } catch { result = jsPDelta3D(input); }
+      const dt = performance.now() - t0;
+      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      resultsStore.setPDeltaResult3D(result);
+      const msg = result.converged
+        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
+        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
+      uiStore.toast(msg, result.converged ? 'success' : 'error');
+    } catch (e: any) {
+      uiStore.toast(e.message || t('toast.pdeltaError'), 'error');
+    }
+  }
+
+  function handleModal3D() {
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const densities = new Map<number, number>();
+    for (const [id, mat] of modelStore.materials) {
+      densities.set(id, mat.rho * 1000 / 9.81);
+    }
+    try {
+      const t0 = performance.now();
+      let result: any;
+      try { result = wasmModal3D(input, densities); } catch { result = jsModal3D(input, densities); }
+      const dt = performance.now() - t0;
+      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      resultsStore.setModalResult3D(result);
+      const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
+      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+    } catch (e: any) {
+      uiStore.toast(e.message || t('toast.modalError'), 'error');
+    }
+  }
+
+  function handleBuckling3D() {
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    try {
+      const t0 = performance.now();
+      let result: any;
+      try { result = wasmBuckling3D(input); } catch { result = jsBuckling3D(input); }
+      const dt = performance.now() - t0;
+      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      resultsStore.setBucklingResult3D(result);
+      const factor = result.modes[0]?.loadFactor;
+      const nComp = result.elementData.length;
+      uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '\u2014').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
+    } catch (e: any) {
+      uiStore.toast(e.message || t('toast.bucklingError'), 'error');
+    }
+  }
+
+  function handleSpectral3D() {
+    if (!resultsStore.modalResult3D) {
+      uiStore.toast(t('advanced.runDynamicFirst'), 'error');
+      return;
+    }
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const densities = new Map<number, number>();
+    for (const [id, mat] of modelStore.materials) {
+      densities.set(id, mat.rho * 1000 / 9.81);
+    }
+    try {
+      const spectrum = cirsoc103Spectrum(4, 'II');
+      const t0 = performance.now();
+      let result: any;
+      try {
+        result = wasmSpectral3D({
+          solver: input, densities, spectrum, directions: ['X', 'Y'],
+          combination: 'CQC',
+        });
+      } catch {
+        result = jsSpectral3D(input, resultsStore.modalResult3D!, densities, {
+          direction: 'X', spectrum, rule: 'CQC',
+        });
+      }
+      const dt = performance.now() - t0;
+      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      resultsStore.setSpectralResult3D(result);
+      uiStore.toast(t('toast.spectralSuccess').replace('{vBase}', result.baseShear.toFixed(1)).replace('{ms}', dt.toFixed(0)), 'success');
+    } catch (e: any) {
+      uiStore.toast(e.message || t('toast.spectralError'), 'error');
+    }
+  }
+
   function handleSolveCombinations() {
     if (uiStore.analysisMode === '3d') {
       const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
@@ -272,7 +370,7 @@
     {/if}
   {/snippet}
   <div class="advanced-grid">
-    {#if uiStore.analysisMode !== '3d'}
+    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.showKinematicPanel}
@@ -296,46 +394,72 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('stress', e)} class:active={advHelpKey === 'stress'}>?</button>
     </div>
     {@render helpPanel('stress')}
-    {#if uiStore.analysisMode !== '3d'}
+    <!-- P-Delta & Buckling: available in both 2D and 3D -->
     <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={!!resultsStore.pdeltaResult}
+      <button class="adv-btn" class:active={is3D ? !!resultsStore.pdeltaResult3D : !!resultsStore.pdeltaResult}
         onclick={() => {
-          if (resultsStore.pdeltaResult) {
-            resultsStore.clearPDelta();
-            const r = modelStore.solve(uiStore.includeSelfWeight);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-          } else { handlePDelta(); }
+          if (is3D) {
+            if (resultsStore.pdeltaResult3D) {
+              resultsStore.clearPDelta3D();
+              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+              if (r && typeof r !== 'string') resultsStore.setResults3D(r);
+            } else { handlePDelta3D(); }
+          } else {
+            if (resultsStore.pdeltaResult) {
+              resultsStore.clearPDelta();
+              const r = modelStore.solve(uiStore.includeSelfWeight);
+              if (r && typeof r !== 'string') resultsStore.setResults(r);
+            } else { handlePDelta(); }
+          }
         }}>{t('advanced.pdelta')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('pdelta', e)} class:active={advHelpKey === 'pdelta'}>?</button>
     </div>
     <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={!!resultsStore.bucklingResult}
+      <button class="adv-btn" class:active={is3D ? !!resultsStore.bucklingResult3D : !!resultsStore.bucklingResult}
         onclick={() => {
-          if (resultsStore.bucklingResult) { resultsStore.clearBuckling(); }
-          else { handleBuckling(); }
+          if (is3D) {
+            if (resultsStore.bucklingResult3D) { resultsStore.clearBuckling3D(); }
+            else { handleBuckling3D(); }
+          } else {
+            if (resultsStore.bucklingResult) { resultsStore.clearBuckling(); }
+            else { handleBuckling(); }
+          }
         }}>{t('advanced.buckling')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('buckling', e)} class:active={advHelpKey === 'buckling'}>?</button>
     </div>
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
+    <!-- Modal & Spectral: available in both 2D and 3D -->
     <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={!!resultsStore.modalResult}
+      <button class="adv-btn" class:active={is3D ? !!resultsStore.modalResult3D : !!resultsStore.modalResult}
         onclick={() => {
-          if (resultsStore.modalResult) { resultsStore.clearModal(); }
-          else { handleModal(); }
+          if (is3D) {
+            if (resultsStore.modalResult3D) { resultsStore.clearModal3D(); }
+            else { handleModal3D(); }
+          } else {
+            if (resultsStore.modalResult) { resultsStore.clearModal(); }
+            else { handleModal(); }
+          }
         }}>{t('advanced.dynamic')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('modal', e)} class:active={advHelpKey === 'modal'}>?</button>
     </div>
     <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={!!resultsStore.spectralResult}
+      <button class="adv-btn" class:active={is3D ? !!resultsStore.spectralResult3D : !!resultsStore.spectralResult}
         onclick={() => {
-          if (resultsStore.spectralResult) { resultsStore.clearSpectral(); }
-          else { handleSpectral(); }
+          if (is3D) {
+            if (resultsStore.spectralResult3D) { resultsStore.clearSpectral3D(); }
+            else { handleSpectral3D(); }
+          } else {
+            if (resultsStore.spectralResult) { resultsStore.clearSpectral(); }
+            else { handleSpectral(); }
+          }
         }}>{t('advanced.spectral')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('spectral', e)} class:active={advHelpKey === 'spectral'}>?</button>
     </div>
     {@render helpPanel('modal')}
     {@render helpPanel('spectral')}
+    <!-- Plastic, Envelope, Moving Loads, Influence Lines: 2D only -->
+    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" class:active={!!resultsStore.plasticResult}
         onclick={() => {
@@ -348,6 +472,7 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
     </div>
     {@render helpPanel('plastic')}
+    {/if}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={resultsStore.activeView === 'envelope'}
@@ -356,12 +481,12 @@
             uiStore.toast(t('advanced.defineCombosFirst'), 'error');
             return;
           }
-          if (!resultsStore.fullEnvelope) {
+          if (is3D ? !resultsStore.fullEnvelope3D : !resultsStore.fullEnvelope) {
             handleSolveCombinations();
           }
-          if (resultsStore.fullEnvelope) {
+          if (is3D ? resultsStore.fullEnvelope3D : resultsStore.fullEnvelope) {
             resultsStore.activeView = 'envelope';
-            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = 'moment';
+            if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = is3D ? 'momentZ' : 'moment';
           }
         }}>
         {t('advanced.envelope')}
@@ -369,6 +494,7 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('envelope', e)} class:active={advHelpKey === 'envelope'}>?</button>
     </div>
     {@render helpPanel('envelope')}
+    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" class:active={!!resultsStore.movingLoadEnvelope}
         onclick={() => {
@@ -480,57 +606,61 @@
     </div>
     {@render helpPanel('dsm')}
   </div>
-  {#if resultsStore.pdeltaResult}
+  {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
+  {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
+  {@const spR = is3D ? resultsStore.spectralResult3D : resultsStore.spectralResult}
+  {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
+  {#if pdR}
     <div class="adv-result-info" style="font-size:10px">
-      P-Δ: B₂ = {resultsStore.pdeltaResult.b2Factor.toFixed(3)} |
-      {resultsStore.pdeltaResult.converged ? `${resultsStore.pdeltaResult.iterations} iter` : 'no conv.'} |
-      {resultsStore.pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
+      P-Δ: B₂ = {pdR.b2Factor.toFixed(3)} |
+      {pdR.converged ? `${pdR.iterations} iter` : 'no conv.'} |
+      {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>
   {/if}
-  {#if resultsStore.modalResult}
+  {#if moR}
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>
-      <span class="adv-result-label">{resultsStore.activeModeIndex + 1}/{resultsStore.modalResult.modes.length}</span>
-      <button class="small-btn" onclick={() => { if (resultsStore.modalResult && resultsStore.activeModeIndex < resultsStore.modalResult.modes.length - 1) resultsStore.activeModeIndex++; }} disabled={!resultsStore.modalResult || resultsStore.activeModeIndex >= resultsStore.modalResult.modes.length - 1}>&#9654;</button>
+      <span class="adv-result-label">{resultsStore.activeModeIndex + 1}/{moR.modes.length}</span>
+      <button class="small-btn" onclick={() => { if (moR && resultsStore.activeModeIndex < moR.modes.length - 1) resultsStore.activeModeIndex++; }} disabled={!moR || resultsStore.activeModeIndex >= moR.modes.length - 1}>&#9654;</button>
     </div>
-    {#if resultsStore.modalResult.modes[resultsStore.activeModeIndex]}
-      {@const mode = resultsStore.modalResult.modes[resultsStore.activeModeIndex]}
+    {#if moR.modes[resultsStore.activeModeIndex]}
+      {@const mode = moR.modes[resultsStore.activeModeIndex]}
       <div class="adv-result-info">
         f = {mode.frequency.toFixed(2)} Hz |
         T = {mode.period.toFixed(3)} s
       </div>
       <div class="adv-result-info" style="font-size:10px; opacity:0.8">
         Meff: X={( mode.massRatioX * 100).toFixed(1)}% Y={( mode.massRatioY * 100).toFixed(1)}% |
-        Σ: X={( resultsStore.modalResult.cumulativeMassRatioX * 100).toFixed(1)}% Y={( resultsStore.modalResult.cumulativeMassRatioY * 100).toFixed(1)}%
+        Σ: X={( moR.cumulativeMassRatioX * 100).toFixed(1)}% Y={( moR.cumulativeMassRatioY * 100).toFixed(1)}%
       </div>
     {/if}
   {/if}
-  {#if resultsStore.spectralResult}
+  {#if spR}
     <div class="adv-result-info" style="font-size:10px">
-      {t('advanced.spectralLabel')} ({resultsStore.spectralResult.rule}):
-      V<sub>base</sub> = {resultsStore.spectralResult.baseShear.toFixed(1)} kN
+      {t('advanced.spectralLabel')} ({spR.rule}):
+      V<sub>base</sub> = {spR.baseShear.toFixed(1)} kN
     </div>
     <div class="adv-result-info" style="font-size:9px; opacity:0.8">
-      {#each resultsStore.spectralResult.perMode.slice(0, 3) as pm}
+      {#each spR.perMode.slice(0, 3) as pm}
         T<sub>{pm.mode}</sub>={pm.period.toFixed(3)}s Sa={pm.sa.toFixed(2)}g{' | '}
       {/each}
-      {#if resultsStore.spectralResult.perMode.length > 3}…{/if}
+      {#if spR.perMode.length > 3}…{/if}
     </div>
   {/if}
-  {#if resultsStore.bucklingResult}
+  {#if buR}
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'bucklingMode'} onclick={() => resultsStore.diagramType = 'bucklingMode'}>{t('advanced.bucklingLabel')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeBucklingMode > 0) resultsStore.activeBucklingMode--; }} disabled={resultsStore.activeBucklingMode === 0}>&#9664;</button>
-      <span class="adv-result-label">{resultsStore.activeBucklingMode + 1}/{resultsStore.bucklingResult.modes.length}</span>
-      <button class="small-btn" onclick={() => { if (resultsStore.bucklingResult && resultsStore.activeBucklingMode < resultsStore.bucklingResult.modes.length - 1) resultsStore.activeBucklingMode++; }} disabled={!resultsStore.bucklingResult || resultsStore.activeBucklingMode >= resultsStore.bucklingResult.modes.length - 1}>&#9654;</button>
+      <span class="adv-result-label">{resultsStore.activeBucklingMode + 1}/{buR.modes.length}</span>
+      <button class="small-btn" onclick={() => { if (buR && resultsStore.activeBucklingMode < buR.modes.length - 1) resultsStore.activeBucklingMode++; }} disabled={!buR || resultsStore.activeBucklingMode >= buR.modes.length - 1}>&#9654;</button>
     </div>
     <div class="adv-result-info">
-      &lambda;_cr = {resultsStore.bucklingResult.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
+      &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
-    {#if resultsStore.bucklingResult.elementData.length > 0}
+    {#if buR.elementData.length > 0}
       <div class="adv-result-info" style="font-size:10px; opacity:0.8">
-        Keff: {resultsStore.bucklingResult.elementData.slice(0, 3).map(ed => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{resultsStore.bucklingResult.elementData.length > 3 ? '...' : ''}
+        Keff: {buR.elementData.slice(0, 3).map((ed: any) => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{buR.elementData.length > 3 ? '...' : ''}
       </div>
     {/if}
   {/if}
