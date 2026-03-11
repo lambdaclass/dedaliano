@@ -244,9 +244,7 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
 
         if max_row != col {
             for c in 0..cols {
-                let tmp = a[col * cols + c];
-                a[col * cols + c] = a[max_row * cols + c];
-                a[max_row * cols + c] = tmp;
+                a.swap(col * cols + c, max_row * cols + c);
             }
         }
 
