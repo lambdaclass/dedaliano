@@ -44,7 +44,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
 - **Fiber nonlinear beam-columns** (2D & 3D): distributed plasticity / section-integration solvers
 - **Creep / shrinkage**: time-dependent structural response with EC2-style models
-- **Plate/shell** (3D): DKT/DKMT triangular plates, MITC4 quadrilateral shells (ANS shear tying, EAS-7 membrane), and MITC9 9-node quadrilateral shells (ANS shear tying, Bucalem & Bathe 1993) with pressure, self-weight, thermal, and edge loading
+- **Plate/shell** (3D): DKT/DKMT triangular plates, MITC4 quadrilateral shells (ANS shear tying, EAS-7 membrane), MITC9 9-node quadrilateral shells (ANS shear tying, Bucalem & Bathe 1993), and SHB8-ANS solid-shells, with pressure, self-weight, thermal, and edge loading
 - **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows
 - **Section analysis**: polygon-based cross-section properties and section metrics
 
@@ -63,7 +63,7 @@ It also runs explicit gate steps for shell benchmarks, shell acceptance models, 
 
 ## Validation Test Suite
 
-Latest reported full-suite status: **5872 passing tests, 0 failures**.
+Latest reported full-suite status: **5897 passing tests, 0 failures**.
 
 The engine is backed by:
 
