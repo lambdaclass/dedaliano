@@ -11,6 +11,19 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Sparse shell solve viability and deterministic assembly
+
+- replaced broken etree-based symbolic Cholesky with direct left-looking symbolic factorization that correctly computes fill structure
+- added two-tier pivot perturbation in numeric Cholesky: hard threshold (1e-20 × max_diag) rejects true singularities, soft threshold (1e-10 × max_diag) perturbs drilling-DOF pivots with controlled regularization
+- added RCM (Reverse Cuthill-McKee) ordering with George-Liu pseudo-peripheral start node; fill ratio dropped from 673× to 1.8× on representative shell meshes
+- eliminated dense LU fallback on shell models: sparse Cholesky now survives MITC4, MITC9, and curved-shell plates that previously always fell back to dense LU (87% of wall time → 0%)
+- made all assembly paths (dense, sparse, parallel) deterministic by sorting HashMap element iterations by ID
+- fixed DOF numbering determinism: when multiple supports target the same node, constraint flags are now merged with OR instead of nondeterministic HashMap overwrite
+- added residual-based parity testing for ill-conditioned shell matrices: both sparse and dense solutions verified via ||Ku-f||/||f|| < 1e-6 instead of max-displacement comparison
+- added benchmark gate tests: no-dense-fallback gate, fill-ratio gate (< 200×), and sparse-vs-dense residual parity gate
+- wired pivot perturbation count and max perturbation into SolveTimings and solver diagnostics
+- added `PivotInfo` to `NumericCholesky` for tracking perturbation statistics
+
 #### Parallel 3D element assembly
 
 - added `assemble_sparse_3d_parallel()` behind `#[cfg(feature = "parallel")]` using rayon
@@ -113,6 +126,13 @@ It should capture what changed, not what should be built next.
 - clarified that the remaining shell decision is no longer `EAS-4 vs EAS-7`; it is `bounded MITC4+EAS-7 vs broader shell family`
 
 ### Fixed
+
+#### Deterministic DOF numbering and assembly
+
+- fixed 3D DOF numbering: multiple supports targeting the same node now merge constraint flags with OR instead of nondeterministic HashMap overwrite
+- fixed 2D DOF numbering: supports sorted by ID for deterministic overwrite order
+- fixed nondeterministic assembly: all element iterations in dense, sparse, and parallel assembly paths now sorted by element ID
+- fixed point-of-contraflexure inflection detection: rewrote to use nodal moment profile approach that handles inflection points on element boundaries
 
 #### Solver quality milestone
 
