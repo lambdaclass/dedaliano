@@ -11,6 +11,15 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### MITC9 and SHB8-ANS shell-family expansion
+
+- integrated the `MITC9` 9-node quadrilateral shell through the full solver stack: dense+sparse assembly, mass, geometric stiffness, buckling, stress recovery, and all shell load types
+- added `MITC9` acceptance/workflow models covering cantilever shell response, mixed beam+slab building workflow, cylindrical tank wall behavior, and modal plate extraction
+- integrated the `SHB8-ANS` solid-shell family as a new shell path for the curved/non-planar frontier
+- added shell-family frontier gates and comparative benchmarks across `MITC4`, `MITC9`, and `SHB8-ANS`
+- established explicit shell selection guidance instead of treating shell support as a single undifferentiated element family
+- shifted the shell roadmap from “add more shell breadth” to “harden and guide the multi-family shell stack”
+
 #### Sparse-first 3D assembly and solve
 
 - completed sparse 3D assembly for plates, quads, inclined supports, and diagnostics
@@ -93,4 +102,4 @@ It should capture what changed, not what should be built next.
 
 ### Validation
 
-- latest reported full-suite status reached `5872` passing tests with `0` failures
+- latest reported full-suite status reached `5897` passing tests with `0` failures
