@@ -3,7 +3,7 @@
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-  import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
+  import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { setLineResolution, fatLineResolution } from '../lib/three/create-element-mesh';
   import { COLORS, setMeshColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
@@ -11,7 +11,7 @@
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
-  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncReactions as _syncReactions, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
+  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -32,6 +32,7 @@
   let diagramGroup: THREE.Group | null = null;
   let overlayDiagramGroup: THREE.Group | null = null;
   let reactionGroup: THREE.Group | null = null;
+  let constraintForcesGroup: THREE.Group | null = null;
   let nodeLabelsGroup: THREE.Group | null = null;
   let elementLabelsGroup: THREE.Group | null = null;
   let lengthLabelsGroup: THREE.Group | null = null;
@@ -78,7 +79,9 @@
     shearZ:  '#66aa66',
     axial:   '#aa66dd',
     torsion: '#ee8844',
-    deformed:'#ff8800',
+    deformed:    '#ff8800',
+    modeShape:   '#4ecdc4',
+    bucklingMode:'#e96941',
   };
   const DIAGRAM_LABEL_KEYS: Record<string, string> = {
     momentZ: 'viewport3d.momentZ',
@@ -87,11 +90,13 @@
     shearZ:  'viewport3d.shearZ',
     axial:   'viewport3d.axial',
     torsion: 'viewport3d.torsion',
-    deformed:'viewport3d.deformed',
+    deformed:    'viewport3d.deformed',
+    modeShape:   'viewport3d.modeShape',
+    bucklingMode:'viewport3d.bucklingMode',
   };
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
-    if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap') return null;
+    if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap' || dt === 'verification') return null;
     const color = DIAGRAM_COLORS[dt];
     const key = DIAGRAM_LABEL_KEYS[dt];
     if (!color || !key) return null;
@@ -267,13 +272,22 @@
       updateClippingPlane();
 
       // Animate deformed shape (oscillating scale like 2D viewport)
-      if (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && resultsStore.results3D) {
-        const baseScale = resultsStore.deformedScale;
-        const animScale = baseScale * Math.sin(performance.now() / (500 / resultsStore.animSpeed));
-        // Only rebuild if scale changed meaningfully (avoid per-frame full rebuild)
-        if (resultsCtx.lastDeformedAnimScale === null || Math.abs(animScale - resultsCtx.lastDeformedAnimScale) > baseScale * 0.02) {
-          resultsCtx.lastDeformedAnimScale = animScale;
-          syncDeformed(animScale);
+      const _dt = resultsStore.diagramType;
+      const _animDeformed = resultsStore.animateDeformed && _dt === 'deformed' && resultsStore.results3D;
+      const _animMode = _dt === 'modeShape' && resultsStore.modalResult3D;
+      const _animBuckling = _dt === 'bucklingMode' && resultsStore.bucklingResult3D;
+      if (_animDeformed || _animMode || _animBuckling) {
+        if (_animMode || _animBuckling) {
+          // Mode shapes always animate — syncDeformed handles the sin() internally
+          syncDeformed();
+        } else {
+          const baseScale = resultsStore.deformedScale;
+          const animScale = baseScale * Math.sin(performance.now() / (500 / resultsStore.animSpeed));
+          // Only rebuild if scale changed meaningfully (avoid per-frame full rebuild)
+          if (resultsCtx.lastDeformedAnimScale === null || Math.abs(animScale - resultsCtx.lastDeformedAnimScale) > baseScale * 0.02) {
+            resultsCtx.lastDeformedAnimScale = animScale;
+            syncDeformed(animScale);
+          }
         }
       } else if (deformedGroup && resultsCtx.lastDeformedAnimScale !== null) {
         // Animation was running but conditions no longer met (model cleared, example changed, etc.)
@@ -359,7 +373,7 @@
       elementGroups,
       shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
-      reactionGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null,
+      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
       lastDeformedAnimScale: null,
       colorMapApplied: false,
     };
@@ -375,7 +389,7 @@
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
     const dt = resultsStore.diagramType;
-    if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+    if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
       syncColorMap3D();
     }
   }
@@ -392,9 +406,16 @@
     _syncColorMap3D(resultsCtx);
     sceneCtx.colorMapApplied = resultsCtx.colorMapApplied;
   }
+  function syncVerificationLabels() {
+    _syncVerificationLabels(resultsCtx);
+  }
   function syncReactions() {
     _syncReactions(resultsCtx);
     reactionGroup = resultsCtx.reactionGroup;
+  }
+  function syncConstraintForces() {
+    _syncConstraintForces(resultsCtx);
+    constraintForcesGroup = resultsCtx.constraintForcesGroup;
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
@@ -461,8 +482,15 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.deformedScale;
+    resultsStore.modalResult3D;
+    resultsStore.activeModeIndex;
+    resultsStore.bucklingResult3D;
+    resultsStore.activeBucklingMode;
     const animating = resultsStore.animateDeformed;
+    const dt = resultsStore.diagramType;
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
+    // Mode shapes and buckling modes always animate from the render loop
+    if (dt === 'modeShape' || dt === 'bucklingMode') return;
     // When animation is active, let the render loop handle syncDeformed with oscillating scale
     if (!animating) {
       syncDeformed();
@@ -484,13 +512,23 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.colorMapKind;
+    // Also react to verification store changes for 'verification' color map
+    verificationStore.concrete;
+    verificationStore.steel;
     syncColorMap3D();
+    syncVerificationLabels();
   });
 
   $effect(() => {
     resultsStore.results3D;
     resultsStore.showReactions;
     syncReactions();
+  });
+
+  $effect(() => {
+    resultsStore.constraintForces3D;
+    resultsStore.showConstraintForces;
+    syncConstraintForces();
   });
 
   $effect(() => {
@@ -1441,7 +1479,7 @@
       const group = elementGroups.get(data.id);
       if (group) {
         const dt = resultsStore.diagramType;
-        if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+        if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
           // Re-apply color map instead of base color
           syncColorMap3D();
         } else {
@@ -1469,7 +1507,7 @@
       if (group) {
         // Don't override color map colors with hover
         const dt = resultsStore.diagramType;
-        if (dt !== 'axialColor' && dt !== 'colorMap') {
+        if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
           setGroupColor(group, COLORS.elementHovered);
         }
       }
@@ -1677,6 +1715,24 @@
         <span class="legend-color" style="background: #FFA500; margin-left: 8px;"></span>
         <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.overlayLabel)}</span>
       {/if}
+    </div>
+  {/if}
+
+  <!-- Verification color legend -->
+  {#if resultsStore.diagramType === 'verification' && verificationStore.hasResults}
+    <div class="diagram-legend verification-legend">
+      <span class="legend-color" style="background: #22cc66;"></span>
+      <span class="legend-text">&le; 0.5</span>
+      <span class="legend-color" style="background: #88cc22; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 0.9</span>
+      <span class="legend-color" style="background: #ddaa00; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 1.0</span>
+      <span class="legend-color" style="background: #ff6600; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 1.1</span>
+      <span class="legend-color" style="background: #ee2222; margin-left: 6px;"></span>
+      <span class="legend-text">&gt; 1.1</span>
+      <span class="legend-color" style="background: #888888; margin-left: 6px;"></span>
+      <span class="legend-text">N/V</span>
     </div>
   {/if}
 

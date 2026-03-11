@@ -1,16 +1,24 @@
 <script lang="ts">
   import { modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { selectShellFamily } from '../../lib/engine/shell-family-selector';
+  import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
+  import { AVAILABLE_SHELL_FAMILIES } from '../../lib/engine/types-3d';
+  import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
   // --- Plate (DKT triangle) creator state ---
   let plateNodes = $state<[string, string, string]>(['', '', '']);
   let plateMaterialId = $state(1);
   let plateThickness = $state(0.2);
+  let plateFamily = $state<ShellFamily | 'auto'>('auto');
+  let plateRecommendation = $state<ShellRecommendation | null>(null);
 
   // --- Quad (MITC4) creator state ---
   let quadNodes = $state<[string, string, string, string]>(['', '', '', '']);
   let quadMaterialId = $state(1);
   let quadThickness = $state(0.2);
+  let quadFamily = $state<ShellFamily | 'auto'>('auto');
+  let quadRecommendation = $state<ShellRecommendation | null>(null);
 
   // --- Quick mesh generator state ---
   let meshCorners = $state<[string, string, string, string]>(['', '', '', '']);
@@ -46,6 +54,34 @@
     return parsed;
   }
 
+  /** Get Vec3 positions from node IDs */
+  function getNodePositions(ids: number[]): Vec3[] | null {
+    const positions: Vec3[] = [];
+    for (const id of ids) {
+      const n = modelStore.nodes.get(id);
+      if (!n) return null;
+      positions.push({ x: n.x, y: n.y, z: n.z ?? 0 });
+    }
+    return positions;
+  }
+
+  /** Run the selector and update recommendation state */
+  function updatePlateRecommendation() {
+    const nodeIds = validateNodeIds(plateNodes, 3);
+    if (!nodeIds || plateThickness <= 0) { plateRecommendation = null; return; }
+    const positions = getNodePositions(nodeIds);
+    if (!positions) { plateRecommendation = null; return; }
+    plateRecommendation = selectShellFamily({ nodes: positions, thickness: plateThickness });
+  }
+
+  function updateQuadRecommendation() {
+    const nodeIds = validateNodeIds(quadNodes, 4);
+    if (!nodeIds || quadThickness <= 0) { quadRecommendation = null; return; }
+    const positions = getNodePositions(nodeIds);
+    if (!positions) { quadRecommendation = null; return; }
+    quadRecommendation = selectShellFamily({ nodes: positions, thickness: quadThickness });
+  }
+
   function addPlate() {
     plateError = null;
     const nodeIds = validateNodeIds(plateNodes, 3);
@@ -61,8 +97,17 @@
       plateError = t('pro.errThickness');
       return;
     }
+    // Resolve shell family: auto → use recommendation, else use override
+    const family: ShellFamily = plateFamily === 'auto'
+      ? (plateRecommendation?.family ?? 'DKT')
+      : plateFamily;
     modelStore.addPlate(nodeIds as [number, number, number], plateMaterialId, plateThickness);
+    // Set family on the just-created plate
+    const plates = [...modelStore.model.plates.values()];
+    const last = plates[plates.length - 1];
+    if (last) last.shellFamily = family;
     plateNodes = ['', '', ''];
+    plateRecommendation = null;
   }
 
   function addQuad() {
@@ -80,8 +125,15 @@
       quadError = t('pro.errThickness');
       return;
     }
+    const family: ShellFamily = quadFamily === 'auto'
+      ? (quadRecommendation?.family ?? 'MITC4')
+      : quadFamily;
     modelStore.addQuad(nodeIds as [number, number, number, number], quadMaterialId, quadThickness);
+    const quads = [...modelStore.model.quads.values()];
+    const last = quads[quads.length - 1];
+    if (last) last.shellFamily = family;
     quadNodes = ['', '', '', ''];
+    quadRecommendation = null;
   }
 
   function deletePlate(id: number) {
@@ -203,9 +255,9 @@
         <div class="section-body">
           <div class="input-row">
             <label>{t('pro.nodes')}:</label>
-            <input type="text" bind:value={plateNodes[0]} placeholder="N1" class="node-input" />
-            <input type="text" bind:value={plateNodes[1]} placeholder="N2" class="node-input" />
-            <input type="text" bind:value={plateNodes[2]} placeholder="N3" class="node-input" />
+            <input type="text" bind:value={plateNodes[0]} placeholder="N1" class="node-input" oninput={updatePlateRecommendation} />
+            <input type="text" bind:value={plateNodes[1]} placeholder="N2" class="node-input" oninput={updatePlateRecommendation} />
+            <input type="text" bind:value={plateNodes[2]} placeholder="N3" class="node-input" oninput={updatePlateRecommendation} />
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -217,8 +269,25 @@
           </div>
           <div class="input-row">
             <label>{t('pro.thickness')}:</label>
-            <input type="number" bind:value={plateThickness} step="0.01" min="0.001" class="thick-input" />
+            <input type="number" bind:value={plateThickness} step="0.01" min="0.001" class="thick-input" oninput={updatePlateRecommendation} />
           </div>
+          <div class="input-row">
+            <label>Family:</label>
+            <select bind:value={plateFamily} class="family-select">
+              <option value="auto">Auto{plateRecommendation ? ` (${plateRecommendation.family})` : ''}</option>
+              <option value="DKT">DKT (Kirchhoff)</option>
+              <option value="DKMT" disabled>DKMT (Mindlin) — planned</option>
+            </select>
+          </div>
+          {#if plateRecommendation}
+            <div class="recommendation" class:warn={plateRecommendation.confidence !== 'high'}>
+              <span class="rec-icon">{plateRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
+              <span class="rec-text">{plateRecommendation.reason}</span>
+            </div>
+            {#each plateRecommendation.warnings as w}
+              <div class="rec-warning">{w}</div>
+            {/each}
+          {/if}
           {#if plateError}
             <div class="field-error">{plateError}</div>
           {/if}
@@ -237,10 +306,10 @@
         <div class="section-body">
           <div class="input-row">
             <label>{t('pro.nodes')}:</label>
-            <input type="text" bind:value={quadNodes[0]} placeholder="N1" class="node-input" />
-            <input type="text" bind:value={quadNodes[1]} placeholder="N2" class="node-input" />
-            <input type="text" bind:value={quadNodes[2]} placeholder="N3" class="node-input" />
-            <input type="text" bind:value={quadNodes[3]} placeholder="N4" class="node-input" />
+            <input type="text" bind:value={quadNodes[0]} placeholder="N1" class="node-input" oninput={updateQuadRecommendation} />
+            <input type="text" bind:value={quadNodes[1]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
+            <input type="text" bind:value={quadNodes[2]} placeholder="N2" class="node-input" oninput={updateQuadRecommendation} />
+            <input type="text" bind:value={quadNodes[3]} placeholder="N4" class="node-input" oninput={updateQuadRecommendation} />
           </div>
           <div class="input-row">
             <label>{t('pro.thMaterial')}:</label>
@@ -252,8 +321,26 @@
           </div>
           <div class="input-row">
             <label>{t('pro.thickness')}:</label>
-            <input type="number" bind:value={quadThickness} step="0.01" min="0.001" class="thick-input" />
+            <input type="number" bind:value={quadThickness} step="0.01" min="0.001" class="thick-input" oninput={updateQuadRecommendation} />
           </div>
+          <div class="input-row">
+            <label>Family:</label>
+            <select bind:value={quadFamily} class="family-select">
+              <option value="auto">Auto{quadRecommendation ? ` (${quadRecommendation.family})` : ''}</option>
+              <option value="MITC4">MITC4 (4-node)</option>
+              <option value="MITC9" disabled>MITC9 (9-node) — planned</option>
+              <option value="SHB8PS" disabled>SHB8PS (solid-shell) — planned</option>
+            </select>
+          </div>
+          {#if quadRecommendation}
+            <div class="recommendation" class:warn={quadRecommendation.confidence !== 'high'}>
+              <span class="rec-icon">{quadRecommendation.confidence === 'high' ? '\u2713' : '\u26A0'}</span>
+              <span class="rec-text">{quadRecommendation.reason}</span>
+            </div>
+            {#each quadRecommendation.warnings as w}
+              <div class="rec-warning">{w}</div>
+            {/each}
+          {/if}
           {#if quadError}
             <div class="field-error">{quadError}</div>
           {/if}
@@ -325,6 +412,7 @@
                   <tr>
                     <th class="col-id">ID</th>
                     <th class="col-nodes">Nodos</th>
+                    <th class="col-family">Family</th>
                     <th class="col-mat">Material</th>
                     <th class="col-thick">Esp. (m)</th>
                     <th class="col-actions"></th>
@@ -335,6 +423,7 @@
                     <tr>
                       <td class="col-id">{plate.id}</td>
                       <td class="col-nodes">{plate.nodes.join(', ')}</td>
+                      <td class="col-family">{plate.shellFamily ?? 'DKT'}</td>
                       <td class="col-mat">{getMaterialName(plate.materialId)}</td>
                       <td class="col-thick">{plate.thickness.toFixed(3)}</td>
                       <td class="col-actions">
@@ -355,6 +444,7 @@
                   <tr>
                     <th class="col-id">ID</th>
                     <th class="col-nodes">Nodos</th>
+                    <th class="col-family">Family</th>
                     <th class="col-mat">Material</th>
                     <th class="col-thick">Esp. (m)</th>
                     <th class="col-actions"></th>
@@ -365,6 +455,7 @@
                     <tr>
                       <td class="col-id">{quad.id}</td>
                       <td class="col-nodes">{quad.nodes.join(', ')}</td>
+                      <td class="col-family">{quad.shellFamily ?? 'MITC4'}</td>
                       <td class="col-mat">{getMaterialName(quad.materialId)}</td>
                       <td class="col-thick">{quad.thickness.toFixed(3)}</td>
                       <td class="col-actions">
@@ -685,5 +776,75 @@
     font-style: italic;
     padding: 16px 10px;
     font-size: 0.72rem;
+  }
+
+  /* Shell family selector */
+  .family-select {
+    flex: 1;
+    padding: 4px 6px;
+    background: #0a1a30;
+    border: 1px solid #1a3050;
+    border-radius: 3px;
+    color: #ccc;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .family-select:focus {
+    border-color: #1a4a7a;
+    outline: none;
+  }
+
+  .family-select option:disabled {
+    color: #555;
+    font-style: italic;
+  }
+
+  /* Recommendation display */
+  .recommendation {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(78, 205, 196, 0.06);
+    border: 1px solid rgba(78, 205, 196, 0.15);
+    border-radius: 4px;
+    font-size: 0.68rem;
+    line-height: 1.45;
+    color: #8ab4b0;
+  }
+
+  .recommendation.warn {
+    background: rgba(251, 191, 36, 0.06);
+    border-color: rgba(251, 191, 36, 0.15);
+    color: #c4a94d;
+  }
+
+  .rec-icon {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+  }
+
+  .rec-text {
+    flex: 1;
+  }
+
+  .rec-warning {
+    font-size: 0.65rem;
+    color: #c4a94d;
+    padding: 2px 8px 2px 22px;
+    line-height: 1.4;
+  }
+
+  .rec-warning::before {
+    content: '\26A0 ';
+  }
+
+  .col-family {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #4ecdc4;
+    font-family: monospace;
+    white-space: nowrap;
   }
 </style>

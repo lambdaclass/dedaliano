@@ -6,14 +6,19 @@ import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
 import { computeLocalAxes3D } from './solver-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
-import { enrichWithShellStresses } from './shell-stress-recovery';
+import {
+  convertSurfaceLoad, convertThermalQuadLoad,
+  plateSelfWeightLoads, quadSelfWeightLoads,
+  addShellConnectivity, addShellAdjacency,
+  postProcessShellStresses,
+} from './solver-shells';
 import { t } from '../i18n';
 
 import type {
   Node, Element, Support, Load, Material, Section,
   LoadCase, LoadCombination,
   DistributedLoad, PointLoadOnElement, ThermalLoad,
-  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D,
+  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D, ThermalLoadQuad3D,
 } from '../store/model.svelte';
 
 // ─── ModelData interface ──────────────────────────────────────────
@@ -893,27 +898,9 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
         data: { elementId: d.elementId, a: d.a, py: d.py, pz: d.pz },
       });
     } else if (l.type === 'surface3d') {
-      // Convert surface pressure on quad → nodal loads (q × area / 4 per corner)
-      const d = l.data as SurfaceLoad3D;
-      const quad = model.quads?.get(d.quadId);
-      if (quad) {
-        const ns = quad.nodes.map(nid => model.nodes.get(nid));
-        if (ns.every(n => n)) {
-          const [p0, p1, p2, p3] = ns as [Node, Node, Node, Node];
-          function triArea(a: Node, b: Node, c: Node): number {
-            const ex = b.x - a.x, ey = b.y - a.y, ez = (b.z ?? 0) - (a.z ?? 0);
-            const fx = c.x - a.x, fy = c.y - a.y, fz = (c.z ?? 0) - (a.z ?? 0);
-            return 0.5 * Math.sqrt((ey * fz - ez * fy) ** 2 + (ez * fx - ex * fz) ** 2 + (ex * fy - ey * fx) ** 2);
-          }
-          const area = triArea(p0, p1, p2) + triArea(p0, p2, p3);
-          const F = -d.q * area / 4; // negative Y = downward
-          for (const nid of quad.nodes) {
-            solverLoads.push({
-              type: 'nodal',
-              data: { nodeId: nid, fx: 0, fy: F, fz: 0, mx: 0, my: 0, mz: 0 },
-            });
-          }
-        }
+      // PRO-only: surface pressure on quad → equivalent nodal loads
+      if (model.quads) {
+        solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes));
       }
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
@@ -926,6 +913,9 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
           dtGradientZ: d.dtGradient,
         },
       });
+    } else if (l.type === 'thermalQuad3d') {
+      // PRO-only: thermal quad loads (not yet implemented in solver)
+      solverLoads.push(...convertThermalQuadLoad(l.data as ThermalLoadQuad3D));
     }
   }
 
@@ -955,55 +945,12 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       });
     }
 
-    // Self-weight for plates (DKT triangles)
-    if (model.plates) {
-      for (const plate of model.plates.values()) {
-        const mat = model.materials.get(plate.materialId);
-        if (!mat) continue;
-        const ns = plate.nodes.map(nid => model.nodes.get(nid));
-        if (ns.some(n => !n)) continue;
-        const [p0, p1, p2] = ns as [typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}];
-        // Triangle area via cross product
-        const ax = p1.x - p0.x, ay = p1.y - p0.y, az = (p1.z ?? 0) - (p0.z ?? 0);
-        const bx = p2.x - p0.x, by = p2.y - p0.y, bz = (p2.z ?? 0) - (p0.z ?? 0);
-        const area = 0.5 * Math.sqrt(
-          (ay * bz - az * by) ** 2 + (az * bx - ax * bz) ** 2 + (ax * by - ay * bx) ** 2,
-        );
-        const totalWeight = mat.rho * plate.thickness * area; // kN
-        const wPerNode = -totalWeight / 3;
-        for (const nid of plate.nodes) {
-          solverLoads.push({
-            type: 'nodal',
-            data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
-          });
-        }
-      }
+    // PRO-only: self-weight for shell elements (plates + quads)
+    if (model.plates?.size) {
+      solverLoads.push(...plateSelfWeightLoads(model.plates, model.nodes, model.materials));
     }
-
-    // Self-weight for quads (MITC4)
-    if (model.quads) {
-      for (const quad of model.quads.values()) {
-        const mat = model.materials.get(quad.materialId);
-        if (!mat) continue;
-        const ns = quad.nodes.map(nid => model.nodes.get(nid));
-        if (ns.some(n => !n)) continue;
-        const [p0, p1, p2, p3] = ns as [typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}, typeof ns[0] & {}];
-        // Quad area ≈ sum of two triangles (0-1-2) + (0-2-3)
-        function triArea(a: typeof p0, b: typeof p0, c: typeof p0): number {
-          const ex = b.x - a.x, ey = b.y - a.y, ez = (b.z ?? 0) - (a.z ?? 0);
-          const fx = c.x - a.x, fy = c.y - a.y, fz = (c.z ?? 0) - (a.z ?? 0);
-          return 0.5 * Math.sqrt((ey * fz - ez * fy) ** 2 + (ez * fx - ex * fz) ** 2 + (ex * fy - ey * fx) ** 2);
-        }
-        const area = triArea(p0, p1, p2) + triArea(p0, p2, p3);
-        const totalWeight = mat.rho * quad.thickness * area;
-        const wPerNode = -totalWeight / 4;
-        for (const nid of quad.nodes) {
-          solverLoads.push({
-            type: 'nodal',
-            data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
-          });
-        }
-      }
+    if (model.quads?.size) {
+      solverLoads.push(...quadSelfWeightLoads(model.quads, model.nodes, model.materials));
     }
   }
 
@@ -1105,22 +1052,13 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return t('svc.needSupport');
   }
 
-  // Check for disconnected nodes (consider elements, plates, and quads)
+  // Check for disconnected nodes (consider elements + PRO shell elements)
   const connectedNodes = new Set<number>();
   for (const elem of model.elements.values()) {
     connectedNodes.add(elem.nodeI);
     connectedNodes.add(elem.nodeJ);
   }
-  if (model.plates) {
-    for (const plate of model.plates.values()) {
-      for (const nid of plate.nodes) connectedNodes.add(nid);
-    }
-  }
-  if (model.quads) {
-    for (const quad of model.quads.values()) {
-      for (const nid of quad.nodes) connectedNodes.add(nid);
-    }
-  }
+  addShellConnectivity(connectedNodes, model.plates, model.quads);
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
       return t('svc.disconnectedNode').replace('{n}', String(nodeId));
@@ -1147,26 +1085,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     adj.get(elem.nodeI)!.add(elem.nodeJ);
     adj.get(elem.nodeJ)!.add(elem.nodeI);
   }
-  if (model.plates) {
-    for (const plate of model.plates.values()) {
-      for (let i = 0; i < plate.nodes.length; i++) {
-        for (let j = i + 1; j < plate.nodes.length; j++) {
-          adj.get(plate.nodes[i])?.add(plate.nodes[j]);
-          adj.get(plate.nodes[j])?.add(plate.nodes[i]);
-        }
-      }
-    }
-  }
-  if (model.quads) {
-    for (const quad of model.quads.values()) {
-      for (let i = 0; i < quad.nodes.length; i++) {
-        for (let j = i + 1; j < quad.nodes.length; j++) {
-          adj.get(quad.nodes[i])?.add(quad.nodes[j]);
-          adj.get(quad.nodes[j])?.add(quad.nodes[i]);
-        }
-      }
-    }
-  }
+  addShellAdjacency(adj, model.plates, model.quads);
   const visited = new Set<number>();
   const startNode = connectedNodes.values().next().value!;
   const queue = [startNode];
@@ -1193,9 +1112,9 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       console.warn(`Solver 3D (${dt.toFixed(1)} ms): ${results}`);
     } else {
       console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
-      // Post-process: compute shell stresses if solver didn't return them
+      // PRO-only: post-process shell stresses
       if (model.quads?.size || model.plates?.size) {
-        enrichWithShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
+        postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       }
     }
     return results;

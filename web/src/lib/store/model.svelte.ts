@@ -174,6 +174,14 @@ export interface SurfaceLoad3D {
   caseId?: number;
 }
 
+export interface ThermalLoadQuad3D {
+  id: number;
+  quadId: number;
+  dtUniform: number;  // °C uniform temperature change
+  dtGradient: number; // °C gradient through thickness
+  caseId?: number;
+}
+
 export type Load =
   | { type: 'nodal'; data: NodalLoad }
   | { type: 'distributed'; data: DistributedLoad }
@@ -182,7 +190,8 @@ export type Load =
   | { type: 'nodal3d'; data: NodalLoad3D }
   | { type: 'distributed3d'; data: DistributedLoad3D }
   | { type: 'pointOnElement3d'; data: PointLoadOnElement3D }
-  | { type: 'surface3d'; data: SurfaceLoad3D };
+  | { type: 'surface3d'; data: SurfaceLoad3D }
+  | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D };
 
 export type LoadCaseType = string;
 
@@ -203,6 +212,7 @@ export interface Plate {
   nodes: [number, number, number];
   materialId: number;
   thickness: number;
+  shellFamily?: import('../engine/types-3d').ShellFamily;
 }
 
 export interface Quad {
@@ -210,6 +220,7 @@ export interface Quad {
   nodes: [number, number, number, number];
   materialId: number;
   thickness: number;
+  shellFamily?: import('../engine/types-3d').ShellFamily;
 }
 
 export interface StructureModel {
@@ -599,6 +610,15 @@ function createModelStore() {
       const data: SurfaceLoad3D = { id, quadId, q };
       if (caseId !== undefined) data.caseId = caseId;
       model.loads = [...model.loads, { type: 'surface3d', data }];
+      return id;
+    },
+
+    addThermalLoadQuad3D(quadId: number, dtUniform: number, dtGradient: number = 0, caseId?: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.load++;
+      const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
+      if (caseId !== undefined) data.caseId = caseId;
+      model.loads = [...model.loads, { type: 'thermalQuad3d', data }];
       return id;
     },
 
@@ -1364,22 +1384,28 @@ function createModelStore() {
       );
     },
 
-    /** Solve the current model using the 3D solver. Returns results or error string. */
-    solve3D(includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
+    /** Solve the current model using the 3D solver. Returns results or error string.
+     *  Shell elements (plates/quads) are only included when isPro=true to keep Basic 3D clean. */
+    solve3D(includeSelfWeight = false, leftHand = false, isPro = false): AnalysisResults3D | string | null {
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
-          plates: model.plates, quads: model.quads },
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
         includeSelfWeight, leftHand,
       );
     },
 
-    /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations) */
-    solveCombinations3D(includeSelfWeight = false, leftHand = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+    /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
+     *  Shell elements are only included when isPro=true. */
+    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       return solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
           loads: model.loads, materials: model.materials, sections: model.sections,
-          plates: model.plates, quads: model.quads },
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },

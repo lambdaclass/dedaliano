@@ -19,6 +19,25 @@ function interp(tpl: string, vars: Record<string, string | number>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
 }
 
+/** Report configuration — project/company info + section selection */
+export interface ReportConfig {
+  companyName: string;
+  companyLogo: string | null;
+  projectAddress: string;
+  engineerName: string;
+  revision: string;
+  sections: {
+    modelData: boolean;
+    results: boolean;
+    verification: boolean;
+    advancedAnalysis: boolean;
+    storyDrift: boolean;
+    diagnostics: boolean;
+    quantities: boolean;
+    loads: boolean;
+  };
+}
+
 export interface ReportData {
   projectName: string;
   date: string;
@@ -30,6 +49,7 @@ export interface ReportData {
   supports: Support[];
   quads?: Quad[];
   loadCount: number;
+  loads?: Array<{ type: string; target: string; values: string; caseLabel?: string }>;
   // Results
   results: AnalysisResults3D;
   // Verification
@@ -58,6 +78,8 @@ export interface ReportData {
   screenshot?: string;
   // Translation function (defaults to identity)
   t?: TFunc;
+  // Report configuration (project info + section toggles)
+  config?: ReportConfig;
 }
 
 function fmtNum(n: number, dec: number = 2): string {
@@ -223,6 +245,11 @@ function typeLabelShort(type: string, tr: TFunc): string {
 // ─── CSS for report ──────────────────────────────────────────────
 
 const REPORT_CSS = `
+  @page {
+    size: A4;
+    margin: 15mm 15mm 20mm 15mm;
+    @bottom-right { content: counter(page) " / " counter(pages); font-size: 9px; color: #888; }
+  }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .page-break { page-break-before: always; }
@@ -315,15 +342,34 @@ export function generateReportHtml(data: ReportData): string {
 `);
 
   // ─── Cover Page ─────────────────────────────────────────
-  html.push(`<div class="cover-page">
-  <h1>${escHtml(projectName)}</h1>
-  <div class="subtitle">${escHtml(tr('report.coverSubtitle'))}</div>
-  <div class="subtitle">${escHtml(tr('report.coverCode'))}</div>
-  <div class="date">${escHtml(date)}</div>
-  <div class="logo">${escHtml(tr('report.coverFooter'))}</div>
-</div>`);
+  const cfg = data.config;
+  html.push(`<div class="cover-page">`);
+  if (cfg?.companyLogo) {
+    html.push(`<img src="${cfg.companyLogo}" alt="Logo" style="max-height:80px;max-width:250px;margin-bottom:20px" />`);
+  }
+  if (cfg?.companyName) {
+    html.push(`<div style="font-size:14px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-bottom:30px">${escHtml(cfg.companyName)}</div>`);
+  }
+  html.push(`<h1>${escHtml(projectName)}</h1>`);
+  html.push(`<div class="subtitle">${escHtml(tr('report.coverSubtitle'))}</div>`);
+  html.push(`<div class="subtitle">${escHtml(tr('report.coverCode'))}</div>`);
+  if (cfg?.projectAddress) {
+    html.push(`<div style="font-size:12px;color:#666;margin-top:12px">${escHtml(cfg.projectAddress)}</div>`);
+  }
+  html.push(`<div class="date">${escHtml(date)}</div>`);
+  const coverFooterParts: string[] = [];
+  if (cfg?.engineerName) coverFooterParts.push(`${escHtml(tr('report.engineer'))}: ${escHtml(cfg.engineerName)}`);
+  if (cfg?.revision) coverFooterParts.push(`${escHtml(tr('report.revisionLabel'))}: ${escHtml(cfg.revision)}`);
+  if (coverFooterParts.length > 0) {
+    html.push(`<div style="font-size:11px;color:#888;margin-top:16px">${coverFooterParts.join(' &mdash; ')}</div>`);
+  }
+  html.push(`<div class="logo">${escHtml(tr('report.coverFooter'))}</div>`);
+  html.push(`</div>`);
+
+  const showSection = (key: keyof NonNullable<ReportConfig['sections']>) => !cfg?.sections || cfg.sections[key];
 
   // ─── Model Data ─────────────────────────────────────────
+  if (showSection('modelData')) {
   html.push(`<div class="page-break"></div>`);
   html.push(`<h1>${escHtml(tr('report.modelData'))}</h1>`);
 
@@ -383,6 +429,17 @@ export function generateReportHtml(data: ReportData): string {
   html.push(`</tbody></table>`);
 
   html.push(`<p>${escHtml(interp(tr('report.loadsCount'), { n: loadCount }))}</p>`);
+
+  // Loads detail table
+  if (showSection('loads') && data.loads && data.loads.length > 0) {
+    html.push(`<h2>1.7 ${escHtml(tr('report.loadsDetail'))} (${data.loads.length})</h2>`);
+    html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.target'))}</th><th>${escHtml(tr('report.values'))}</th></tr></thead><tbody>`);
+    for (let i = 0; i < data.loads.length; i++) {
+      const ld = data.loads[i];
+      html.push(`<tr><td>${i + 1}</td><td>${escHtml(ld.type)}</td><td>${escHtml(ld.target)}</td><td>${escHtml(ld.values)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
 
   // Quads (losas y tabiques)
   if (data.quads && data.quads.length > 0) {
@@ -472,8 +529,10 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<p>${escHtml(interp(tr('report.slabTotalArea'), { area: totalLosaArea.toFixed(1), vol: totalLosaVol.toFixed(2) }))}</p>`);
     html.push(`<p>${escHtml(interp(tr('report.wallTotalArea'), { area: totalTabArea.toFixed(1), vol: totalTabVol.toFixed(2) }))}</p>`);
   }
+  } // end showSection('modelData')
 
   // ─── Results ────────────────────────────────────────────
+  if (showSection('results')) {
   html.push(`<div class="page-break"></div>`);
   html.push(`<h1>${escHtml(tr('report.results'))}</h1>`);
 
@@ -510,8 +569,10 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`</tbody></table>`);
   }
 
+  } // end showSection('results')
+
   // ─── Verification ───────────────────────────────────────
-  if (verifications.length > 0) {
+  if (showSection('verification') && verifications.length > 0) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h1>${escHtml(tr('report.verification'))}</h1>`);
 
@@ -820,27 +881,27 @@ export function generateReportHtml(data: ReportData): string {
 
   // ─── Advanced Analysis Summary ──────────────────────────
   const adv = data.advancedResults;
-  if (adv && (adv.pdelta || adv.modal || adv.buckling || adv.spectral)) {
+  if (showSection('advancedAnalysis') && adv && (adv.pdelta || adv.modal || adv.buckling || adv.spectral)) {
     html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>Análisis avanzados</h2>`);
+    html.push(`<h2>${escHtml(tr('report.advancedAnalysis'))}</h2>`);
 
     if (adv.pdelta) {
-      html.push(`<h3>P-Delta (segundo orden)</h3>`);
+      html.push(`<h3>${escHtml(tr('report.pdeltaTitle'))}</h3>`);
       html.push(`<table><tbody>`);
-      html.push(`<tr><td>Convergencia</td><td class="num">${adv.pdelta.converged ? 'Sí' : 'No'}</td></tr>`);
-      html.push(`<tr><td>Iteraciones</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
+      html.push(`<tr><td>${escHtml(tr('report.convergence'))}</td><td class="num">${adv.pdelta.converged ? escHtml(tr('report.yes')) : escHtml(tr('report.no'))}</td></tr>`);
+      html.push(`<tr><td>${escHtml(tr('report.iterations'))}</td><td class="num">${adv.pdelta.iterations}</td></tr>`);
       if (adv.pdelta.b2Factor != null) {
-        html.push(`<tr><td>Factor B₂</td><td class="num">${fmtNum(adv.pdelta.b2Factor, 3)}</td></tr>`);
+        html.push(`<tr><td>${escHtml(tr('report.b2Factor'))}</td><td class="num">${fmtNum(adv.pdelta.b2Factor, 3)}</td></tr>`);
       }
       html.push(`</tbody></table>`);
     }
 
     if (adv.modal && adv.modal.modes.length > 0) {
-      html.push(`<h3>Análisis modal</h3>`);
+      html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       if (adv.modal.totalMass != null) {
-        html.push(`<p>Masa total: ${fmtNum(adv.modal.totalMass, 0)} kg</p>`);
+        html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 0)} kg</p>`);
       }
-      html.push(`<table><thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th></tr></thead><tbody>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th></tr></thead><tbody>`);
       for (let i = 0; i < adv.modal.modes.length; i++) {
         const m = adv.modal.modes[i];
         html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td><td class="num">${m.participationX != null ? fmtNum(m.participationX, 3) : '—'}</td><td class="num">${m.participationY != null ? fmtNum(m.participationY, 3) : '—'}</td><td class="num">${m.participationZ != null ? fmtNum(m.participationZ, 3) : '—'}</td></tr>`);
@@ -849,8 +910,8 @@ export function generateReportHtml(data: ReportData): string {
     }
 
     if (adv.buckling && adv.buckling.factors.length > 0) {
-      html.push(`<h3>Pandeo lineal</h3>`);
-      html.push(`<table><thead><tr><th>Modo</th><th>Factor de carga crítica</th></tr></thead><tbody>`);
+      html.push(`<h3>${escHtml(tr('report.bucklingTitle'))}</h3>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>${escHtml(tr('report.criticalFactor'))}</th></tr></thead><tbody>`);
       for (let i = 0; i < adv.buckling.factors.length; i++) {
         html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(adv.buckling.factors[i], 3)}</td></tr>`);
       }
@@ -858,23 +919,23 @@ export function generateReportHtml(data: ReportData): string {
     }
 
     if (adv.spectral) {
-      html.push(`<h3>Análisis espectral (CIRSOC 103)</h3>`);
+      html.push(`<h3>${escHtml(tr('report.spectralTitle'))}</h3>`);
       html.push(`<table><tbody>`);
-      if (adv.spectral.baseShearX != null) html.push(`<tr><td>Corte basal X</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);
-      if (adv.spectral.baseShearY != null) html.push(`<tr><td>Corte basal Y</td><td class="num">${fmtNum(adv.spectral.baseShearY)} kN</td></tr>`);
-      if (adv.spectral.baseShearZ != null) html.push(`<tr><td>Corte basal Z</td><td class="num">${fmtNum(adv.spectral.baseShearZ)} kN</td></tr>`);
+      if (adv.spectral.baseShearX != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} X</td><td class="num">${fmtNum(adv.spectral.baseShearX)} kN</td></tr>`);
+      if (adv.spectral.baseShearY != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} Y</td><td class="num">${fmtNum(adv.spectral.baseShearY)} kN</td></tr>`);
+      if (adv.spectral.baseShearZ != null) html.push(`<tr><td>${escHtml(tr('report.baseShear'))} Z</td><td class="num">${fmtNum(adv.spectral.baseShearZ)} kN</td></tr>`);
       html.push(`</tbody></table>`);
     }
   }
 
   // ─── Story Drift ──────────────────────────────────────
-  if (data.storyDrifts && data.storyDrifts.length > 0) {
+  if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) {
     html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>Drift de entrepiso — CIRSOC 103 §5.2.8</h2>`);
-    html.push(`<p>Límite admisible: Δ/h ≤ 0.015 (hormigón armado)</p>`);
-    html.push(`<table><thead><tr><th>Nivel (m)</th><th>h piso (m)</th><th>Δx (mm)</th><th>Δz (mm)</th><th>Δx/h</th><th>Δz/h</th><th>Estado</th></tr></thead><tbody>`);
+    html.push(`<h2>${escHtml(tr('report.driftTitle'))}</h2>`);
+    html.push(`<p>${escHtml(tr('report.driftLimit'))}</p>`);
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δz (mm)</th><th>Δx/h</th><th>Δz/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
-      const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? '✗ Falla' : '⚠ Atención';
+      const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
       const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';
       html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftZ * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioZ.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
@@ -882,7 +943,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   // ─── Diagnostics ──────────────────────────────────────
-  if (data.diagnostics && data.diagnostics.length > 0) {
+  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) {
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>${escHtml(tr('report.diagnostics'))}</h2>`);
     const errors = data.diagnostics.filter(d => d.severity === 'error');

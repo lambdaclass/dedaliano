@@ -50,7 +50,8 @@ export function runLiveCalc(analysisMode: string, axisConvention3D: string, prev
 }
 
 function liveCalc3D(axisConvention: string, prevDiagram: string): void {
-  const r = modelStore.solve3D(uiStore.includeSelfWeight, axisConvention === 'leftHand');
+  const isPro = uiStore.analysisMode === 'pro';
+  const r = modelStore.solve3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
     return;
@@ -107,7 +108,10 @@ export function runGlobalSolve(): void {
   if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
     globalSolve3D();
   } else if (uiStore.analysisMode === 'edu') {
-    globalSolveEdu();
+    // Edu mode handles its own solve via edu-solver.ts (registered listener).
+    // This branch is a no-op safety fallback — the edu module's listener
+    // fires first on the same 'dedaliano-solve' event.
+    return;
   } else {
     globalSolve2D();
   }
@@ -121,7 +125,8 @@ function isMechanismError(msg: string): boolean {
 }
 
 function globalSolve3D(): void {
-  const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+  const isPro = uiStore.analysisMode === 'pro';
+  const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
   if (typeof r === 'string') {
     // No kinematic action in 3D — panel is 2D only
     uiStore.toast(r, 'error');
@@ -135,22 +140,6 @@ function globalSolve3D(): void {
   } else {
     uiStore.toast(t('results.emptyModelError'), 'error');
   }
-}
-
-/** Solve silently for educational mode — results stored but hidden from student */
-function globalSolveEdu(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
-  if (typeof r === 'string') {
-    uiStore.toast(r, 'error');
-    return;
-  }
-  if (!r) {
-    uiStore.toast(t('results.emptyModelError'), 'error');
-    return;
-  }
-  resultsStore.setResults(r);
-  // Dispatch event so EducativePanel knows answers are ready
-  window.dispatchEvent(new Event('dedaliano-edu-solved'));
 }
 
 function globalSolve2D(): void {

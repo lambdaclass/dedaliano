@@ -43,6 +43,42 @@
   if (isEmbedDemo) authStore.setReady();
   const needsLogin = $derived(!authStore.ready && !isEmbedDemo);
 
+  // ─── Per-mode model persistence ───
+  // When switching between básico/edu/pro, save the current model and restore
+  // the target mode's model (or start empty if first visit to that mode).
+  import type { ModelSnapshot } from './lib/store/history.svelte';
+  type AppMode = 'basico' | 'educativo' | 'pro';
+  const modeSnapshots = new Map<AppMode, ModelSnapshot>();
+  let currentAppMode: AppMode = 'basico';
+
+  function switchAppMode(target: AppMode) {
+    const prev = currentAppMode;
+    if (target === prev) return;
+    // Save current model into the mode we're leaving
+    modeSnapshots.set(prev, modelStore.snapshot());
+    // Clear results + UI state
+    resultsStore.clear();
+    resultsStore.showReactions = false;
+    resultsStore.diagramType = 'none';
+    historyStore.clear();
+    // Restore target mode's model or start empty
+    const saved = modeSnapshots.get(target);
+    if (saved) {
+      modelStore.restore(saved);
+    } else {
+      modelStore.clear();
+    }
+    // Set the actual analysis mode
+    if (target === 'basico') {
+      uiStore.analysisMode = '2d';
+    } else if (target === 'educativo') {
+      uiStore.analysisMode = 'edu';
+    } else {
+      uiStore.analysisMode = 'pro';
+    }
+    currentAppMode = target;
+  }
+
   let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
   let dxfImportFile = $state<File | null>(null);
@@ -247,11 +283,11 @@
       <span class="logo-icon">△</span>
       <span class="logo-text">Dedaliano</span>
       <div class="mode-toggle" data-tour="mode-toggle">
-        <button class:active={uiStore.appMode === 'basico'} onclick={() => { if (uiStore.analysisMode !== '2d' && uiStore.analysisMode !== '3d') uiStore.analysisMode = '2d'; }}>
+        <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}
         </button>
-        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => { uiStore.analysisMode = 'edu'; resultsStore.showReactions = false; resultsStore.diagramType = 'none'; }}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
-        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => uiStore.analysisMode = 'pro'}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
       </div>
     </div>
     <span class="separator">|</span>

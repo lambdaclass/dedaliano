@@ -135,7 +135,8 @@
   }
 
   function handleSolve3D() {
-    const results = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    const isPro = uiStore.analysisMode === 'pro';
+    const results = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
     if (typeof results === 'string') {
       uiStore.toast(results, 'error');
     } else if (results) {
@@ -151,7 +152,7 @@
       // Auto-solve 3D combinations if they exist
       let comboText = '';
       if (modelStore.model.combinations.length > 0) {
-        const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+        const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
@@ -179,8 +180,9 @@
   }
 
   function handleSolveCombinations() {
-    if (uiStore.analysisMode === '3d') {
-      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+      const isPro = uiStore.analysisMode === 'pro';
+      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
       if (typeof result === 'string') {
         uiStore.toast(result, 'error');
       } else if (result) {

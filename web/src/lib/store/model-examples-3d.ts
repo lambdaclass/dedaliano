@@ -255,25 +255,29 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     case '3d-nave-industrial': {
       // ══════════════════════════════════════════════════════════════
       // NAVE INDUSTRIAL — Galpón de acero con estructura reticulada
-      // Columnas reticuladas, cabriadas Pratt, viga carrilera,
-      // contraviento lateral/frontal, correas y arriostramiento
+      // 4 pórticos principales (columnas reticuladas + cabriada Pratt)
+      // 3 cabriadas secundarias apoyadas en reticulados laterales
+      // Correas cada 4m, vigas carrileras, contraviento lat/frontal
       // ══════════════════════════════════════════════════════════════
       api.model.name = t('ex.3d-nave-industrial');
 
       // ─── Parámetros ───
-      const NB = 5;            // vanos longitudinales
-      const BL = 6;            // largo de vano (m)
       const SP = 20;           // luz transversal (m)
-      const CH = 8;            // altura de columna (m)
-      const RH = 10;           // altura de cumbrera (m)
+      const CH = 8;            // altura columna / cordón inferior (m)
+      const RH = 10;           // altura cumbrera (m)
       const CW = 0.5;          // ancho columna reticulada (m)
-      const NCS = 4;           // subdivisiones columna → segmento = 2 m
-      const NTP = 8;           // paneles de cabriada → panel = 2.5 m
-      const CRH = 6;           // altura viga carrilera (m)
-      const NF = NB + 1;       // número de pórticos
-      const segH = CH / NCS;
-      const panW = SP / NTP;
+      const NCS = 4;           // subdivisiones columna → segmento = 2m
+      const NTP = 8;           // paneles cabriada → panel = 2.5m
+      const CRH = 6;           // altura carrilera / cordón inf reticulado lateral (m)
+      const segH = CH / NCS;   // 2m
+      const panW = SP / NTP;   // 2.5m
       const crLv = CRH / segH; // nivel de grúa = 3
+      // 7 frames totales cada 4m → largo total 24m
+      // Principales (con columnas): f=0,2,4,6 → X=0,8,16,24
+      // Secundarias (sin columnas, apoyadas en reticulados lat): f=1,3,5 → X=4,12,20
+      const NF = 7;
+      const fX = (f: number) => f * 4;
+      const NMain = 4;
 
       // ─── Material ───
       const niMat = api.addMaterial({ name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5 });
@@ -289,6 +293,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       });
       const sPR = api.addSection({ name: 'Correa UPN160', a: 0.00240, iz: 9.25e-6, iy: 8.5e-7, j: 5e-8 });
       const sBR = api.addSection({ name: 'Tirante Ø16', a: 0.000201, iz: 3.2e-9, iy: 3.2e-9 });
+      const sLG = api.addSection({ name: 'Ret lat 2L65', a: 0.00098, iz: 3e-7, iy: 3e-7, j: 2e-8 });
 
       // ─── Helpers ───
       const niT = (n1: number, n2: number, s: number) => {
@@ -302,147 +307,275 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const roofY = (z: number) => CH + (RH - CH) * (1 - Math.abs(z - SP / 2) / (SP / 2));
 
       // ─── Arrays de nodos ───
-      const cL: { o: number; i: number }[][] = []; // columna izquierda [frame][level]
-      const cR: { o: number; i: number }[][] = []; // columna derecha
-      const tB: number[][] = []; // cordón inferior cabriada [frame][panel]
-      const tT: number[][] = []; // cordón superior cabriada
+      const cL: { o: number; i: number }[][] = []; // columna izq [mainIdx][level]
+      const cR: { o: number; i: number }[][] = []; // columna der
+      const tB: number[][] = [];  // cordón inferior cabriada [frame][panel]
+      const tT: number[][] = [];  // cordón superior cabriada
+      // Reticulado lateral: cordón sup (Y=CH) e inf (Y=CRH) en Z=0 y Z=SP
+      const lgT: number[] = [];   // top chord Z=0
+      const lgB: number[] = [];   // bottom chord Z=0
+      const rgT: number[] = [];   // top chord Z=SP
+      const rgB: number[] = [];   // bottom chord Z=SP
 
       // ═══════════════════════════════════════════════
-      // 1. PÓRTICOS (columnas reticuladas + cabriadas)
+      // 1. PÓRTICOS PRINCIPALES (columnas reticuladas + cabriada Pratt)
       // ═══════════════════════════════════════════════
-      for (let f = 0; f < NF; f++) {
-        const x = f * BL;
-        cL[f] = []; cR[f] = [];
+      for (let mi = 0; mi < NMain; mi++) {
+        const f = mi * 2; // frame index: 0, 2, 4, 6
+        const x = fX(f);
+        cL[mi] = []; cR[mi] = [];
 
         // -- Nodos de columnas --
         for (let lv = 0; lv <= NCS; lv++) {
           const y = lv * segH;
-          cL[f][lv] = { o: api.addNode(x, y, 0), i: api.addNode(x, y, CW) };
-          cR[f][lv] = { o: api.addNode(x, y, SP), i: api.addNode(x, y, SP - CW) };
+          cL[mi][lv] = { o: api.addNode(x, y, 0), i: api.addNode(x, y, CW) };
+          cR[mi][lv] = { o: api.addNode(x, y, SP), i: api.addNode(x, y, SP - CW) };
         }
 
-        // -- Elementos columnas: cordones (frame=continuos), horizontales, diagonales Warren --
+        // -- Elementos columnas: cordones, horizontales, diagonales Warren --
         for (let lv = 0; lv < NCS; lv++) {
-          niF(cL[f][lv].o, cL[f][lv + 1].o, sCC); // cordón ext izq
-          niF(cL[f][lv].i, cL[f][lv + 1].i, sCC); // cordón int izq
-          niF(cR[f][lv].o, cR[f][lv + 1].o, sCC);
-          niF(cR[f][lv].i, cR[f][lv + 1].i, sCC);
-          niT(cL[f][lv].o, cL[f][lv].i, sCD); // horizontal izq
-          niT(cR[f][lv].o, cR[f][lv].i, sCD);
-          if (lv % 2 === 0) { // diagonal Warren
-            niT(cL[f][lv].o, cL[f][lv + 1].i, sCD);
-            niT(cR[f][lv].o, cR[f][lv + 1].i, sCD);
+          niF(cL[mi][lv].o, cL[mi][lv + 1].o, sCC);
+          niF(cL[mi][lv].i, cL[mi][lv + 1].i, sCC);
+          niF(cR[mi][lv].o, cR[mi][lv + 1].o, sCC);
+          niF(cR[mi][lv].i, cR[mi][lv + 1].i, sCC);
+          niT(cL[mi][lv].o, cL[mi][lv].i, sCD);
+          niT(cR[mi][lv].o, cR[mi][lv].i, sCD);
+          if (lv % 2 === 0) {
+            niT(cL[mi][lv].o, cL[mi][lv + 1].i, sCD);
+            niT(cR[mi][lv].o, cR[mi][lv + 1].i, sCD);
           } else {
-            niT(cL[f][lv].i, cL[f][lv + 1].o, sCD);
-            niT(cR[f][lv].i, cR[f][lv + 1].o, sCD);
+            niT(cL[mi][lv].i, cL[mi][lv + 1].o, sCD);
+            niT(cR[mi][lv].i, cR[mi][lv + 1].o, sCD);
           }
         }
-        niT(cL[f][NCS].o, cL[f][NCS].i, sCD); // horizontal tope
-        niT(cR[f][NCS].o, cR[f][NCS].i, sCD);
+        niT(cL[mi][NCS].o, cL[mi][NCS].i, sCD);
+        niT(cR[mi][NCS].o, cR[mi][NCS].i, sCD);
+
+        // Registrar nodos del reticulado lateral (compartidos con columna)
+        lgT[f] = cL[mi][NCS].o;    // Y=8, Z=0
+        lgB[f] = cL[mi][crLv].o;   // Y=6, Z=0
+        rgT[f] = cR[mi][NCS].o;    // Y=8, Z=SP
+        rgB[f] = cR[mi][crLv].o;   // Y=6, Z=SP
 
         // -- Cabriada principal (Pratt) --
         tB[f] = []; tT[f] = [];
-        // Cordón inferior (Y=CH): extremos compartidos con columna exterior
-        tB[f][0] = cL[f][NCS].o;
+        tB[f][0] = cL[mi][NCS].o;
         for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, CH, p * panW);
-        tB[f][NTP] = cR[f][NCS].o;
-        // Cordón superior (sigue pendiente del techo)
-        tT[f][0] = tB[f][0]; // compartido
+        tB[f][NTP] = cR[mi][NCS].o;
+        tT[f][0] = tB[f][0];
         for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, roofY(p * panW), p * panW);
-        tT[f][NTP] = tB[f][NTP]; // compartido
-        // Elementos: cordones (frame — chords are continuous members)
+        tT[f][NTP] = tB[f][NTP];
         for (let p = 0; p < NTP; p++) niF(tB[f][p], tB[f][p + 1], sTC);
         for (let p = 0; p < NTP; p++) niF(tT[f][p], tT[f][p + 1], sTC);
-        // Montantes (verticales interiores)
         for (let p = 1; p < NTP; p++) niT(tB[f][p], tT[f][p], sTD);
-        // Diagonales — espejadas respecto a la cumbrera (Pratt)
         const mid = NTP / 2;
-        for (let p = 1; p < mid; p++) niT(tB[f][p], tT[f][p + 1], sTD);          // izq: ↗ hacia cumbrera
-        for (let p = mid; p < NTP - 1; p++) niT(tB[f][p + 1], tT[f][p], sTD);    // der: ↖ hacia cumbrera
+        for (let p = 1; p < mid; p++) niT(tB[f][p], tT[f][p + 1], sTD);
+        for (let p = mid; p < NTP - 1; p++) niT(tB[f][p + 1], tT[f][p], sTD);
       }
 
       // ═══════════════════════════════════════════════
-      // 2. CONEXIONES LONGITUDINALES
+      // 2. RETICULADOS LATERALES (Z=0 y Z=SP)
+      //    Cordón sup Y=CH, cordón inf Y=CRH, conectan pórticos principales
+      //    y sostienen cabriadas secundarias
       // ═══════════════════════════════════════════════
-      // Guardamos IDs de elementos para aplicar cargas distribuidas
-      const roofPurlinIds: number[] = [];   // correas de techo (cordón superior)
-      const eaveStrutIds: number[] = [];    // montantes de alero
-      const wallGirtIdsL: number[][] = [];  // largueros pared Z=0 [bay][level]
-      const wallGirtIdsR: number[][] = [];  // largueros pared Z=SP [bay][level]
-      const craneRailIdsL: number[] = [];   // carrileras izq
-      const craneRailIdsR: number[] = [];   // carrileras der
+      // Crear nodos en posiciones de cabriadas secundarias
+      for (const f of [1, 3, 5]) {
+        const x = fX(f);
+        lgT[f] = api.addNode(x, CH, 0);
+        lgB[f] = api.addNode(x, CRH, 0);
+        rgT[f] = api.addNode(x, CH, SP);
+        rgB[f] = api.addNode(x, CRH, SP);
+      }
+      // Elementos del reticulado entre frames consecutivos
+      for (let f = 0; f < NF - 1; f++) {
+        niF(lgT[f], lgT[f + 1], sLG);  // cordón sup Z=0
+        niF(lgB[f], lgB[f + 1], sLG);  // cordón inf Z=0
+        niF(rgT[f], rgT[f + 1], sLG);  // cordón sup Z=SP
+        niF(rgB[f], rgB[f + 1], sLG);  // cordón inf Z=SP
+        // Diagonales Warren
+        if (f % 2 === 0) {
+          niT(lgT[f], lgB[f + 1], sCD);
+          niT(rgT[f], rgB[f + 1], sCD);
+        } else {
+          niT(lgB[f], lgT[f + 1], sCD);
+          niT(rgB[f], rgT[f + 1], sCD);
+        }
+      }
+      // Montantes solo en posiciones secundarias (en principales ya los tiene la columna)
+      for (const f of [1, 3, 5]) {
+        niT(lgT[f], lgB[f], sCD);
+        niT(rgT[f], rgB[f], sCD);
+      }
 
-      for (let f = 0; f < NB; f++) {
-        // Montantes de alero (eave struts) — frame para tomar momento
-        eaveStrutIds.push(niF(cL[f][NCS].o, cL[f + 1][NCS].o, sPR));
-        eaveStrutIds.push(niF(cR[f][NCS].o, cR[f + 1][NCS].o, sPR));
-        // Correas en cordón superior — frame para tomar momento por carga distribuida
+      // ═══════════════════════════════════════════════
+      // 3. CABRIADAS SECUNDARIAS (f=1,3,5 — sin columnas)
+      //    Apoyadas en reticulados laterales
+      // ═══════════════════════════════════════════════
+      for (const f of [1, 3, 5]) {
+        const x = fX(f);
+        tB[f] = []; tT[f] = [];
+        tB[f][0] = lgT[f]; // comparte con reticulado lateral
+        for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, CH, p * panW);
+        tB[f][NTP] = rgT[f];
+        tT[f][0] = tB[f][0];
+        for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, roofY(p * panW), p * panW);
+        tT[f][NTP] = tB[f][NTP];
+        for (let p = 0; p < NTP; p++) niF(tB[f][p], tB[f][p + 1], sTC);
+        for (let p = 0; p < NTP; p++) niF(tT[f][p], tT[f][p + 1], sTC);
+        for (let p = 1; p < NTP; p++) niT(tB[f][p], tT[f][p], sTD);
+        const mid = NTP / 2;
+        for (let p = 1; p < mid; p++) niT(tB[f][p], tT[f][p + 1], sTD);
+        for (let p = mid; p < NTP - 1; p++) niT(tB[f][p + 1], tT[f][p], sTD);
+      }
+
+      // ═══════════════════════════════════════════════
+      // 4. PARANTES INTERMEDIOS + CONEXIONES LONGITUDINALES
+      // ═══════════════════════════════════════════════
+
+      // Parantes verticales en posiciones de cabriadas secundarias (Z=0 y Z=SP)
+      // Cortan largueros de 8m en 2×4m y descargan al piso + reticulado lateral
+      // postL[sf][lv], postR[sf][lv] — sf=0,1,2 → frames 1,3,5
+      const postL: number[][] = [];
+      const postR: number[][] = [];
+      for (let sf = 0; sf < 3; sf++) {
+        const f = sf * 2 + 1; // frame index 1, 3, 5
+        const x = fX(f);
+        postL[sf] = []; postR[sf] = [];
+        // Nodos: Y=0, segH, 2*segH (lv=0,1,2). lv=3 → lgB[f], lv=4 → lgT[f]
+        for (let lv = 0; lv < crLv; lv++) {
+          const y = lv * segH;
+          postL[sf][lv] = api.addNode(x, y, 0);
+          postR[sf][lv] = api.addNode(x, y, SP);
+        }
+        postL[sf][crLv] = lgB[f]; // Y=6, compartido con reticulado lateral
+        postR[sf][crLv] = rgB[f];
+        // Elementos: frame de base a cordón inf del reticulado (Y=0 → Y=6)
+        for (let lv = 0; lv < crLv; lv++) {
+          niF(postL[sf][lv], postL[sf][lv + 1], sCC);
+          niF(postR[sf][lv], postR[sf][lv + 1], sCC);
+        }
+        // Apoyos en base
+        api.addSupport(postL[sf][0], 'pinned3d');
+        api.addSupport(postR[sf][0], 'pinned3d');
+      }
+
+      const roofPurlinIds: number[] = [];
+      const craneRailIdsL: number[] = [];
+      const craneRailIdsR: number[] = [];
+      const wallGirtIdsL: number[] = [];
+      const wallGirtIdsR: number[] = [];
+
+      // Correas de techo y atados de cordón inferior (entre frames consecutivos, 4m)
+      for (let f = 0; f < NF - 1; f++) {
         for (let p = 1; p < NTP; p++) roofPurlinIds.push(niF(tT[f][p], tT[f + 1][p], sPR));
-        // Atados en cordón inferior (arriostramientos, trabajan a axial)
         for (let p = 1; p < NTP; p++) niT(tB[f][p], tB[f + 1][p], sPR);
-        // Largueros de pared (wall girts) — frame para tomar momento por viento
-        wallGirtIdsL[f] = []; wallGirtIdsR[f] = [];
+      }
+
+      // Vigas carrileras entre pórticos principales (8m cada tramo)
+      for (let mi = 0; mi < NMain - 1; mi++) {
+        craneRailIdsL.push(niF(cL[mi][crLv].i, cL[mi + 1][crLv].i, sCR));
+        craneRailIdsR.push(niF(cR[mi][crLv].i, cR[mi + 1][crLv].i, sCR));
+      }
+
+      // Largueros de pared — cortados por parantes (2 tramos de 4m por vano)
+      for (let mi = 0; mi < NMain - 1; mi++) {
+        const sf = mi; // secondary frame index within this bay
         for (let lv = 1; lv < NCS; lv++) {
-          wallGirtIdsL[f].push(niF(cL[f][lv].o, cL[f + 1][lv].o, sPR));
-          wallGirtIdsR[f].push(niF(cR[f][lv].o, cR[f + 1][lv].o, sPR));
+          // Tramo 1: principal[mi] → parante[sf]
+          const postNodeL = lv < crLv ? postL[sf][lv] : lgB[mi * 2 + 1];
+          const postNodeR = lv < crLv ? postR[sf][lv] : rgB[mi * 2 + 1];
+          wallGirtIdsL.push(niF(cL[mi][lv].o, postNodeL, sPR));
+          wallGirtIdsR.push(niF(cR[mi][lv].o, postNodeR, sPR));
+          // Tramo 2: parante[sf] → principal[mi+1]
+          wallGirtIdsL.push(niF(postNodeL, cL[mi + 1][lv].o, sPR));
+          wallGirtIdsR.push(niF(postNodeR, cR[mi + 1][lv].o, sPR));
         }
-        // Vigas carrileras (frame) en cordón interior a nivel de grúa
-        craneRailIdsL.push(niF(cL[f][crLv].i, cL[f + 1][crLv].i, sCR));
-        craneRailIdsR.push(niF(cR[f][crLv].i, cR[f + 1][crLv].i, sCR));
+      }
+
+      // Vigas longitudinales — desde base de columnas principales hasta nodo
+      // inferior central del reticulado lateral (lgB/rgB en la secundaria)
+      // Forman una V en el primer y último vano de cada lateral
+      for (const mi of [0, NMain - 2]) {
+        const secF = mi * 2 + 1; // frame index de la secundaria en este vano
+        // Z=0: ambas columnas principales del vano → lgB central
+        niF(cL[mi][0].o, lgB[secF], sCC);
+        niF(cL[mi + 1][0].o, lgB[secF], sCC);
+        // Z=SP: ambas columnas principales del vano → rgB central
+        niF(cR[mi][0].o, rgB[secF], sCC);
+        niF(cR[mi + 1][0].o, rgB[secF], sCC);
       }
 
       // ═══════════════════════════════════════════════
-      // 3. CONTRAVIENTOS
+      // 5. CONTRAVIENTOS
       // ═══════════════════════════════════════════════
-      // Lateral pared (X en primer y último vano, ambos lados)
-      for (const bay of [0, NB - 1]) {
-        niT(cL[bay][0].o, cL[bay + 1][NCS].o, sBR);
-        niT(cL[bay][NCS].o, cL[bay + 1][0].o, sBR);
-        niT(cR[bay][0].o, cR[bay + 1][NCS].o, sBR);
-        niT(cR[bay][NCS].o, cR[bay + 1][0].o, sBR);
+
+      // 5a. Lateral — X horizontal a Y=CH, profundidad Z=0→panW y Z=SP-panW→SP
+      //     Ambos laterales, largo completo del edificio
+      for (let f = 0; f < NF - 1; f++) {
+        // Lado izquierdo: Z=0 ↔ Z=panW
+        niT(tB[f][0], tB[f + 1][1], sBR);
+        niT(tB[f][1], tB[f + 1][0], sBR);
+        // Lado derecho: Z=SP-panW ↔ Z=SP
+        niT(tB[f][NTP - 1], tB[f + 1][NTP], sBR);
+        niT(tB[f][NTP], tB[f + 1][NTP - 1], sBR);
       }
-      // Horizontal de cubierta (plano del techo, primer y último vano)
-      for (const bay of [0, NB - 1]) {
-        niT(tB[bay][0], tB[bay + 1][NTP], sBR);
-        niT(tB[bay][NTP], tB[bay + 1][0], sBR);
+
+      // 5b. Frontal — X horizontal entre primera principal y secundaria adyacente
+      //     Desfasada un panel respecto al lateral (arranca en panel 1, termina en NTP-1)
+      for (const [fa, fb] of [[0, 1], [5, 6]] as [number, number][]) {
+        for (let p = 1; p < NTP - 1; p += 2) {
+          niT(tB[fa][p], tB[fb][p + 2], sBR);
+          niT(tB[fa][p + 2], tB[fb][p], sBR);
+        }
       }
-      // Frontales (hastiales X=0 y X=30): columnas intermedias + riostras
-      for (const f of [0, NF - 1]) {
-        const x = f * BL;
-        const gB: number[] = []; const gM: number[] = [];
+
+      // 5c. Hastiales (X=0 y X=24): columnas intermedias + largueros + riostras
+      //     3 columnas intermedias (Z=5,10,15) con nodos cada segH (Y=0,2,4,6,8)
+      //     Largueros a Y=2,4,6 (mismas alturas que laterales)
+      for (const mi of [0, NMain - 1]) {
+        const f = mi * 2;
+        const x = fX(f);
+        // gN[k][lv]: nodos de columnas intermedias del hastial
+        const gN: number[][] = [];
         for (let k = 0; k < 3; k++) {
-          const z = (k + 1) * SP / 4; // Z = 5, 10, 15
-          gB[k] = api.addNode(x, 0, z);
-          gM[k] = api.addNode(x, CH / 2, z); // Y = 4
-          const pIdx = (k + 1) * NTP / 4;    // panel 2, 4, 6
-          niF(gB[k], gM[k], sCC);            // columna inferior (frame)
-          niF(gM[k], tB[f][pIdx], sCC);      // columna superior → cordón inf
-          api.addSupport(gB[k], 'pinned3d');
+          gN[k] = [];
+          const z = (k + 1) * SP / 4;
+          const pIdx = (k + 1) * NTP / 4; // panel 2, 4, 6
+          for (let lv = 0; lv < NCS; lv++) gN[k][lv] = api.addNode(x, lv * segH, z);
+          gN[k][NCS] = tB[f][pIdx]; // Y=8 compartido con cordón inferior
+          // Elementos columna (frame continuo base→techo)
+          for (let lv = 0; lv < NCS; lv++) niF(gN[k][lv], gN[k][lv + 1], sCC);
+          api.addSupport(gN[k][0], 'pinned3d');
         }
-        // Dintel horizontal a media altura
-        niT(cL[f][NCS / 2].o, gM[0], sPR);
-        niT(gM[0], gM[1], sPR);
-        niT(gM[1], gM[2], sPR);
-        niT(gM[2], cR[f][NCS / 2].o, sPR);
-        // X en paneles exteriores del hastial
-        niT(cL[f][0].o, gM[0], sBR);
-        niT(gB[0], cL[f][NCS / 2].o, sBR);
-        niT(cR[f][0].o, gM[2], sBR);
-        niT(gB[2], cR[f][NCS / 2].o, sBR);
+        // Largueros frontales a lv=1,2,3 (Y=2,4,6) — frame para tomar viento
+        for (let lv = 1; lv < NCS; lv++) {
+          wallGirtIdsL.push(niF(cL[mi][lv].o, gN[0][lv], sPR));
+          for (let k = 0; k < 2; k++) wallGirtIdsL.push(niF(gN[k][lv], gN[k + 1][lv], sPR));
+          wallGirtIdsL.push(niF(gN[2][lv], cR[mi][lv].o, sPR));
+        }
+        // X riostras en paños inferiores (base→lv=2, Y=0→4)
+        for (let k = -1; k < 3; k++) {
+          const nBL = k < 0 ? cL[mi][0].o : gN[k][0];
+          const nTL = k < 0 ? cL[mi][NCS / 2].o : gN[k][NCS / 2];
+          const nBR = k < 2 ? gN[k + 1][0] : cR[mi][0].o;
+          const nTR = k < 2 ? gN[k + 1][NCS / 2] : cR[mi][NCS / 2].o;
+          niT(nBL, nTR, sBR);
+          niT(nBR, nTL, sBR);
+        }
       }
 
       // ═══════════════════════════════════════════════
-      // 4. APOYOS
+      // 6. APOYOS
       // ═══════════════════════════════════════════════
-      for (let f = 0; f < NF; f++) {
-        api.addSupport(cL[f][0].o, 'pinned3d');
-        api.addSupport(cL[f][0].i, 'pinned3d');
-        api.addSupport(cR[f][0].o, 'pinned3d');
-        api.addSupport(cR[f][0].i, 'pinned3d');
+      for (let mi = 0; mi < NMain; mi++) {
+        api.addSupport(cL[mi][0].o, 'pinned3d');
+        api.addSupport(cL[mi][0].i, 'pinned3d');
+        api.addSupport(cR[mi][0].o, 'pinned3d');
+        api.addSupport(cR[mi][0].i, 'pinned3d');
       }
 
       // ═══════════════════════════════════════════════
-      // 5. CASOS DE CARGA
+      // 7. CASOS DE CARGA
       // ═══════════════════════════════════════════════
       api.model.loadCases = [
         { id: 1, type: 'D' as LoadCaseType, name: t('ex.deadLoad') },
@@ -451,68 +584,51 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       ];
       api.nextId.loadCase = 4;
 
-      // ─── Ejes locales para elementos horizontales en dirección X ───
-      // ex = (1,0,0), refEz = (0,-1,0)
-      // ey = refEz × ex = (0,0,+1)  → +Z global
-      // ez = ex × ey    = (0,-1,0)  → -Y global (abajo)
-      // Entonces: gravedad (-Y global) = +ez → +qZ
-      //           viento  (+Z global) = +ey → +qY
-      //           succión (+Y global) = -ez → -qZ
+      // Tributaria longitudinal por frame (todos equiespaciados a 4m)
+      const tribW = (f: number) => f === 0 || f === NF - 1 ? 2 : 4;
 
       // ─── D (Peso propio): 0.5 kN/m² cubierta → nodal en cordón superior ───
-      // (Carga tributaria por nodo para que la cabriada trabaje directamente)
       for (let f = 0; f < NF; f++) {
-        const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
+        const tw = tribW(f);
         for (let p = 0; p <= NTP; p++) {
-          const tribZ = p === 0 || p === NTP ? panW / 2 : panW;
-          api.addNodalLoad3D(tT[f][p], 0, -0.5 * tribX * tribZ, 0, 0, 0, 0, 1);
+          const tz = p === 0 || p === NTP ? panW / 2 : panW;
+          api.addNodalLoad3D(tT[f][p], 0, -0.5 * tw * tz, 0, 0, 0, 0, 1);
         }
       }
-      // Peso propio carrileras (IPN500 ≈ 1.41 kN/m) → distribuido
+      // Peso propio carrileras (IPN500 ≈ 1.41 kN/m)
       for (const eid of [...craneRailIdsL, ...craneRailIdsR]) {
         api.addDistributedLoad3D(eid, 0, 0, 1.41, 1.41, undefined, undefined, 1);
       }
 
       // ─── Lr (Sobrecarga cubierta + grúa) ───
-      // 0.3 kN/m² → nodal en cordón superior
       for (let f = 0; f < NF; f++) {
-        const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
+        const tw = tribW(f);
         for (let p = 0; p <= NTP; p++) {
-          const tribZ = p === 0 || p === NTP ? panW / 2 : panW;
-          api.addNodalLoad3D(tT[f][p], 0, -0.3 * tribX * tribZ, 0, 0, 0, 0, 2);
+          const tz = p === 0 || p === NTP ? panW / 2 : panW;
+          api.addNodalLoad3D(tT[f][p], 0, -0.3 * tw * tz, 0, 0, 0, 0, 2);
         }
       }
-      // Carga de grúa: 120 kN por rueda en pórticos 2 y 3 (puente grúa ~20 ton)
-      for (const f of [2, 3]) {
-        api.addNodalLoad3D(cL[f][crLv].i, 0, -120, 0, 0, 0, 0, 2);
-        api.addNodalLoad3D(cR[f][crLv].i, 0, -120, 0, 0, 0, 0, 2);
+      // Carga de grúa: 120 kN por rueda en pórticos principales 1 y 2 (centrales)
+      for (const mi of [1, 2]) {
+        api.addNodalLoad3D(cL[mi][crLv].i, 0, -120, 0, 0, 0, 0, 2);
+        api.addNodalLoad3D(cR[mi][crLv].i, 0, -120, 0, 0, 0, 0, 2);
       }
 
-      // ─── W (Viento transversal +Z): presión/succión en paredes y techo ───
-      // Barlovento Z=0: Cp=+0.7 → 0.6 × 0.7 = 0.42 kN/m² (empuja en +Z)
-      // Sotavento Z=SP: Cp=-0.5 → 0.6 × 0.5 = 0.30 kN/m² (succiona en +Z)
-      // Techo: succión hacia arriba (-qZ local)
-
-      // Presión en largueros de pared Z=0 (barlovento, empuja en +Z global = +qY local)
-      // Tributaria vertical = segH = 2m, Cp=+0.7, q=0.6 kN/m² → 0.25 kN/m² neto
+      // ─── W (Viento transversal +Z) ───
+      // Ejes locales elem horizontal en X: ey→+Z global, ez→-Y global
       const qWindWall = 0.25 * segH; // 0.50 kN/m
-      for (let f = 0; f < NB; f++) {
-        for (const eid of wallGirtIdsL[f]) {
-          api.addDistributedLoad3D(eid, qWindWall, qWindWall, 0, 0, undefined, undefined, 3);
-        }
+      for (const eid of wallGirtIdsL) {
+        api.addDistributedLoad3D(eid, qWindWall, qWindWall, 0, 0, undefined, undefined, 3);
       }
-      // Succión en largueros de pared Z=SP (sotavento, jala en +Z global = +qY local)
-      const qWindLee = 0.15 * segH; // 0.30 kN/m
-      for (let f = 0; f < NB; f++) {
-        for (const eid of wallGirtIdsR[f]) {
-          api.addDistributedLoad3D(eid, qWindLee, qWindLee, 0, 0, undefined, undefined, 3);
-        }
+      const qWindLee = 0.15 * segH;
+      for (const eid of wallGirtIdsR) {
+        api.addDistributedLoad3D(eid, qWindLee, qWindLee, 0, 0, undefined, undefined, 3);
       }
-      // Succión de techo en correas (hacia arriba = +Y global = -qZ local)
-      const midP = NTP / 2; // = 4
-      const qRoofWindward = 0.20 * panW;  // 0.50 kN/m (succión barlovento)
-      const qRoofLeeward  = 0.10 * panW;  // 0.25 kN/m (succión sotavento)
-      for (let f = 0; f < NB; f++) {
+      // Succión de techo en correas
+      const midP = NTP / 2;
+      const qRoofWindward = 0.20 * panW;
+      const qRoofLeeward  = 0.10 * panW;
+      for (let f = 0; f < NF - 1; f++) {
         for (let p = 1; p < NTP; p++) {
           const idx = f * (NTP - 1) + (p - 1);
           const eid = roofPurlinIds[idx];
@@ -520,10 +636,11 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
           api.addDistributedLoad3D(eid, 0, 0, -q, -q, undefined, undefined, 3);
         }
       }
-      // Viento en aleros (presión en nodos tope de columna, +Z global directo)
-      for (let f = 0; f < NF; f++) {
-        const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
-        api.addNodalLoad3D(cL[f][NCS].o, 0, 0, 0.42 * tribX * segH / 2, 0, 0, 0, 3);
+      // Viento en aleros (presión en nodos tope de columna)
+      for (let mi = 0; mi < NMain; mi++) {
+        const f = mi * 2;
+        const tw = tribW(f);
+        api.addNodalLoad3D(cL[mi][NCS].o, 0, 0, 0.42 * tw * segH / 2, 0, 0, 0, 3);
       }
 
       return true;
@@ -765,12 +882,12 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         b: 0.35, h: 0.35, shape: 'rect',
       });
       const secVP = api.addSection({
-        name: 'VP 30×60', a: 0.18, iz: 5.4e-3, iy: 1.35e-3, j: 4.0e-3,
-        b: 0.30, h: 0.60, shape: 'rect',
+        name: 'VP 30×80', a: 0.24, iz: 1.28e-2, iy: 1.80e-3, j: 5.7e-3,
+        b: 0.30, h: 0.80, shape: 'rect',
       });
       const secVS = api.addSection({
-        name: 'VS 25×50', a: 0.125, iz: 2.604e-3, iy: 6.51e-4, j: 1.8e-3,
-        b: 0.25, h: 0.50, shape: 'rect',
+        name: 'VS 30×65', a: 0.195, iz: 6.866e-3, iy: 1.463e-3, j: 4.5e-3,
+        b: 0.30, h: 0.65, shape: 'rect',
       });
       // (Escalera removida — se modela aparte si es necesario)
 

@@ -1,12 +1,13 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
-  import { modelStore, resultsStore, uiStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import { openReport } from '../../lib/engine/pro-report';
-  import type { ReportData } from '../../lib/engine/pro-report';
+  import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
   import ProElementsTab from './ProElementsTab.svelte';
   import ProMaterialsTab from './ProMaterialsTab.svelte';
@@ -19,9 +20,11 @@
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import ProConnectionsTab from './ProConnectionsTab.svelte';
   import type { SolverDiagnostic } from '../../lib/engine/types';
+  import { checkModel } from '../../lib/engine/model-diagnostics';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'verification' | 'diagnostics';
+  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'verification' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -59,6 +62,7 @@
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
         { id: 'verification' as ProTab, label: t('pro.tabVerification') },
+        { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
       ],
     },
@@ -68,8 +72,35 @@
   let verificationsRef = $state<ElementVerification[]>([]);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
+  let showReportDialog = $state(false);
 
-  const diagCount = $derived(resultsStore.diagnostics3D.filter((d: SolverDiagnostic) => d.severity === 'error' || d.severity === 'warning').length);
+  // Merge model + assembly + solver diagnostics with dedup (mirrors ProDiagnosticsTab logic)
+  const diagCount = $derived.by(() => {
+    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    const solver = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    const modelDiags = checkModel({
+      nodes: modelStore.nodes,
+      elements: modelStore.elements,
+      materials: modelStore.materials,
+      sections: modelStore.sections,
+      supports: modelStore.supports,
+      loads: modelStore.loads as any,
+      loadCases: modelStore.model.loadCases,
+      plates: modelStore.model.plates,
+      quads: modelStore.model.quads,
+    });
+    const merged = [...modelDiags];
+    for (const sd of [...general, ...solver]) {
+      const isDupe = merged.some(
+        d => d.code === sd.code && d.message === sd.message &&
+             JSON.stringify(d.elementIds) === JSON.stringify(sd.elementIds) &&
+             JSON.stringify(d.nodeIds) === JSON.stringify(sd.nodeIds)
+      );
+      if (!isDupe) merged.push(sd);
+    }
+    return merged.filter(d => d.severity === 'error' || d.severity === 'warning').length;
+  });
 
   // Counts for badges
   const nodeCount = $derived(modelStore.nodes.size);
@@ -144,19 +175,44 @@
     return verifs;
   }
 
-  function exportReport() {
+  /** Serialize loads for the report */
+  function serializeLoads(): ReportData['loads'] {
+    const loads: NonNullable<ReportData['loads']> = [];
+    for (const load of modelStore.model.loads) {
+      let tipo = '', destino = '', valores = '';
+      switch (load.type) {
+        case 'nodal': { const d = load.data; tipo = t('file.loadNodal'); destino = `Nodo ${d.nodeId}`; valores = `Fx=${d.fx} kN, Fy=${d.fy} kN, Mz=${d.mz} kN·m`; break; }
+        case 'distributed': { const d = load.data; tipo = t('file.loadDistributed'); destino = `Elem ${d.elementId}`; valores = d.qI === d.qJ ? `q=${d.qI} kN/m` : `qI=${d.qI}, qJ=${d.qJ} kN/m`; break; }
+        case 'pointOnElement': { const d = load.data; tipo = t('file.loadPointOnElement'); destino = `Elem ${d.elementId}`; valores = `P=${d.p} kN, a=${d.a} m`; break; }
+        case 'thermal': { const d = load.data; tipo = t('file.loadThermal'); destino = `Elem ${d.elementId}`; valores = `ΔT=${d.dtUniform} °C, ΔTg=${d.dtGradient} °C`; break; }
+      }
+      loads.push({ type: tipo, target: destino, values: valores, caseLabel: (load as any).caseLabel });
+    }
+    return loads;
+  }
+
+  function handleOpenReportDialog() {
     // Auto-solve if no results yet
     if (!resultsStore.results3D) {
       if (modelStore.nodes.size === 0) { uiStore.toast(t('pro.solveFirst'), 'error'); return; }
       runGlobalSolve();
     }
-    const results = resultsStore.results3D;
-    if (!results) return;
+    if (!resultsStore.results3D) return;
 
     // Auto-verify CIRSOC if not already done
     if (verificationsRef.length === 0) {
       verificationsRef = autoVerify();
+      verificationStore.setConcrete(verificationsRef);
     }
+
+    showReportDialog = true;
+  }
+
+  function exportReport(config: ReportConfig) {
+    showReportDialog = false;
+
+    const results = resultsStore.results3D;
+    if (!results) return;
 
     let screenshot: string | undefined;
     const canvas = document.querySelector('canvas');
@@ -174,12 +230,14 @@
       supports: [...modelStore.supports.values()],
       quads: modelStore.model.quads.size > 0 ? [...modelStore.model.quads.values()] : undefined,
       loadCount: modelStore.loads.length,
+      loads: serializeLoads(),
       results,
       verifications: verificationsRef,
       advancedResults: Object.keys(advancedResultsRef).length > 0 ? advancedResultsRef : undefined,
       diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
       screenshot,
       t,
+      config,
     };
 
     if (verificationsRef.length > 0) {
@@ -255,7 +313,7 @@
     <button class="pro-example-btn" onclick={() => { uiStore.showLoads3D = false; modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
       {t('pro.exampleBtn')}
     </button>
-    <button class="pro-report-btn" onclick={exportReport} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
+    <button class="pro-report-btn" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
       {t('pro.reportBtn')}
     </button>
   </div>
@@ -319,12 +377,26 @@
         <ProResultsTab />
       {:else if activeTab === 'verification'}
         <ProVerificationTab bind:verifications={verificationsRef} />
+      {:else if activeTab === 'connections'}
+        <ProConnectionsTab />
       {:else if activeTab === 'diagnostics'}
         <ProDiagnosticsTab />
       {/if}
     </svelte:boundary>
   </div>
 </div>
+
+<ProReportDialog
+  open={showReportDialog}
+  hasResults={!!resultsStore.results3D}
+  hasVerifications={verificationsRef.length > 0}
+  hasAdvanced={Object.keys(advancedResultsRef).length > 0}
+  hasDrift={false}
+  hasDiagnostics={resultsStore.diagnostics3D.length > 0}
+  hasQuantities={verificationsRef.length > 0}
+  ongenerate={exportReport}
+  onclose={() => { showReportDialog = false; }}
+/>
 
 <style>
   .pro-panel {

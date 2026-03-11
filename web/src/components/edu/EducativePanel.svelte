@@ -3,18 +3,19 @@
   import { getExercises, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
-  import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import { solveForEdu, registerEduSolveHandler } from './edu-solver';
+  import { eduStore } from './edu-store.svelte';
 
-  let currentExercise = $state<EduExercise | null>(null);
-  let exerciseKey = $state(0); // force re-mount on exercise change
   const exerciseList = $derived(getExercises());
 
+  // Register the edu global-solve listener once on mount
+  registerEduSolveHandler();
+
   function loadExercise(ex: EduExercise) {
-    // Clear current model
     modelStore.clear();
     resultsStore.clear();
 
-    // Build the exercise structure
+    // Build the exercise structure via the shared model store
     ex.build({
       addNode: (x, y) => modelStore.addNode(x, y),
       addElement: (nI, nJ) => modelStore.addElement(nI, nJ),
@@ -23,11 +24,11 @@
       addDistributedLoad: (elementId, qI, qJ) => modelStore.addDistributedLoad(elementId, qI, qJ),
     });
 
-    currentExercise = ex;
-    exerciseKey++;
+    // Track in edu store
+    eduStore.loadExercise(ex);
 
     // Solve internally (results stored but hidden from viewport)
-    setTimeout(() => runGlobalSolve(), 100);
+    setTimeout(() => solveForEdu(), 100);
 
     // Zoom to fit
     setTimeout(() => {
@@ -37,10 +38,16 @@
       }
     }, 150);
   }
+
+  function goBack() {
+    eduStore.clearExercise();
+    modelStore.clear();
+    resultsStore.clear();
+  }
 </script>
 
 <div class="edu-panel">
-  {#if !currentExercise}
+  {#if !eduStore.hasExercise}
     <div class="edu-welcome">
       <h2>{t('edu.title')}</h2>
       <p class="edu-subtitle">{t('edu.subtitle')}</p>
@@ -59,21 +66,21 @@
         {/each}
       </div>
 
-      <div class="edu-coming-soon">
-        <p>{t('edu.comingSoon')}</p>
+      <div class="edu-footer">
+        <p>{t('edu.moreExercises')}</p>
       </div>
     </div>
   {:else}
     <div class="edu-exercise-container">
       <div class="edu-topbar">
-        <button class="edu-back-btn" onclick={() => { currentExercise = null; modelStore.clear(); resultsStore.clear(); }}>
+        <button class="edu-back-btn" onclick={goBack}>
           {t('edu.back')}
         </button>
-        <span class="edu-exercise-name">{currentExercise.title}</span>
+        <span class="edu-exercise-name">{eduStore.exercise!.title}</span>
       </div>
 
-      {#key exerciseKey}
-        <EduExerciseView exercise={currentExercise} />
+      {#key eduStore.exerciseKey}
+        <EduExerciseView exercise={eduStore.exercise!} />
       {/key}
     </div>
   {/if}
@@ -170,19 +177,17 @@
     line-height: 1.4;
   }
 
-  .edu-coming-soon {
+  .edu-footer {
     margin-top: 24px;
-    padding: 12px 16px;
-    background: #0a1a30;
-    border: 1px dashed #334;
-    border-radius: 6px;
+    padding: 10px 16px;
   }
 
-  .edu-coming-soon p {
-    font-size: 0.72rem;
-    color: #666;
+  .edu-footer p {
+    font-size: 0.68rem;
+    color: #555;
     margin: 0;
     text-align: center;
+    font-style: italic;
   }
 
   .edu-exercise-container {

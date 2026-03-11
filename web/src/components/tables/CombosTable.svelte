@@ -65,8 +65,9 @@
   {/if}
   <div class="table-footer">
     <button class="add-btn solve-combos" onclick={() => {
-      if (uiStore.analysisMode === '3d') {
-        const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+        const isPro = uiStore.analysisMode === 'pro';
+        const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
         if (typeof result === 'string') {
           uiStore.toast(result, 'error');
         } else if (result) {

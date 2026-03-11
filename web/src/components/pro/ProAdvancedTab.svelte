@@ -16,6 +16,19 @@
     solveContact3D,
     solveStaged3D,
     solveCreepShrinkage3D,
+    solveHarmonic3D,
+    solveArcLength,
+    solveDisplacementControl,
+    solveWithImperfections3D,
+    computeInfluenceLine3D,
+    solveCable2D,
+    guyanReduce2D,
+    craigBampton2D,
+    solveMultiCase2D,
+    solveMultiCase3D,
+    analyzeSection,
+    solveConstrained2D,
+    solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
   import { cirsoc103Spectrum } from '../../lib/engine/spectral';
@@ -59,7 +72,7 @@
         loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections },
       includeSelfWeight,
     );
-    if (!input) throw new Error('Modelo insuficiente para construir entrada del solver');
+    if (!input) throw new Error(t('advanced.emptyModel'));
     return input;
   }
 
@@ -142,7 +155,7 @@
     solving = true;
     try {
       if (!modalResult) {
-        solveError = 'Espectral: ejecutar análisis modal primero';
+        solveError = t('pro.requiresModal');
         solving = false;
         return;
       }
@@ -256,7 +269,7 @@
     try {
       const groundAccel = parseAccelInput();
       if (groundAccel.length === 0) {
-        solveError = 'Time History: se requiere al menos un valor de aceleración';
+        solveError = t('pro.needAccelData');
         solving = false;
         return;
       }
@@ -283,6 +296,41 @@
       thResult = res;
     } catch (e: any) {
       solveError = `Time History: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 6b. Harmonic Response ───────────────────────────────────
+
+  let harmFMin = $state(0.1);
+  let harmFMax = $state(50);
+  let harmNPoints = $state(200);
+  let harmDamping = $state(0.05);
+  let harmDir = $state<'X' | 'Y' | 'Z'>('X');
+  let harmResult = $state<any | null>(null);
+
+  function handleHarmonic() {
+    solveError = null;
+    solving = true;
+    try {
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      const densities: Record<string, number> = {};
+      for (const [id, mat] of modelStore.materials) {
+        densities[String(id)] = (mat as any).rho ?? 0;
+      }
+      const res = solveHarmonic3D({
+        solver: input,
+        densities,
+        fMin: harmFMin,
+        fMax: harmFMax,
+        nPoints: harmNPoints,
+        dampingXi: harmDamping,
+        direction: harmDir,
+      });
+      harmResult = res;
+    } catch (e: any) {
+      solveError = `Harmónico: ${e.message ?? 'Error'}`;
     }
     solving = false;
   }
@@ -355,6 +403,81 @@
     solving = false;
   }
 
+  // ─── 7b. Arc-Length ──────────────────────────────────────────
+
+  let arcMaxIter = $state(50);
+  let arcTol = $state(1e-6);
+  let arcIncrements = $state(20);
+  let arcResult = $state<any | null>(null);
+
+  function handleArcLength() {
+    solveError = null;
+    solving = true;
+    try {
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      arcResult = solveArcLength({
+        solver: input,
+        maxIter: arcMaxIter,
+        tolerance: arcTol,
+        nIncrements: arcIncrements,
+      });
+    } catch (e: any) {
+      solveError = `Arc-Length: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 7c. Displacement Control ──────────────────────────────
+
+  let dcNodeId = $state<number | null>(null);
+  let dcDof = $state<'ux' | 'uy' | 'uz'>('uy');
+  let dcTargetDisp = $state(-0.05);
+  let dcIncrements = $state(20);
+  let dcResult = $state<any | null>(null);
+
+  function handleDispControl() {
+    solveError = null;
+    solving = true;
+    try {
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      dcResult = solveDisplacementControl({
+        solver: input,
+        controlNode: dcNodeId,
+        controlDof: dcDof,
+        targetDisplacement: dcTargetDisp,
+        nIncrements: dcIncrements,
+      });
+    } catch (e: any) {
+      solveError = `Disp. Control: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 7d. Imperfections ─────────────────────────────────────
+
+  let imperfType = $state<'global' | 'local'>('global');
+  let imperfAmplitude = $state(0.001);
+  let imperfResult = $state<any | null>(null);
+
+  function handleImperfections() {
+    solveError = null;
+    solving = true;
+    try {
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      imperfResult = solveWithImperfections3D({
+        solver: input,
+        type: imperfType,
+        amplitude: imperfAmplitude,
+      });
+    } catch (e: any) {
+      solveError = `Imperfecciones: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
   // ─── 8. Winkler Foundation ─────────────────────────────────────
 
   let winklerElementId = $state<number | null>(null);
@@ -377,7 +500,7 @@
     solving = true;
     try {
       const input = buildInput();
-      winklerResult = solveWinkler3D({
+      const res = solveWinkler3D({
         solver: input,
         foundationSprings: winklerSprings.map(s => ({
           elementId: s.elementId,
@@ -385,6 +508,8 @@
           ...(s.kz ? { kz: s.kz } : {}),
         })),
       });
+      winklerResult = res;
+      if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = `Winkler: ${e.message ?? 'Error'}`;
     }
@@ -427,12 +552,14 @@
     solving = true;
     try {
       const input = buildInput();
-      ssiResult = solveSSI3D({
+      const res = solveSSI3D({
         solver: input,
         soilSprings: ssiSprings,
         maxIter: ssiMaxIter,
         tolerance: ssiTolerance,
       });
+      ssiResult = res;
+      if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = `SSI: ${e.message ?? 'Error'}`;
     }
@@ -470,7 +597,9 @@
       for (const [elementId, behavior] of contactBehaviors) {
         elements.push({ elementId, behavior });
       }
-      contactResult = solveContact3D({ solver: input, contactElements: elements });
+      const res = solveContact3D({ solver: input, contactElements: elements });
+      contactResult = res;
+      if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = `Contacto: ${e.message ?? 'Error'}`;
     }
@@ -495,10 +624,12 @@
     solving = true;
     try {
       const input = buildInput();
-      stagedResult = solveStaged3D({
+      const res = solveStaged3D({
         solver: input,
         stages: stages.map(s => ({ addElements: s.addElements, removeElements: s.removeElements, loadIndices: s.loadIndices })),
       });
+      stagedResult = res;
+      if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
       solveError = `Etapas: ${e.message ?? 'Error'}`;
     }
@@ -541,6 +672,188 @@
     }
     solving = false;
   }
+
+  // ─── 13. Cable Analysis (2D) ──────────────────────────────────
+
+  let cableMaxIter = $state(50);
+  let cableTol = $state(1e-6);
+  let cableResult = $state<any | null>(null);
+
+  function handleCable() {
+    solveError = null;
+    solving = true;
+    try {
+      // Cable analysis is 2D-only — uses buildSolverInput from modelStore
+      const input = modelStore.buildSolverInput(true); // always include self-weight for cables
+      if (!input) { solveError = t('advanced.emptyModel'); solving = false; return; }
+      cableResult = solveCable2D(input, cableMaxIter, cableTol);
+    } catch (e: any) {
+      solveError = `Cable: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 14. Influence Lines 3D ──────────────────────────────────
+
+  let ilElementId = $state<number | null>(null);
+  let ilResponse = $state<'moment' | 'shear' | 'axial' | 'reaction'>('moment');
+  let ilResult = $state<any | null>(null);
+
+  function handleInfluenceLine3D() {
+    solveError = null;
+    solving = true;
+    try {
+      let input = buildInput();
+      input = maybeApplyDiaphragm(input);
+      ilResult = computeInfluenceLine3D({
+        solver: input,
+        elementId: ilElementId,
+        responseType: ilResponse,
+      });
+    } catch (e: any) {
+      solveError = `Influence Line 3D: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 15. Model Reduction ─────────────────────────────────────
+
+  let reductionMethod = $state<'guyan' | 'craigBampton'>('guyan');
+  let retainedDofs = $state('');   // comma-separated DOF indices
+  let numCBModes = $state(10);
+  let reductionResult = $state<any | null>(null);
+
+  function handleModelReduction() {
+    solveError = null;
+    solving = true;
+    try {
+      const retained = retainedDofs.split(/[,\s]+/).map(Number).filter(n => !isNaN(n) && n >= 0);
+      if (retained.length === 0) {
+        solveError = t('pro.noRetainedDofs');
+        solving = false;
+        return;
+      }
+      // Model reduction is 2D only
+      const input = modelStore.buildSolverInput(includeSelfWeight);
+      if (!input) { solveError = t('advanced.emptyModel'); solving = false; return; }
+      if (reductionMethod === 'guyan') {
+        reductionResult = guyanReduce2D({ solver: input, retainedDofs: retained });
+      } else {
+        reductionResult = craigBampton2D({ solver: input, retainedDofs: retained, numModes: numCBModes });
+      }
+    } catch (e: any) {
+      solveError = `Model Reduction: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 16. Multi-Case Solver ──────────────────────────────────
+
+  let multiCaseResult = $state<any | null>(null);
+
+  function handleMultiCase() {
+    solveError = null;
+    solving = true;
+    try {
+      const cases = modelStore.model.loadCases;
+      if (cases.length < 2) {
+        solveError = t('pro.needMultipleCases');
+        solving = false;
+        return;
+      }
+      const is3DMode = modelStore.nodes.size > 0 && [...modelStore.nodes.values()].some(n => (n.z ?? 0) !== 0);
+      if (is3DMode) {
+        let input = buildInput();
+        input = maybeApplyDiaphragm(input);
+        multiCaseResult = solveMultiCase3D({ solver: input, caseIds: cases.map(c => c.id) });
+      } else {
+        const input2D = modelStore.buildSolverInput(includeSelfWeight);
+        if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
+        multiCaseResult = solveMultiCase2D({ solver: input2D, caseIds: cases.map(c => c.id) });
+      }
+    } catch (e: any) {
+      solveError = `Multi-Case: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
+
+  // ─── 17. Section Analyzer ──────────────────────────────────
+
+  let secShape = $state<'rect' | 'circle' | 'I' | 'L' | 'T' | 'polygon'>('rect');
+  let secB = $state(0.3);     // m
+  let secH = $state(0.5);     // m
+  let secR = $state(0.15);    // m (circle)
+  let secTw = $state(0.01);   // m (web thickness for I/T)
+  let secTf = $state(0.015);  // m (flange thickness for I/T)
+  let secBf = $state(0.2);    // m (flange width for I/T)
+  let secPolyText = $state(''); // "x1,y1; x2,y2; ..."
+  let secResult = $state<any | null>(null);
+
+  function handleSectionAnalysis() {
+    solveError = null;
+    try {
+      let geometry: any;
+      switch (secShape) {
+        case 'rect': geometry = { shape: 'rect', b: secB, h: secH }; break;
+        case 'circle': geometry = { shape: 'circle', r: secR }; break;
+        case 'I': geometry = { shape: 'I', h: secH, b: secBf, tw: secTw, tf: secTf }; break;
+        case 'L': geometry = { shape: 'L', h: secH, b: secB, tw: secTw, tf: secTf }; break;
+        case 'T': geometry = { shape: 'T', h: secH, b: secBf, tw: secTw, tf: secTf }; break;
+        case 'polygon': {
+          const pts = secPolyText.split(';').map(p => {
+            const [x, y] = p.trim().split(',').map(Number);
+            return { x: x ?? 0, y: y ?? 0 };
+          }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+          if (pts.length < 3) { solveError = t('pro.needPolygonPts'); return; }
+          geometry = { shape: 'polygon', vertices: pts };
+          break;
+        }
+      }
+      secResult = analyzeSection(geometry);
+    } catch (e: any) {
+      solveError = `Section: ${e.message ?? 'Error'}`;
+    }
+  }
+
+  // ─── 18. Constrained Solver ────────────────────────────────
+
+  let constraintType = $state<'rigid' | 'penalty'>('rigid');
+  let constraintPairs = $state('');  // "nodeA,nodeB; nodeC,nodeD; ..."
+  let constrainedResult = $state<any | null>(null);
+
+  function handleConstrained() {
+    solveError = null;
+    solving = true;
+    try {
+      const pairs = constraintPairs.split(';').map(p => {
+        const [a, b] = p.trim().split(',').map(Number);
+        return { nodeA: a, nodeB: b };
+      }).filter(p => !isNaN(p.nodeA) && !isNaN(p.nodeB));
+      if (pairs.length === 0) {
+        solveError = t('pro.needConstraintPairs');
+        solving = false;
+        return;
+      }
+      const is3DMode = modelStore.nodes.size > 0 && [...modelStore.nodes.values()].some(n => (n.z ?? 0) !== 0);
+      let res: any;
+      if (is3DMode) {
+        let input = buildInput();
+        input = maybeApplyDiaphragm(input);
+        res = solveConstrained3D({ solver: input, constraints: pairs, method: constraintType });
+      } else {
+        const input2D = modelStore.buildSolverInput(includeSelfWeight);
+        if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
+        res = solveConstrained2D({ solver: input2D, constraints: pairs, method: constraintType });
+      }
+      constrainedResult = res;
+      if (res.results) {
+        is3DMode ? resultsStore.setResults3D(res.results) : resultsStore.setResults(res.results);
+      }
+    } catch (e: any) {
+      solveError = `Constrained: ${e.message ?? 'Error'}`;
+    }
+    solving = false;
+  }
 </script>
 
 <div class="adv-tab">
@@ -548,11 +861,11 @@
   <div class="adv-header">
     <label class="adv-check">
       <input type="checkbox" bind:checked={includeSelfWeight} />
-      Peso propio
+      {t('pro.selfWeightLabel')}
     </label>
     <label class="adv-check">
       <input type="checkbox" bind:checked={useDiaphragm} />
-      Diafragma rígido
+      {t('pro.rigidDiaphragm')}
     </label>
     {#if !wasmAvailable}
       <span class="adv-wasm-warn">{t('pro.wasmNotReady')}</span>
@@ -569,11 +882,11 @@
     <div class="adv-group">
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving || !wasmAvailable}>P-Delta</button>
-        <span class="adv-desc">Efectos de segundo orden</span>
+        <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
       {#if pdeltaResult}
         <div class="adv-inline">
-          {pdeltaResult.converged ? 'Convergió' : 'No convergió'} en {pdeltaResult.iterations} iter.
+          {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
           {#if pdeltaResult.b2Factor != null} — B2 = {fmtNum(pdeltaResult.b2Factor)}{/if}
         </div>
       {/if}
@@ -637,7 +950,7 @@
         </label>
       </div>
       {#if !modalResult}
-        <div class="adv-hint">Requiere análisis modal previo</div>
+        <div class="adv-hint">{t('pro.requiresModal')}</div>
       {/if}
       {#if spectralResult}
         <div class="adv-inline">
@@ -699,20 +1012,20 @@
         <label class="adv-label">Exp: <select class="adv-sel" bind:value={windExposure}><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></label>
         <label class="adv-label">Ancho: <input type="number" class="adv-num" bind:value={windWidth} min={0.1} step={0.5} /></label>
         <label class="adv-label">Dir: <select class="adv-sel" bind:value={windDir}><option value="X">X</option><option value="Y">Y</option></select></label>
-        <button class="adv-btn-sm" onclick={handleWindLoads} disabled={!hasModel}>Generar</button>
+        <button class="adv-btn-sm" onclick={handleWindLoads} disabled={!hasModel}>{t('pro.generate')}</button>
       </div>
       {#if windResult}
         <div class="adv-inline">
           {#if windResult.baseShear != null}Vb={fmtNum(windResult.baseShear)} kN{/if}
           {#if windResult.overturningMoment != null} — Mv={fmtNum(windResult.overturningMoment)} kN·m{/if}
-          — {windResult.nodalForces?.length ?? 0} nodos
+          — {windResult.nodalForces?.length ?? 0} {t('pro.nodes')}
         </div>
         <button class="adv-btn-sm" onclick={applyWindToModel} disabled={windApplied}>
-          {windApplied ? 'Aplicado' : 'Aplicar al modelo (caso W)'}
+          {windApplied ? t('pro.applied') : t('pro.applyToModel')}
         </button>
         {#if windResult.steps?.length}
           <details>
-            <summary class="adv-steps-toggle">Memoria de cálculo</summary>
+            <summary class="adv-steps-toggle">{t('pro.calcMemory')}</summary>
             <div class="adv-steps-list">
               {#each windResult.steps as step}
                 <div class="adv-step-line">{step}</div>
@@ -736,7 +1049,7 @@
         </div>
         <label class="adv-check">
           <input type="checkbox" bind:checked={thUseSine} />
-          Seno de prueba
+          {t('pro.testSine')}
         </label>
         {#if thUseSine}
           <div class="adv-form">
@@ -745,11 +1058,11 @@
           </div>
         {:else}
           <div class="adv-accel-area">
-            <label class="adv-label">Aceleración (separada por comas):</label>
+            <label class="adv-label">{t('pro.accelInput')}:</label>
             <textarea class="adv-textarea" bind:value={thAccelText} rows="2" placeholder="0.1, 0.25, 0.4, 0.3, -0.1, ..."></textarea>
           </div>
         {/if}
-        <button class="adv-run-btn" onclick={handleTimeHistory} disabled={!hasModel || solving || !wasmAvailable}>Ejecutar</button>
+        <button class="adv-run-btn" onclick={handleTimeHistory} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
       {#if thResult}
         <div class="adv-inline">
@@ -760,6 +1073,43 @@
       {/if}
     </details>
 
+    <!-- ── 6b. Harmonic Response ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.harmonicTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">f min (Hz): <input type="number" class="adv-num" bind:value={harmFMin} min={0.01} max={100} step={0.1} /></label>
+          <label class="adv-label">f max (Hz): <input type="number" class="adv-num" bind:value={harmFMax} min={0.1} max={500} step={1} /></label>
+          <label class="adv-label">Puntos: <input type="number" class="adv-num" bind:value={harmNPoints} min={10} max={2000} step={10} /></label>
+          <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={harmDamping} min={0} max={1} step={0.01} /></label>
+          <label class="adv-label">Dir: <select class="adv-sel" bind:value={harmDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
+        </div>
+        <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
+      </div>
+      {#if harmResult}
+        <div class="adv-inline">
+          {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
+          {#if harmResult.resonanceFreq != null} — f_res={fmtNum(harmResult.resonanceFreq)} Hz{/if}
+          {#if harmResult.peakDynamicFactor != null} — DAF={fmtNum(harmResult.peakDynamicFactor)}{/if}
+        </div>
+        {#if harmResult.frf?.length}
+          <details>
+            <summary class="adv-steps-toggle">{t('pro.frfCurve')}</summary>
+            <div class="adv-frf-table">
+              <table class="adv-table">
+                <thead><tr><th>f (Hz)</th><th>|H| (m/kN)</th></tr></thead>
+                <tbody>
+                  {#each harmResult.frf.filter((_: any, i: number) => i % Math.max(1, Math.floor(harmResult.frf.length / 20)) === 0) as pt}
+                    <tr><td class="col-num">{fmtNum(pt.frequency)}</td><td class="col-num">{pt.amplitude.toExponential(3)}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        {/if}
+      {/if}
+    </details>
+
     <!-- ── 7. Nonlinear ── -->
     <details class="adv-group-details">
       <summary class="adv-title">No lineal</summary>
@@ -767,7 +1117,7 @@
         <div class="adv-form">
           <label class="adv-label">Tipo: <select class="adv-sel" bind:value={nlType}><option value="pushover">Pushover</option><option value="corotational">Corotacional</option><option value="fiber">Fibra</option></select></label>
           {#if nlType === 'pushover'}
-            <label class="adv-label">Max rótulas: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
+            <label class="adv-label">{t('pro.maxHinges')}: <input type="number" class="adv-num adv-num-wide" bind:value={nlMaxHinges} min={1} max={200} /></label>
           {:else}
             <label class="adv-label">Max iter: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -777,14 +1127,85 @@
             <label class="adv-label">Pts int: <input type="number" class="adv-num" bind:value={nlFiberIntPts} min={2} max={20} /></label>
           {/if}
         </div>
-        <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>Ejecutar</button>
+        <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
       {#if nlResult}
         <div class="adv-inline">
-          {#if nlResult.converged != null}{nlResult.converged ? 'Convergió' : 'No convergió'}{/if}
+          {#if nlResult.converged != null}{nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
           {#if nlResult.loadFactor != null} — λ={fmtNum(nlResult.loadFactor)}{/if}
           {#if nlResult.maxDisplacement != null} — δmax={fmtNum(nlResult.maxDisplacement)} m{/if}
-          {#if nlResult.numHinges != null} — {nlResult.numHinges} rótulas{/if}
+          {#if nlResult.numHinges != null} — {nlResult.numHinges} {t('pro.hinges')}{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 7b. Arc-Length ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.arcLengthTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">Max iter: <input type="number" class="adv-num" bind:value={arcMaxIter} min={1} max={500} /></label>
+          <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={arcTol} min={1e-12} max={1} step={1e-6} /></label>
+          <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={arcIncrements} min={1} max={200} /></label>
+        </div>
+        <button class="adv-run-btn" onclick={handleArcLength} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runArcLength')}</button>
+      </div>
+      {#if arcResult}
+        <div class="adv-inline">
+          {#if arcResult.converged != null}{arcResult.converged ? t('pro.yes') : t('pro.no')}{/if}
+          {#if arcResult.loadFactor != null} — λ={fmtNum(arcResult.loadFactor)}{/if}
+          {#if arcResult.maxDisplacement != null} — δmax={fmtNum(arcResult.maxDisplacement)} m{/if}
+          {#if arcResult.steps != null} — {arcResult.steps.length} {t('pro.steps')}{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 7c. Displacement Control ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.dispControlTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.nodeLabel')}:
+            <select class="adv-sel" bind:value={dcNodeId}>
+              <option value={null}>--</option>
+              {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
+            </select>
+          </label>
+          <label class="adv-label">DOF: <select class="adv-sel" bind:value={dcDof}><option value="ux">ux</option><option value="uy">uy</option><option value="uz">uz</option></select></label>
+          <label class="adv-label">δ (m): <input type="number" class="adv-num" bind:value={dcTargetDisp} step={0.001} /></label>
+          <label class="adv-label">Incr: <input type="number" class="adv-num" bind:value={dcIncrements} min={1} max={200} /></label>
+        </div>
+        <button class="adv-run-btn" onclick={handleDispControl} disabled={!hasModel || solving || !wasmAvailable || dcNodeId == null}>{solving ? t('pro.solving') : t('pro.runDispControl')}</button>
+      </div>
+      {#if dcResult}
+        <div class="adv-inline">
+          {#if dcResult.converged != null}{dcResult.converged ? t('pro.yes') : t('pro.no')}{/if}
+          {#if dcResult.finalLoad != null} — P={fmtNum(dcResult.finalLoad)} kN{/if}
+          {#if dcResult.maxDisplacement != null} — δmax={fmtNum(dcResult.maxDisplacement)} m{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 7d. Imperfections ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.imperfectionsTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.imperfType')}:
+            <select class="adv-sel" bind:value={imperfType}>
+              <option value="global">Global (sway)</option>
+              <option value="local">Local (bow)</option>
+            </select>
+          </label>
+          <label class="adv-label">{t('pro.amplitude')} (L/...): <input type="number" class="adv-num" bind:value={imperfAmplitude} min={0.0001} max={0.1} step={0.0001} /></label>
+        </div>
+        <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
+      </div>
+      {#if imperfResult}
+        <div class="adv-inline">
+          {#if imperfResult.maxAdditionalMoment != null}ΔM_max={fmtNum(imperfResult.maxAdditionalMoment)} kN·m{/if}
+          {#if imperfResult.maxLateralForce != null} — H_imp={fmtNum(imperfResult.maxLateralForce)} kN{/if}
+          {#if imperfResult.imperfectionShape != null} — {imperfResult.imperfectionShape.length} {t('pro.nodes')}{/if}
         </div>
       {/if}
     </details>
@@ -926,7 +1347,7 @@
         </div>
         {#if contactEntries.length > 0}
           <table class="adv-table">
-            <thead><tr><th>Elem</th><th>Comportamiento</th><th></th></tr></thead>
+            <thead><tr><th>Elem</th><th>{t('pro.behavior')}</th><th></th></tr></thead>
             <tbody>
               {#each contactEntries as [eid, beh]}
                 <tr>
@@ -1016,6 +1437,213 @@
           {#if creepResult.phiCreep != null}{t('pro.creepCoeff')}: {fmtNum(creepResult.phiCreep)}{/if}
           {#if creepResult.shrinkageStrain != null} — {t('pro.shrinkageStrain')}: {creepResult.shrinkageStrain.toExponential(2)}{/if}
           {#if creepResult.maxDisplacement != null} — {t('pro.finalMaxDisp')}: {fmtNum(creepResult.maxDisplacement)} m{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ─── Divider: Herramientas avanzadas ─── -->
+    <div class="adv-divider">{t('pro.advancedTools')}</div>
+
+    <!-- ── 13. Cable (2D) ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.cableTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.maxIter')}: <input type="number" class="adv-num" bind:value={cableMaxIter} min={1} max={500} /></label>
+          <label class="adv-label">{t('pro.tolerance')}: <input type="number" class="adv-num adv-num-wide" bind:value={cableTol} min={1e-12} max={1} step={1e-6} /></label>
+        </div>
+        <p class="adv-hint">{t('pro.cableHint')}</p>
+        <button class="adv-run-btn" onclick={handleCable} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveCable')}</button>
+      </div>
+      {#if cableResult}
+        <div class="adv-inline">
+          {#if cableResult.converged != null}{cableResult.converged ? t('pro.yes') : t('pro.no')}{/if}
+          {#if cableResult.maxSag != null} — {t('pro.maxSag')}: {fmtNum(cableResult.maxSag)} m{/if}
+          {#if cableResult.maxTension != null} — T_max={fmtNum(cableResult.maxTension)} kN{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 14. Influence Lines 3D ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.influenceLine3dTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.element')}:
+            <select class="adv-sel" bind:value={ilElementId}>
+              <option value={null}>--</option>
+              {#each elementIds as eid}<option value={eid}>{eid}</option>{/each}
+            </select>
+          </label>
+          <label class="adv-label">{t('pro.response')}:
+            <select class="adv-sel" bind:value={ilResponse}>
+              <option value="moment">M</option>
+              <option value="shear">V</option>
+              <option value="axial">N</option>
+              <option value="reaction">R</option>
+            </select>
+          </label>
+        </div>
+        <button class="adv-run-btn" onclick={handleInfluenceLine3D} disabled={!hasModel || solving || !wasmAvailable || ilElementId == null}>{solving ? t('pro.solving') : t('pro.computeIL')}</button>
+      </div>
+      {#if ilResult}
+        <div class="adv-inline">
+          {#if ilResult.maxPositive != null}{t('pro.maxPos')}: {fmtNum(ilResult.maxPositive)}{/if}
+          {#if ilResult.maxNegative != null} — {t('pro.maxNeg')}: {fmtNum(ilResult.maxNegative)}{/if}
+        </div>
+        {#if ilResult.ordinates?.length}
+          <details>
+            <summary class="adv-steps-toggle">{t('pro.ilOrdinates')}</summary>
+            <div class="adv-frf-table">
+              <table class="adv-table">
+                <thead><tr><th>{t('pro.nodeLabel')}</th><th>{t('pro.ilValue')}</th></tr></thead>
+                <tbody>
+                  {#each ilResult.ordinates as pt}
+                    <tr><td class="col-id">{pt.nodeId ?? pt.position?.toFixed(2) ?? '?'}</td><td class="col-num">{fmtNum(pt.value)}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        {/if}
+      {/if}
+    </details>
+
+    <!-- ── 15. Model Reduction ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.modelReductionTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.method')}:
+            <select class="adv-sel" bind:value={reductionMethod}>
+              <option value="guyan">Guyan (estático)</option>
+              <option value="craigBampton">Craig-Bampton</option>
+            </select>
+          </label>
+        </div>
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.retainedDofs')}: <input type="text" class="adv-text" bind:value={retainedDofs} placeholder="0,1,2,6,7,8..." /></label>
+        </div>
+        {#if reductionMethod === 'craigBampton'}
+          <div class="adv-form">
+            <label class="adv-label">{t('pro.numCBModes')}: <input type="number" class="adv-num" bind:value={numCBModes} min={1} max={100} /></label>
+          </div>
+        {/if}
+        <p class="adv-hint">{t('pro.reductionHint')}</p>
+        <button class="adv-run-btn" onclick={handleModelReduction} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.reduce')}</button>
+      </div>
+      {#if reductionResult}
+        <div class="adv-inline">
+          {#if reductionResult.originalSize != null}DOF orig: {reductionResult.originalSize}{/if}
+          {#if reductionResult.reducedSize != null} → red: {reductionResult.reducedSize}{/if}
+          {#if reductionResult.ratio != null} ({(reductionResult.ratio * 100).toFixed(0)}%){/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 16. Multi-Case Solver ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.multiCaseTitle')}</summary>
+      <div class="adv-panel">
+        <p class="adv-hint">{t('pro.multiCaseHint')}</p>
+        <button class="adv-run-btn" onclick={handleMultiCase} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveMultiCase')}</button>
+      </div>
+      {#if multiCaseResult}
+        <div class="adv-inline">
+          {#if multiCaseResult.cases != null}{multiCaseResult.cases.length} {t('pro.casesResolved')}{/if}
+          {#if multiCaseResult.maxDisplacement != null} — δmax={fmtNum(multiCaseResult.maxDisplacement)} m{/if}
+        </div>
+      {/if}
+    </details>
+
+    <!-- ── 17. Section Analyzer ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.sectionAnalyzerTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.shape')}:
+            <select class="adv-sel" bind:value={secShape}>
+              <option value="rect">{t('pro.shapeRect')}</option>
+              <option value="circle">{t('pro.shapeCircle')}</option>
+              <option value="I">I / H</option>
+              <option value="L">L</option>
+              <option value="T">T</option>
+              <option value="polygon">{t('pro.shapePolygon')}</option>
+            </select>
+          </label>
+        </div>
+        {#if secShape === 'rect'}
+          <div class="adv-form">
+            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
+            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
+          </div>
+        {:else if secShape === 'circle'}
+          <div class="adv-form">
+            <label class="adv-label">r (m): <input type="number" class="adv-num" bind:value={secR} min={0.01} step={0.01} /></label>
+          </div>
+        {:else if secShape === 'I' || secShape === 'T'}
+          <div class="adv-form">
+            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
+            <label class="adv-label">bf (m): <input type="number" class="adv-num" bind:value={secBf} min={0.01} step={0.01} /></label>
+            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
+            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+          </div>
+        {:else if secShape === 'L'}
+          <div class="adv-form">
+            <label class="adv-label">h (m): <input type="number" class="adv-num" bind:value={secH} min={0.01} step={0.01} /></label>
+            <label class="adv-label">b (m): <input type="number" class="adv-num" bind:value={secB} min={0.01} step={0.01} /></label>
+            <label class="adv-label">tw (m): <input type="number" class="adv-num" bind:value={secTw} min={0.001} step={0.001} /></label>
+            <label class="adv-label">tf (m): <input type="number" class="adv-num" bind:value={secTf} min={0.001} step={0.001} /></label>
+          </div>
+        {:else if secShape === 'polygon'}
+          <div class="adv-form">
+            <label class="adv-label">{t('pro.polygonVertices')}:</label>
+          </div>
+          <textarea class="adv-textarea" bind:value={secPolyText} rows="2" placeholder="0,0; 0.3,0; 0.3,0.5; 0,0.5"></textarea>
+        {/if}
+        <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
+      </div>
+      {#if secResult}
+        <div class="adv-inline">
+          {#if secResult.area != null}A={secResult.area.toExponential(3)} m²{/if}
+          {#if secResult.iy != null} — Iy={secResult.iy.toExponential(3)} m⁴{/if}
+          {#if secResult.iz != null} — Iz={secResult.iz.toExponential(3)} m⁴{/if}
+        </div>
+        {#if secResult.centroidY != null || secResult.centroidZ != null}
+          <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
+            CG: y={fmtNum(secResult.centroidY ?? 0)} m, z={fmtNum(secResult.centroidZ ?? 0)} m
+            {#if secResult.j != null} — J={secResult.j.toExponential(3)} m⁴{/if}
+            {#if secResult.wy != null} — Wy={secResult.wy.toExponential(3)} m³{/if}
+            {#if secResult.wz != null} — Wz={secResult.wz.toExponential(3)} m³{/if}
+          </div>
+        {/if}
+      {/if}
+    </details>
+
+    <!-- ── 18. Constrained Solver ── -->
+    <details class="adv-group-details">
+      <summary class="adv-title">{t('pro.constrainedTitle')}</summary>
+      <div class="adv-panel">
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.constraintMethod')}:
+            <select class="adv-sel" bind:value={constraintType}>
+              <option value="rigid">{t('pro.rigidLink')}</option>
+              <option value="penalty">{t('pro.penaltyMethod')}</option>
+            </select>
+          </label>
+        </div>
+        <div class="adv-form">
+          <label class="adv-label">{t('pro.nodePairs')}:</label>
+        </div>
+        <textarea class="adv-textarea" bind:value={constraintPairs} rows="2" placeholder="1,5; 2,6; 3,7"></textarea>
+        <p class="adv-hint">{t('pro.constrainedHint')}</p>
+        <button class="adv-run-btn" onclick={handleConstrained} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.solveConstrained')}</button>
+      </div>
+      {#if constrainedResult}
+        <div class="adv-inline">
+          {#if constrainedResult.converged != null}{constrainedResult.converged ? t('pro.yes') : t('pro.no')}{/if}
+          {#if constrainedResult.maxDisplacement != null} — δmax={fmtNum(constrainedResult.maxDisplacement)} m{/if}
+          {#if constrainedResult.constraintForces?.length} — {constrainedResult.constraintForces.length} {t('pro.constraintForcesCount')}{/if}
         </div>
       {/if}
     </details>

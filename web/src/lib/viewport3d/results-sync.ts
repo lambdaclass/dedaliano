@@ -4,16 +4,18 @@
 // Exports:
 //   - ResultsSyncContext (interface)
 //   - DIAGRAM_3D_TYPES (constant)
-//   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncReactions(), syncLabels3D()
+//   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
-import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, createTextSprite } from '../three/selection-helpers';
-import { createReactionArrow } from '../three/create-load-arrow';
+import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
+import { verificationStore } from '../store/verification.svelte';
+import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { computeElementStress3D } from '../engine/section-stress-3d';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
+import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
@@ -40,9 +42,11 @@ export interface ResultsSyncContext {
   diagramGroup: THREE.Group | null;
   overlayDiagramGroup: THREE.Group | null;
   reactionGroup: THREE.Group | null;
+  constraintForcesGroup: THREE.Group | null;
   nodeLabelsGroup: THREE.Group | null;
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
+  verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
   lastDeformedAnimScale: number | null;
@@ -61,12 +65,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     ctx.deformedGroup = null;
   }
 
+  const dt = resultsStore.diagramType;
+  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
+
   // Restore element opacity when not showing deformed shape
-  const showingDeformed = resultsStore.results3D && resultsStore.diagramType === 'deformed';
+  const showingDeformed = resultsStore.results3D && isDeformedLike;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
-      // Skip invisible picking helpers — they must stay transparent
+      // Skip picking helpers and heatmap overlays — they manage their own state
       if (child.userData?.pickingHelper) return;
+      if (child.userData?.heatmapMesh) return;
       if ((child as THREE.Mesh).material) {
         const mat = (child as THREE.Mesh).material as THREE.Material;
         if (showingDeformed) {
@@ -80,37 +88,83 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     });
   }
 
+  // Determine displacements source: static deformed, modal mode, or buckling mode
+  let displacements: Displacement3D[] | null = null;
+  let scale = scaleOverride ?? resultsStore.deformedScale;
+  let modeColor: number | null = null;
+
+  if (dt === 'deformed') {
+    const r3d = resultsStore.results3D;
+    if (!r3d) return;
+    displacements = r3d.displacements;
+  } else if (dt === 'modeShape') {
+    const modal = resultsStore.modalResult3D;
+    if (!modal || !modal.modes.length) return;
+    const mode = modal.modes[resultsStore.activeModeIndex];
+    if (!mode) return;
+    // Animated sinusoidal oscillation for mode shapes
+    scale = scale * Math.sin(performance.now() / 500);
+    displacements = mode.displacements;
+    modeColor = 0x4ecdc4; // cyan
+  } else if (dt === 'bucklingMode') {
+    const buckling = resultsStore.bucklingResult3D;
+    if (!buckling || !buckling.modes.length) return;
+    const mode = buckling.modes[resultsStore.activeBucklingMode];
+    if (!mode) return;
+    // Animated sinusoidal oscillation for buckling modes
+    scale = scale * Math.sin(performance.now() / 500);
+    displacements = mode.displacements;
+    modeColor = 0xe96941; // orange-red
+  } else {
+    return;
+  }
+
+  if (!displacements) return;
+
+  // Build EI map for particular solution (only for static deformed — modes don't need it)
+  let eiMap: Map<number, ElementEI> | undefined;
   const r3d = resultsStore.results3D;
-  if (!r3d || resultsStore.diagramType !== 'deformed') return;
-
-  // Use override scale (from animation loop) or store scale (from slider)
-  const scale = scaleOverride ?? resultsStore.deformedScale;
-
-  // Build EI map for particular solution (intra-element deflection from loads)
-  // Direct mapping: EIy = E·Iy (about Y horizontal), EIz = E·Iz (about Z vertical)
-  const eiMap = new Map<number, ElementEI>();
-  for (const [id, elem] of modelStore.elements) {
-    const mat = modelStore.materials.get(elem.materialId);
-    const sec = modelStore.sections.get(elem.sectionId);
-    if (mat && sec) {
-      const E = mat.e * 1000; // MPa → kN/m²
-      const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
-      eiMap.set(id, {
-        EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
-        EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
-      });
+  if (dt === 'deformed') {
+    eiMap = new Map<number, ElementEI>();
+    for (const [id, elem] of modelStore.elements) {
+      const mat = modelStore.materials.get(elem.materialId);
+      const sec = modelStore.sections.get(elem.sectionId);
+      if (mat && sec) {
+        const E = mat.e * 1000; // MPa → kN/m²
+        const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
+        eiMap.set(id, {
+          EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
+          EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
+        });
+      }
     }
   }
 
   ctx.deformedGroup = createDeformedLines(
     modelStore.elements,
     modelStore.nodes,
-    r3d.displacements,
-    r3d.elementForces,
+    displacements,
+    dt === 'deformed' && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     uiStore.axisConvention3D === 'leftHand',
   );
+
+  // Tint mode shapes with their distinctive color
+  if (modeColor !== null) {
+    const color = new THREE.Color(modeColor);
+    ctx.deformedGroup.traverse((child) => {
+      if ((child as THREE.Line).isLine && (child as THREE.Line).material) {
+        const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
+        mat.color.copy(color);
+      } else if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+        const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        if (!mat.color) return;
+        mat.color.copy(color);
+      }
+    });
+  }
+
   ctx.resultsParent.add(ctx.deformedGroup);
 }
 
@@ -208,7 +262,7 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   const dt = resultsStore.diagramType;
 
   // Restore default state if not in color mode
-  if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap')) {
+  if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification')) {
     if (ctx.colorMapApplied) {
       clearHeatmapMeshes(ctx);
       for (const [id, group] of ctx.elementGroups) {
@@ -259,7 +313,67 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     }
 
     ctx.colorMapApplied = true;
+  } else if (dt === 'verification') {
+    // Verification status color map: flat per-element colors based on CIRSOC ratio
+    clearHeatmapMeshes(ctx);
+    for (const [id, group] of ctx.elementGroups) {
+      showOriginalMeshes(group, true);
+      const ratio = verificationStore.getMaxRatio(id);
+      setGroupColor(group, verificationColor(ratio));
+    }
+    resetShellColors(ctx);
+    ctx.colorMapApplied = true;
   }
+}
+
+// ─── Verification ratio labels ────────────────────────────────
+
+/**
+ * Show floating ratio labels (e.g. "0.87") on each element at its midpoint.
+ * Only visible when diagramType === 'verification'.
+ */
+export function syncVerificationLabels(ctx: ResultsSyncContext): void {
+  if (!ctx.initialized) return;
+
+  // Remove old labels
+  if (ctx.verificationLabelsGroup) {
+    ctx.resultsParent.remove(ctx.verificationLabelsGroup);
+    disposeObject(ctx.verificationLabelsGroup);
+    ctx.verificationLabelsGroup = null;
+  }
+
+  if (resultsStore.diagramType !== 'verification' || !verificationStore.hasResults) return;
+
+  const group = new THREE.Group();
+  group.name = 'verification-labels';
+
+  for (const [id] of ctx.elementGroups) {
+    const ratio = verificationStore.getMaxRatio(id);
+    if (ratio === null) continue;
+
+    const elem = modelStore.elements.get(id);
+    if (!elem) continue;
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+
+    // Position at element midpoint
+    const mx = (nI.x + nJ.x) / 2;
+    const my = (nI.y + nJ.y) / 2;
+    const mz = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
+
+    // Color based on status
+    const status = verificationStore.getStatus(id);
+    const textColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
+
+    const sprite = createTextSprite(ratio.toFixed(2), textColor, 32);
+    sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
+    sprite.scale.set(0.45, 0.45, 1);
+    group.add(sprite);
+  }
+
+  ctx.verificationLabelsGroup = group;
+  ctx.resultsParent.add(group);
 }
 
 // ─── Heatmap helpers ─────────────────────────────────────────
@@ -354,25 +468,38 @@ function applyFrameHeatmap(
   // For stressRatio, fix scale at 1.0 (100% of fy)
   if (variable === 'stressRatio') globalMax = Math.max(globalMax, 1.0);
 
-  // Pass 2: create heatmap meshes
+  // Pass 2: create heatmap meshes (or restore visibility for skipped elements)
   for (const [id, group] of ctx.elementGroups) {
     const values = elemSamples.get(id);
-    if (!values) continue;
+    if (!values) {
+      // Element has no sampled data — ensure originals stay visible (dimmed)
+      showOriginalMeshes(group, true);
+      setGroupColor(group, 0x555555);
+      continue;
+    }
     const ef = forcesMap.get(id);
-    if (!ef) continue;
+    if (!ef) {
+      showOriginalMeshes(group, true);
+      setGroupColor(group, 0x555555);
+      continue;
+    }
 
     // Get node positions
     const elem = modelStore.elements.get(id);
-    if (!elem) continue;
+    if (!elem) { showOriginalMeshes(group, true); setGroupColor(group, 0x555555); continue; }
     const nI = modelStore.nodes.get(elem.nodeI);
     const nJ = modelStore.nodes.get(elem.nodeJ);
-    if (!nI || !nJ) continue;
+    if (!nI || !nJ) { showOriginalMeshes(group, true); setGroupColor(group, 0x555555); continue; }
 
     // Hide original mesh, show heatmap overlay
     showOriginalMeshes(group, false);
 
     const heatMesh = createHeatmapCylinder(ef.length, values, globalMax);
-    orientHeatmapMesh(heatMesh, nI, nJ);
+    // Node.z is optional (undefined when z===0), must default to 0
+    orientHeatmapMesh(heatMesh,
+      { x: nI.x, y: nI.y, z: nI.z ?? 0 },
+      { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+    );
     heatMesh.renderOrder = 2;
     group.add(heatMesh);
   }
@@ -468,6 +595,54 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   }
 
   ctx.resultsParent.add(ctx.reactionGroup);
+}
+
+// ─── Constraint Forces ───────────────────────────────────────
+
+export function syncConstraintForces(ctx: ResultsSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.constraintForcesGroup) {
+    ctx.resultsParent.remove(ctx.constraintForcesGroup);
+    disposeObject(ctx.constraintForcesGroup);
+    ctx.constraintForcesGroup = null;
+  }
+
+  const forces = resultsStore.constraintForces3D;
+  if (!forces || forces.length === 0 || !resultsStore.showConstraintForces) return;
+
+  ctx.constraintForcesGroup = new THREE.Group();
+  ctx.constraintForcesGroup.name = 'constraintForces';
+
+  // Max force for scaling (translational only)
+  let maxF = 0;
+  for (const cf of forces) {
+    if (!cf.dof.startsWith('r')) {
+      maxF = Math.max(maxF, Math.abs(cf.force));
+    }
+  }
+  if (maxF < 1e-10) maxF = 10;
+
+  // Group by nodeId so arrows at same node are positioned together
+  const byNode = new Map<number, typeof forces>();
+  for (const cf of forces) {
+    let arr = byNode.get(cf.nodeId);
+    if (!arr) { arr = []; byNode.set(cf.nodeId, arr); }
+    arr.push(cf);
+  }
+
+  for (const [nodeId, cfs] of byNode) {
+    const node = modelStore.nodes.get(nodeId);
+    if (!node) continue;
+    const pos = { x: node.x, y: node.y, z: node.z ?? 0 };
+
+    for (const cf of cfs) {
+      const arrow = createConstraintForceArrow(pos, cf.dof, cf.force, maxF);
+      ctx.constraintForcesGroup.add(arrow);
+    }
+  }
+
+  ctx.resultsParent.add(ctx.constraintForcesGroup);
 }
 
 // ─── Labels (node/element IDs, lengths) ─────────────────────

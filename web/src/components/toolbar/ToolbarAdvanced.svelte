@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads, solveMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
   import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
   import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
@@ -237,7 +237,38 @@
     }
   }
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  async function handleMovingLoad3D(trainIndex: number) {
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const train = getPredefinedTrains()[trainIndex];
+    if (!train) return;
+
+    const abortController = resultsStore.startMovingLoadAnalysis();
+
+    try {
+      const t0 = performance.now();
+      const result = solveMovingLoads3D({ solver: input, train });
+      const dt = performance.now() - t0;
+
+      if (abortController.signal.aborted) return;
+
+      if (typeof result === 'string') {
+        uiStore.toast(result, 'error');
+        return;
+      }
+      resultsStore.setMovingLoadEnvelope(result);
+      uiStore.toast(t('toast.movingLoadSuccess').replace('{positions}', String(result.positions.length)).replace('{ms}', dt.toFixed(0)), 'success');
+    } catch (e: any) {
+      if (!abortController.signal.aborted) {
+        uiStore.toast(e.message || t('toast.movingLoadError'), 'error');
+      }
+    } finally {
+      resultsStore.finishMovingLoad();
+    }
+  }
+
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const isPro = $derived(uiStore.analysisMode === 'pro');
 
   function handlePDelta3D() {
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
@@ -332,8 +363,8 @@
   }
 
   function handleSolveCombinations() {
-    if (uiStore.analysisMode === '3d') {
-      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (is3D) {
+      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
       if (typeof result === 'string') {
         uiStore.toast(result, 'error');
       } else if (result) {
@@ -401,7 +432,7 @@
           if (is3D) {
             if (resultsStore.pdeltaResult3D) {
               resultsStore.clearPDelta3D();
-              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
               if (r && typeof r !== 'string') resultsStore.setResults3D(r);
             } else { handlePDelta3D(); }
           } else {
@@ -494,14 +525,18 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('envelope', e)} class:active={advHelpKey === 'envelope'}>?</button>
     </div>
     {@render helpPanel('envelope')}
-    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1" class:active={!!resultsStore.movingLoadEnvelope}
         onclick={() => {
           if (resultsStore.movingLoadEnvelope) {
             resultsStore.clearMovingLoad();
-            const r = modelStore.solve(uiStore.includeSelfWeight);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
+            if (is3D) {
+              const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
+              if (r && typeof r !== 'string') resultsStore.setResults3D(r);
+            } else {
+              const r = modelStore.solve(uiStore.includeSelfWeight);
+              if (r && typeof r !== 'string') resultsStore.setResults(r);
+            }
             showTrainPanel = false;
           } else { showTrainPanel = !showTrainPanel; }
         }}>
@@ -528,7 +563,7 @@
           </div>
         {:else}
           <div class="adv-btn-wrap">
-            <select class="adv-select" bind:value={selectedTrainIndex} onchange={() => { if (selectedTrainIndex !== '') handleMovingLoad(Number(selectedTrainIndex)); }}>
+            <select class="adv-select" bind:value={selectedTrainIndex} onchange={() => { if (selectedTrainIndex !== '') { is3D ? handleMovingLoad3D(Number(selectedTrainIndex)) : handleMovingLoad(Number(selectedTrainIndex)); } }}>
               <option value="">{t('advanced.selectTrain')}</option>
               {#each getPredefinedTrains() as train, i}
                 <option value={String(i)}>{train.name}</option>
@@ -538,6 +573,7 @@
         {/if}
       </div>
     {/if}
+    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.currentTool === 'influenceLine'}

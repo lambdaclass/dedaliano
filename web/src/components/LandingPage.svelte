@@ -6,14 +6,56 @@
   let landingEl: HTMLDivElement;
   let demoLoaded = $state(false);
 
-  // Hero slideshow
-  const heroImages = [
-    '/screenshots/hero-2d-solved.png',
-    '/screenshots/diagrams.png',
-    '/screenshots/hero-3d.png',
-    '/screenshots/hero-2d.png',
-  ];
-  let heroIdx = $state(0);
+  // ─── Slideshow engine ───
+  // Each slideshow has: images[], current index, interval handle, paused flag
+  type Slideshow = { images: string[]; idx: number; paused: boolean; iv: ReturnType<typeof setInterval> | null };
+
+  function createSlideshow(images: string[]): Slideshow {
+    return { images, idx: 0, paused: false, iv: null };
+  }
+
+  function startSlideshow(ss: Slideshow, ms = 4000) {
+    if (ss.iv) clearInterval(ss.iv);
+    ss.iv = setInterval(() => {
+      if (!ss.paused) ss.idx = (ss.idx + 1) % ss.images.length;
+    }, ms);
+  }
+
+  function goToSlide(ss: Slideshow, i: number) {
+    ss.idx = i;
+    ss.paused = true;
+    // Resume after 10s of inactivity
+    if (ss.iv) clearInterval(ss.iv);
+    ss.iv = setInterval(() => {
+      if (ss.paused) { ss.paused = false; return; }
+      ss.idx = (ss.idx + 1) % ss.images.length;
+    }, 4000);
+  }
+
+  // Hero slideshow — best images from all sections
+  let hero = $state(createSlideshow([
+    '/screenshots/2d-loads.png',
+    '/screenshots/2d-moments.png',
+    '/screenshots/3d-industrial.png',
+    '/screenshots/pro-verification.png',
+  ]));
+
+  // Feature mini-slideshows
+  let ss2d = $state(createSlideshow([
+    '/screenshots/2d-loads.png',
+    '/screenshots/2d-moments.png',
+    '/screenshots/2d-section-analysis.png',
+  ]));
+  let ss3d = $state(createSlideshow([
+    '/screenshots/3d-loads.png',
+    '/screenshots/3d-section-analysis.png',
+    '/screenshots/3d-industrial.png',
+  ]));
+  // Education: portrait images, displayed side by side (no slideshow)
+  let ssPro = $state(createSlideshow([
+    '/screenshots/pro-features.png',
+    '/screenshots/pro-verification.png',
+  ]));
 
   // Scroll progress
   let scrollPct = $state(0);
@@ -38,8 +80,10 @@
   }
 
   onMount(() => {
-    // Slideshow
-    const slideIv = setInterval(() => { heroIdx = (heroIdx + 1) % heroImages.length; }, 4000);
+    startSlideshow(hero, 4000);
+    startSlideshow(ss2d, 5000);
+    startSlideshow(ss3d, 5000);
+    startSlideshow(ssPro, 5000);
 
     // Scroll progress
     const onScroll = () => {
@@ -66,7 +110,15 @@
     };
     window.addEventListener('message', onMessage);
 
-    return () => { observer.disconnect(); clearInterval(slideIv); landingEl?.removeEventListener('scroll', onScroll); window.removeEventListener('message', onMessage); };
+    return () => {
+      observer.disconnect();
+      if (hero.iv) clearInterval(hero.iv);
+      if (ss2d.iv) clearInterval(ss2d.iv);
+      if (ss3d.iv) clearInterval(ss3d.iv);
+      if (ssPro.iv) clearInterval(ssPro.iv);
+      landingEl?.removeEventListener('scroll', onScroll);
+      window.removeEventListener('message', onMessage);
+    };
   });
 
   function scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
@@ -124,14 +176,20 @@
     </div>
 
     <div class="hero-visual">
-      <div class="browser-frame hero-frame">
-        <div class="browser-bar">
-          <div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
-          <div class="browser-url"><span>dedaliano.com</span></div>
+      <div class="img-frame hero-frame">
+        <div class="img-content slideshow">
+          {#each hero.images as src, i}
+            <img {src} alt="Dedaliano" class="slide" class:active={i === hero.idx} />
+          {/each}
         </div>
-        <div class="browser-content slideshow">
-          {#each heroImages as src, i}
-            <img {src} alt="Dedaliano" class="slide" class:active={i === heroIdx} />
+        <div class="slideshow-dots">
+          {#each hero.images as _, i}
+            <button
+              class="ss-dot"
+              class:active={i === hero.idx}
+              onclick={() => goToSlide(hero, i)}
+              aria-label="Slide {i + 1}"
+            ></button>
           {/each}
         </div>
       </div>
@@ -161,8 +219,17 @@
       <!-- 2D Analysis -->
       <div class="feature-row reveal">
         <div class="feature-img-wrap">
-          <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/diagrams.png" alt={t('landing.basic2dTitle')} loading="lazy" /></div>
+          <div class="img-frame compact">
+            <div class="img-content slideshow">
+              {#each ss2d.images as src, i}
+                <img {src} alt={t('landing.basic2dTitle')} class="slide" class:active={i === ss2d.idx} loading="lazy" />
+              {/each}
+            </div>
+            <div class="slideshow-dots">
+              {#each ss2d.images as _, i}
+                <button class="ss-dot" class:active={i === ss2d.idx} onclick={() => goToSlide(ss2d, i)} aria-label="Slide {i + 1}"></button>
+              {/each}
+            </div>
           </div>
         </div>
         <div class="feature-text">
@@ -182,8 +249,17 @@
       <!-- 3D Analysis -->
       <div class="feature-row reverse reveal">
         <div class="feature-img-wrap">
-          <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/hero-3d.png" alt={t('landing.basic3dTitle')} loading="lazy" /></div>
+          <div class="img-frame compact">
+            <div class="img-content slideshow">
+              {#each ss3d.images as src, i}
+                <img {src} alt={t('landing.basic3dTitle')} class="slide" class:active={i === ss3d.idx} loading="lazy" />
+              {/each}
+            </div>
+            <div class="slideshow-dots">
+              {#each ss3d.images as _, i}
+                <button class="ss-dot" class:active={i === ss3d.idx} onclick={() => goToSlide(ss3d, i)} aria-label="Slide {i + 1}"></button>
+              {/each}
+            </div>
           </div>
         </div>
         <div class="feature-text">
@@ -206,13 +282,16 @@
         <p class="section-sub">{t('landing.modeEduSub')}</p>
       </div>
 
-      <div class="feature-row reveal">
-        <div class="feature-img-wrap">
-          <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/edu-exercise.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+      <div class="feature-row-edu reveal">
+        <div class="edu-pair">
+          <div class="img-frame compact edu-frame">
+            <div class="img-content edu-img"><img src="/screenshots/edu-panel.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+          </div>
+          <div class="img-frame compact edu-frame">
+            <div class="img-content edu-img"><img src="/screenshots/edu-exercise-new.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
           </div>
         </div>
-        <div class="feature-text">
+        <div class="feature-text edu-text">
           <div class="feature-tag green">{t('landing.tagEdu')}</div>
           <h3>{t('landing.eduNowTitle')}</h3>
           <p>{t('landing.eduNowDesc')}</p>
@@ -239,8 +318,17 @@
 
       <div class="feature-row reverse reveal">
         <div class="feature-img-wrap">
-          <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/pro-results.png" alt={t('landing.modeProTitle')} loading="lazy" /></div>
+          <div class="img-frame compact">
+            <div class="img-content slideshow">
+              {#each ssPro.images as src, i}
+                <img {src} alt={t('landing.modeProTitle')} class="slide" class:active={i === ssPro.idx} loading="lazy" />
+              {/each}
+            </div>
+            <div class="slideshow-dots">
+              {#each ssPro.images as _, i}
+                <button class="ss-dot" class:active={i === ssPro.idx} onclick={() => goToSlide(ssPro, i)} aria-label="Slide {i + 1}"></button>
+              {/each}
+            </div>
           </div>
         </div>
         <div class="feature-text">
@@ -265,18 +353,15 @@
     <div class="section-inner">
       <h2>{t('landing.interactiveDemo')}</h2>
       <p class="section-sub">{t('landing.interactiveDemoDesc')}</p>
-      <div class="demo-frame-wrap">
-        <div class="browser-frame demo-browser">
-          <div class="browser-bar">
-            <div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
-            <div class="browser-url"><span>dedaliano.com/demo</span></div>
-          </div>
+      <!-- Desktop: embedded iframe demo -->
+      <div class="demo-frame-wrap demo-desktop">
+        <div class="demo-browser-clean">
           <div class="demo-iframe-wrap">
             {#if demoLoaded}
               <iframe src="/demo?embed" title="Dedaliano Demo" class="demo-iframe"></iframe>
             {:else}
               <button class="demo-placeholder" onclick={() => demoLoaded = true}>
-                <img src="/screenshots/hero-2d-solved.png" alt="Dedaliano Demo" class="demo-thumb" />
+                <img src="/screenshots/2d-moments.png" alt="Dedaliano Demo" class="demo-thumb" />
                 <div class="demo-play">
                   <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
                   <span>{t('landing.tryDemo')}</span>
@@ -285,6 +370,11 @@
             {/if}
           </div>
         </div>
+      </div>
+      <!-- Mobile: simple button linking to /demo -->
+
+      <div class="demo-mobile-cta">
+        <a href="/demo" class="btn-primary large">{t('landing.tryTour')}</a>
       </div>
     </div>
   </section>
@@ -406,7 +496,7 @@
     background: #151923; color: #b0b8ca;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  .section-inner { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
+  .section-inner { max-width: 1320px; margin: 0 auto; padding: 0 1.5rem; }
   .section-sub { text-align: center; color: #8891a5; margin-bottom: 2.5rem; font-size: 0.95rem; line-height: 1.6; }
 
   /* Noise overlay */
@@ -428,7 +518,7 @@
 
   /* ═══ NAVBAR ═══ */
   .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(21,25,35,0.8); backdrop-filter: blur(20px) saturate(1.5); border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .nav-inner { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; gap: 1.5rem; }
+  .nav-inner { max-width: 1320px; margin: 0 auto; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; gap: 1.5rem; }
   .nav-brand { display: flex; align-items: center; gap: 0.5rem; }
   .nav-logo { color: #e94560; font-size: 1.4rem; font-weight: 700; }
   .nav-name { color: #eef0f6; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; }
@@ -457,26 +547,43 @@
   .hero-ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
   .hero-status { color: #5c6480; font-size: 0.78rem; margin-top: 1.2rem; line-height: 1.5; }
 
-  /* ═══ BROWSER FRAMES ═══ */
-  .hero-visual { position: relative; width: 100%; max-width: 960px; z-index: 1; }
-  .browser-frame { background: #1c2133; border: 1px solid #2a3048; border-radius: 12px; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-  .browser-frame.compact { border-radius: 10px; }
-  .browser-frame.compact:hover { transform: scale(1.012); box-shadow: 0 32px 80px -12px rgba(0,0,0,0.55), 0 0 48px rgba(94,234,219,0.04); }
+  /* ═══ IMAGE FRAMES ═══ */
+  .hero-visual { position: relative; width: 100%; max-width: 1200px; z-index: 1; }
+  .img-frame { background: #1c2133; border: 1px solid #2a3048; border-radius: 0; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+  .img-frame.compact { border-radius: 0; }
+  .img-frame.compact:hover { transform: scale(1.012); box-shadow: 0 32px 80px -12px rgba(0,0,0,0.55), 0 0 48px rgba(94,234,219,0.04); }
+  .img-content { position: relative; aspect-ratio: 2182/1292; background: #151923; }
+  .img-content img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .hero-glow { position: absolute; bottom: -50px; left: 5%; right: 5%; height: 140px; background: radial-gradient(ellipse at center, rgba(233,69,96,0.1) 0%, rgba(94,234,219,0.04) 50%, transparent 70%); filter: blur(50px); pointer-events: none; }
+
+  /* Browser frame (legacy, kept for reference) */
+  .browser-frame { background: #1c2133; border: 1px solid #2a3048; border-radius: 12px; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); }
+  /* Clean demo frame — no browser chrome */
+  .demo-browser-clean { background: #151923; border: 1px solid #2a3048; border-radius: 0; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); }
   .browser-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #1a1f30; border-bottom: 1px solid #2a3048; }
-  .browser-bar.sm { padding: 8px 12px; }
   .browser-dots { display: flex; gap: 6px; }
   .dot { width: 10px; height: 10px; border-radius: 50%; }
   .dot.r { background: #ef4444; } .dot.y { background: #eab308; } .dot.g { background: #22c55e; }
   .browser-url { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border-radius: 6px; padding: 4px 12px; flex: 1; max-width: 300px; margin: 0 auto; }
   .browser-url span { color: #5c6480; font-size: 0.72rem; }
-  .browser-content { position: relative; aspect-ratio: 16/9; }
-  .browser-content img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .hero-glow { position: absolute; bottom: -50px; left: 5%; right: 5%; height: 140px; background: radial-gradient(ellipse at center, rgba(233,69,96,0.1) 0%, rgba(94,234,219,0.04) 50%, transparent 70%); filter: blur(50px); pointer-events: none; }
 
   /* Slideshow */
-  .slideshow { position: relative; aspect-ratio: 16/9; }
-  .slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.8s ease; will-change: opacity; }
+  .slideshow { position: relative; aspect-ratio: 2182/1292; background: #151923; }
+  .slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.8s ease; will-change: opacity; }
   .slide.active { opacity: 1; }
+
+  /* Slideshow dots */
+  .slideshow-dots {
+    display: flex; justify-content: center; gap: 8px;
+    padding: 8px 0; background: rgba(21, 25, 35, 0.7);
+  }
+  .ss-dot {
+    width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0;
+    background: rgba(255,255,255,0.25); cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .ss-dot:hover { background: rgba(255,255,255,0.5); }
+  .ss-dot.active { width: 24px; border-radius: 4px; background: #5eeadb; }
 
   /* ═══ METRICS ═══ */
   .metrics { display: flex; justify-content: center; gap: 3.5rem; padding: 3rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); flex-wrap: wrap; background: rgba(28,33,51,0.5); }
@@ -488,10 +595,19 @@
   .features { padding: 6rem 0; }
   .section-header { text-align: center; margin-bottom: 4rem; }
   h2 { font-size: clamp(1.6rem,3vw,2.1rem); color: #eef0f6; font-weight: 700; margin: 0 0 0.5rem; text-align: center; }
-  .feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: center; margin-bottom: 5rem; }
-  .feature-row.reverse { direction: rtl; }
+  .feature-row { display: grid; grid-template-columns: 3fr 2fr; gap: 3rem; align-items: center; margin-bottom: 5rem; }
+  .feature-row.reverse { grid-template-columns: 3fr 2fr; direction: rtl; }
   .feature-row.reverse > * { direction: ltr; }
-  .feature-text { max-width: 440px; }
+  .feature-text { max-width: 480px; }
+
+  /* Education: portrait images side by side + text below */
+  .feature-row-edu { display: flex; flex-direction: column; align-items: center; gap: 2.5rem; margin-bottom: 5rem; }
+  .edu-pair { display: flex; gap: 1.5rem; justify-content: center; width: 100%; max-width: 720px; }
+  .edu-frame { flex: 1; min-width: 0; }
+  .edu-img { aspect-ratio: 826/1292; background: #151923; }
+  .edu-img img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .edu-text { max-width: 600px; text-align: center; }
+  .edu-text .feature-list { text-align: left; display: inline-block; }
   .feature-tag { display: inline-block; font-size: 0.65rem; font-weight: 600; color: #e94560; background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.15); padding: 0.2rem 0.6rem; border-radius: 4px; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
   .feature-tag.teal { color: #5eeadb; background: rgba(94,234,219,0.07); border-color: rgba(94,234,219,0.15); }
   .feature-tag.yellow { color: #fbbf24; background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.12); }
@@ -530,7 +646,8 @@
 
   /* ═══ INTERACTIVE DEMO ═══ */
   .demo-section { padding: 5rem 0; }
-  .demo-frame-wrap { max-width: 1000px; margin: 0 auto; }
+  .demo-frame-wrap { max-width: 1200px; margin: 0 auto; }
+  .demo-mobile-cta { display: none; text-align: center; }
   .demo-browser { box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5); }
   .demo-iframe-wrap { position: relative; width: 100%; aspect-ratio: 16/9; }
   .demo-iframe { width: 100%; height: 100%; border: none; background: #151923; }
@@ -605,9 +722,9 @@
 
   /* ═══ RESPONSIVE ═══ */
   @media (max-width: 900px) {
-    .feature-row { grid-template-columns: 1fr; gap: 2rem; }
-    .feature-row.reverse { direction: ltr; }
+    .feature-row, .feature-row.reverse { grid-template-columns: 1fr; gap: 2rem; direction: ltr; }
     .feature-text { max-width: none; }
+    .edu-pair { flex-direction: row; max-width: 500px; }
     .cards-grid { grid-template-columns: repeat(2,1fr); }
     .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
   }
@@ -624,6 +741,8 @@
     .browser-bar { padding: 6px 10px; }
     .dot { width: 8px; height: 8px; }
     .browser-url { display: none; }
+    .demo-desktop { display: none; }
+    .demo-mobile-cta { display: block; }
     .mobile-sticky {
       display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
       padding: 0.75rem 1rem; background: rgba(21,25,35,0.95); backdrop-filter: blur(12px);

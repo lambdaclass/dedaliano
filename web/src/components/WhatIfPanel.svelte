@@ -120,9 +120,10 @@
       }
 
       // Re-solve
-      if (uiStore.analysisMode === '3d') {
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
         try {
-          const r3d = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+          const isPro = uiStore.analysisMode === 'pro';
+          const r3d = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
           if (r3d && typeof r3d !== 'string') resultsStore.setResults3D(r3d);
         } catch { /* ignore */ }
       } else {
@@ -140,9 +141,10 @@
     if (baseline) {
       modelStore.restore(baseline);
       // Re-solve with original values
-      if (uiStore.analysisMode === '3d') {
+      if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
         try {
-          const r3d = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+          const isPro = uiStore.analysisMode === 'pro';
+          const r3d = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
           if (r3d && typeof r3d !== 'string') resultsStore.setResults3D(r3d);
         } catch { /* ignore */ }
       } else {

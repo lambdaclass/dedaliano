@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore, resultsStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -13,11 +13,11 @@
   import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
-  import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers } from '../../lib/engine/wasm-solver';
+  import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
 
   /** Normative code options for design checks */
-  type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry';
+  type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
 
   const normativeOptions: { value: NormativeCode; label: string; wasmKeys: string[] }[] = [
     { value: 'cirsoc', label: 'CIRSOC 201/301', wasmKeys: [] },
@@ -25,6 +25,7 @@
     { value: 'eurocode', label: 'Eurocode 2/3', wasmKeys: ['ec2Members', 'ec3Members'] },
     { value: 'nds', label: 'NDS (Madera)', wasmKeys: ['timberMembers'] },
     { value: 'masonry', label: 'Mampostería', wasmKeys: ['masonryMembers'] },
+    { value: 'cfs', label: 'CFS (Conformado en frío)', wasmKeys: ['cfsMembers'] },
   ];
 
   let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
@@ -74,7 +75,7 @@
   const driftLimit = 0.015; // CIRSOC 103 §5.2.8: 0.015 for RC, 0.020 for steel
 
   // Detail view tabs
-  type DetailSection = 'verification' | 'detailing' | 'schedule' | 'slabs' | 'drift';
+  type DetailSection = 'verification' | 'detailing' | 'schedule' | 'slabs' | 'drift' | 'connections';
   let activeSection = $state<DetailSection>('verification');
 
   const results = $derived(resultsStore.results3D);
@@ -165,6 +166,9 @@
             break;
           case 'masonry':
             checkResult = checkMasonryMembers(payload);
+            break;
+          case 'cfs':
+            checkResult = checkCfsMembers(payload);
             break;
         }
       } catch (e: any) {
@@ -514,6 +518,10 @@
 
     verifications = verifs;
 
+    // Update global verification store for 3D color mapping
+    verificationStore.setConcrete(verifs);
+    verificationStore.setSteel(steelVerifs);
+
     // Collect all diagnostics from verifications and push to results store
     const allDiags: SolverDiagnostic[] = [];
     for (const v of verifs) {
@@ -533,12 +541,98 @@
     }
   }
 
+  // ─── Connection checks (Bolt/Weld/Footing) ────────────────
+
+  // Bolt group
+  let boltDia = $state(20);      // mm
+  let boltGrade = $state<'4.6' | '8.8' | '10.9'>('8.8');
+  let boltCount = $state(4);
+  let boltGauge = $state(60);    // mm
+  let boltPitch = $state(80);    // mm
+  let boltShearForce = $state(100); // kN
+  let boltTensionForce = $state(0); // kN
+  let boltResult = $state<any | null>(null);
+
+  function handleBoltCheck() {
+    try {
+      boltResult = checkBoltGroups({
+        diameter: boltDia,
+        grade: boltGrade,
+        count: boltCount,
+        gauge: boltGauge,
+        pitch: boltPitch,
+        shearForce: boltShearForce,
+        tensionForce: boltTensionForce,
+      });
+    } catch (e: any) {
+      verifyError = `Bulones: ${e.message ?? 'Error'}`;
+    }
+  }
+
+  // Weld group
+  let weldType = $state<'fillet' | 'groove'>('fillet');
+  let weldSize = $state(6);      // mm
+  let weldLength = $state(200);  // mm
+  let weldElectrode = $state(490); // MPa (E70xx)
+  let weldShear = $state(100);   // kN
+  let weldResult = $state<any | null>(null);
+
+  function handleWeldCheck() {
+    try {
+      weldResult = checkWeldGroups({
+        type: weldType,
+        size: weldSize,
+        length: weldLength,
+        electrodeStrength: weldElectrode,
+        shearForce: weldShear,
+      });
+    } catch (e: any) {
+      verifyError = `Soldadura: ${e.message ?? 'Error'}`;
+    }
+  }
+
+  // Spread footing
+  let footB = $state(1.5);       // m
+  let footL = $state(1.5);       // m
+  let footH = $state(0.5);       // m
+  let footFc = $state(25);       // MPa
+  let footSigmaAdm = $state(200); // kPa
+  let footNu = $state(500);      // kN
+  let footMu = $state(50);       // kN·m
+  let footResult = $state<any | null>(null);
+
+  function handleFootingCheck() {
+    try {
+      footResult = checkSpreadFootings({
+        width: footB,
+        length: footL,
+        depth: footH,
+        fc: footFc,
+        allowableBearing: footSigmaAdm,
+        axialLoad: footNu,
+        moment: footMu,
+      });
+    } catch (e: any) {
+      verifyError = `Fundación: ${e.message ?? 'Error'}`;
+    }
+  }
+
   function toggleExpand(id: number) {
     expandedId = expandedId === id ? null : id;
   }
 
   function toggleSteelExpand(id: number) {
     expandedSteelId = expandedSteelId === id ? null : id;
+  }
+
+  /** Activate verification color map on 3D model */
+  function showOnModel() {
+    resultsStore.diagramType = 'verification';
+  }
+
+  /** Select element in 3D viewport when clicking verification row */
+  function selectElementInViewport(elementId: number) {
+    uiStore.selectElement(elementId, false);
   }
 
   function statusIcon(s: 'ok' | 'fail' | 'warn'): string {
@@ -696,6 +790,9 @@
         <span class="qty-badge">H°: {quantities.totalConcreteVolume.toFixed(2)} m³</span>
         <span class="qty-badge">Acero: {quantities.totalSteelWeight.toFixed(0)} kg ({quantities.steelRatio.toFixed(0)} kg/m³)</span>
       {/if}
+      <button class="pro-show-model-btn" onclick={showOnModel} title={t('pro.showOnModel')}>
+        {t('pro.showOnModel')}
+      </button>
     </div>
 
     <!-- Section tabs -->
@@ -709,6 +806,7 @@
       {#if storyDrifts.length > 0}
         <button class:active={activeSection === 'drift'} onclick={() => activeSection = 'drift'}>Drift{#if storyDrifts.some(d => d.status === 'fail')} ✗{/if}</button>
       {/if}
+      <button class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>{t('pro.connectionsTab')}</button>
     </div>
 
     <!-- ═══ VERIFICATION TAB ═══ -->
@@ -734,7 +832,7 @@
           </thead>
           <tbody>
             {#each verifications as v}
-              <tr class={statusClass(v.overallStatus)} onclick={() => toggleExpand(v.elementId)} style="cursor:pointer">
+              <tr class={statusClass(v.overallStatus)} onclick={() => { toggleExpand(v.elementId); selectElementInViewport(v.elementId); }} style="cursor:pointer">
                 <td class="col-id">{v.elementId}</td>
                 <td class="col-type">{v.elementType === 'beam' ? t('pro.beam') : v.elementType === 'wall' ? t('pro.wall') : t('pro.column')}</td>
                 <td class="col-num">{fmtNum(v.Mu)}</td>
@@ -1133,6 +1231,90 @@
       {#if storyDrifts.length === 0}
         <div class="pro-empty">{t('pro.noDriftDetected')}</div>
       {/if}
+
+    {:else if activeSection === 'connections'}
+      <!-- ═══ CONNECTIONS TAB ═══ -->
+      <div class="pro-section-label">{t('pro.connectionsTitle')}</div>
+
+      <!-- Bolt group check -->
+      <details class="conn-details">
+        <summary class="conn-summary">{t('pro.boltGroupTitle')}</summary>
+        <div class="conn-panel">
+          <div class="conn-form">
+            <label class="conn-label">∅ (mm): <input type="number" class="adv-num" bind:value={boltDia} min={6} max={36} step={2} /></label>
+            <label class="conn-label">{t('pro.grade')}: <select class="pro-sel" bind:value={boltGrade}><option value="4.6">4.6</option><option value="8.8">8.8</option><option value="10.9">10.9</option></select></label>
+            <label class="conn-label">n: <input type="number" class="adv-num" bind:value={boltCount} min={1} max={50} /></label>
+            <label class="conn-label">g (mm): <input type="number" class="adv-num" bind:value={boltGauge} min={30} max={200} /></label>
+            <label class="conn-label">p (mm): <input type="number" class="adv-num" bind:value={boltPitch} min={40} max={300} /></label>
+          </div>
+          <div class="conn-form">
+            <label class="conn-label">V (kN): <input type="number" class="adv-num" bind:value={boltShearForce} min={0} step={10} /></label>
+            <label class="conn-label">T (kN): <input type="number" class="adv-num" bind:value={boltTensionForce} min={0} step={10} /></label>
+            <button class="adv-btn-sm" onclick={handleBoltCheck}>{t('pro.verify')}</button>
+          </div>
+          {#if boltResult}
+            <div class="conn-result" class:fail={boltResult.ratio >= 1}>
+              <span>{t('pro.utilization')}: {((boltResult.ratio ?? 0) * 100).toFixed(0)}%</span>
+              {#if boltResult.shearCapacity != null}<span>Vn={boltResult.shearCapacity.toFixed(1)} kN</span>{/if}
+              {#if boltResult.tensionCapacity != null}<span>Tn={boltResult.tensionCapacity.toFixed(1)} kN</span>{/if}
+              {#if boltResult.status}<span class={'status-' + boltResult.status}>{boltResult.status === 'ok' ? '✓' : '✗'}</span>{/if}
+            </div>
+          {/if}
+        </div>
+      </details>
+
+      <!-- Weld group check -->
+      <details class="conn-details">
+        <summary class="conn-summary">{t('pro.weldGroupTitle')}</summary>
+        <div class="conn-panel">
+          <div class="conn-form">
+            <label class="conn-label">{t('pro.weldType')}:
+              <select class="pro-sel" bind:value={weldType}><option value="fillet">{t('pro.fillet')}</option><option value="groove">{t('pro.groove')}</option></select>
+            </label>
+            <label class="conn-label">a (mm): <input type="number" class="adv-num" bind:value={weldSize} min={3} max={25} /></label>
+            <label class="conn-label">L (mm): <input type="number" class="adv-num" bind:value={weldLength} min={20} max={2000} /></label>
+            <label class="conn-label">Fexx (MPa): <input type="number" class="adv-num" bind:value={weldElectrode} min={350} max={700} step={10} /></label>
+          </div>
+          <div class="conn-form">
+            <label class="conn-label">V (kN): <input type="number" class="adv-num" bind:value={weldShear} min={0} step={10} /></label>
+            <button class="adv-btn-sm" onclick={handleWeldCheck}>{t('pro.verify')}</button>
+          </div>
+          {#if weldResult}
+            <div class="conn-result" class:fail={weldResult.ratio >= 1}>
+              <span>{t('pro.utilization')}: {((weldResult.ratio ?? 0) * 100).toFixed(0)}%</span>
+              {#if weldResult.capacity != null}<span>Rn={weldResult.capacity.toFixed(1)} kN</span>{/if}
+              {#if weldResult.status}<span class={'status-' + weldResult.status}>{weldResult.status === 'ok' ? '✓' : '✗'}</span>{/if}
+            </div>
+          {/if}
+        </div>
+      </details>
+
+      <!-- Spread footing check -->
+      <details class="conn-details">
+        <summary class="conn-summary">{t('pro.footingTitle')}</summary>
+        <div class="conn-panel">
+          <div class="conn-form">
+            <label class="conn-label">B (m): <input type="number" class="adv-num" bind:value={footB} min={0.3} max={5} step={0.1} /></label>
+            <label class="conn-label">L (m): <input type="number" class="adv-num" bind:value={footL} min={0.3} max={5} step={0.1} /></label>
+            <label class="conn-label">h (m): <input type="number" class="adv-num" bind:value={footH} min={0.2} max={2} step={0.05} /></label>
+            <label class="conn-label">f'c (MPa): <input type="number" class="adv-num" bind:value={footFc} min={15} max={50} /></label>
+          </div>
+          <div class="conn-form">
+            <label class="conn-label">σ_adm (kPa): <input type="number" class="adv-num" bind:value={footSigmaAdm} min={50} max={1000} step={10} /></label>
+            <label class="conn-label">N (kN): <input type="number" class="adv-num" bind:value={footNu} min={0} step={50} /></label>
+            <label class="conn-label">M (kN·m): <input type="number" class="adv-num" bind:value={footMu} min={0} step={10} /></label>
+            <button class="adv-btn-sm" onclick={handleFootingCheck}>{t('pro.verify')}</button>
+          </div>
+          {#if footResult}
+            <div class="conn-result" class:fail={footResult.ratio >= 1}>
+              <span>{t('pro.utilization')}: {((footResult.ratio ?? 0) * 100).toFixed(0)}%</span>
+              {#if footResult.bearingPressure != null}<span>σ={footResult.bearingPressure.toFixed(0)} kPa</span>{/if}
+              {#if footResult.punchingRatio != null}<span>{t('pro.punching')}: {(footResult.punchingRatio * 100).toFixed(0)}%</span>{/if}
+              {#if footResult.status}<span class={'status-' + footResult.status}>{footResult.status === 'ok' ? '✓' : '✗'}</span>{/if}
+            </div>
+          {/if}
+        </div>
+      </details>
     {/if}
 
   {:else if wasmCheckResults && wasmCheckResults.length > 0}
@@ -1289,11 +1471,25 @@
   .pro-verif-summary {
     display: flex;
     gap: 12px;
+    align-items: center;
     padding: 6px 10px;
     font-size: 0.75rem;
     font-weight: 600;
     border-bottom: 1px solid #1a3050;
   }
+  .pro-show-model-btn {
+    margin-left: auto;
+    padding: 3px 10px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #2a6a5a, #1a5040);
+    color: #ccc;
+    border: 1px solid #3a7a6a;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pro-show-model-btn:hover { background: linear-gradient(135deg, #3a8a7a, #2a6060); color: #fff; }
 
   .pro-verif-table-wrap { flex: 1; overflow: auto; }
 
@@ -1520,4 +1716,17 @@
   .wasm-check-ratio { font-weight: 600; color: #4ecdc4; }
   .wasm-check-ratio.fail { color: #e94560; }
   .wasm-check-msg { color: #888; font-size: 0.6rem; }
+
+  /* ── Connections tab ── */
+  .conn-details { margin-bottom: 6px; }
+  .conn-summary { font-size: 0.72rem; color: #4ecdc4; font-weight: 600; cursor: pointer; padding: 4px 8px; background: #0d1b33; border-radius: 4px; }
+  .conn-summary:hover { background: #122644; }
+  .conn-panel { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .conn-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .conn-label { font-size: 0.62rem; color: #888; display: flex; align-items: center; gap: 3px; }
+  .conn-label .adv-num { width: 55px; }
+  .conn-result { padding: 4px 8px; font-size: 0.68rem; color: #ccc; background: rgba(78, 205, 196, 0.08); border: 1px solid rgba(78, 205, 196, 0.2); border-radius: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .conn-result.fail { border-color: #e94560; background: rgba(233, 69, 96, 0.08); }
+  .adv-btn-sm { padding: 3px 10px; border: 1px solid #1a4a7a; border-radius: 4px; background: #0f3460; color: #4ecdc4; font-size: 0.68rem; cursor: pointer; }
+  .adv-btn-sm:hover { background: #1a4a7a; color: white; }
 </style>

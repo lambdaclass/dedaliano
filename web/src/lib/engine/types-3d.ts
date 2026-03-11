@@ -123,12 +123,43 @@ export type SolverLoad3D =
 
 // ─── Shell / Plate Elements ─────────────────────────────────────
 
+/** Shell element families — currently implemented + planned */
+export type ShellFamily =
+  | 'DKT'       // 3-node thin plate (Kirchhoff) — implemented
+  | 'DKMT'      // 3-node thick plate (Mindlin)  — planned
+  | 'MITC4'     // 4-node quad, thin/thick        — implemented
+  | 'MITC9'     // 9-node quad, higher accuracy   — planned
+  | 'SHB8PS';   // 8-node solid-shell (ANS)       — planned
+
+/** Families that are actually available in the solver */
+export const AVAILABLE_SHELL_FAMILIES: readonly ShellFamily[] = ['DKT', 'MITC4'] as const;
+
+/** Result of the shell family selector — choice + explanation */
+export interface ShellRecommendation {
+  family: ShellFamily;
+  reason: string;            // human-readable explanation
+  confidence: 'high' | 'medium' | 'low';
+  alternatives: Array<{
+    family: ShellFamily;
+    reason: string;
+    available: boolean;      // implemented in solver?
+  }>;
+  warnings: string[];        // e.g. "element is highly warped"
+  metrics: {                 // computed geometry diagnostics
+    aspectRatio?: number;    // max edge / min edge
+    warpAngle?: number;      // degrees, 0 = perfectly flat (quads only)
+    skewAngle?: number;      // degrees, 90 = perfect (quads only)
+    thicknessRatio?: number; // t / min_edge_length
+  };
+}
+
 /** DKT triangular plate element (3-node shell) */
 export interface SolverPlateElement {
   id: number;
   nodes: [number, number, number]; // 3 node IDs
   materialId: number;
   thickness: number; // m
+  shellFamily?: ShellFamily;
 }
 
 /** MITC4 quadrilateral shell element (4-node shell) */
@@ -137,6 +168,7 @@ export interface SolverQuadElement {
   nodes: [number, number, number, number]; // 4 node IDs
   materialId: number;
   thickness: number; // m
+  shellFamily?: ShellFamily;
 }
 
 // ─── Constraints ────────────────────────────────────────────────

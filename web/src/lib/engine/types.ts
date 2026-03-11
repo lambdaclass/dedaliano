@@ -187,7 +187,7 @@ export interface SolverDiagnostic {
   message: string;                 // i18n key or pre-translated string
   elementIds?: number[];
   nodeIds?: number[];
-  source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability';
+  source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
   details?: Record<string, unknown>;
 }
 

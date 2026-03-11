@@ -60,16 +60,16 @@ export function buildTourSteps(): TourStep[] {
       position: 'center',
     },
 
-    // ─── 1: Mode toggle (forced 2D for now) ───
+    // ─── 1: Mode toggle (forced Basic 2D for now) ───
     {
       id: 'mode-toggle',
       target: '[data-tour="mode-toggle"]',
       title: t('tour.modeToggleTitle'),
       description: t('tour.modeToggleDesc'),
       position: 'bottom',
-      allowInteraction: true,
+      allowInteraction: false,
       onEnter: () => {
-        // Force 2D path for the demo tour
+        // Force Basic 2D path for the demo tour
         uiStore.analysisMode = '2d';
       },
     },

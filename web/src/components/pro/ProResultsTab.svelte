@@ -25,7 +25,7 @@
       // First solve single (all loads)
       runGlobalSolve();
       if (!resultsStore.results3D) {
-        solveError = 'No se obtuvieron resultados';
+        solveError = t('pro.noResults');
         solving = false;
         return;
       }
@@ -33,7 +33,7 @@
       // Now solve combinations if load cases exist
       if (modelStore.loadCases.length > 0 && modelStore.combinations.length > 0) {
         try {
-          const comboResult = modelStore.solveCombinations3D(includeSelfWeight);
+          const comboResult = modelStore.solveCombinations3D(includeSelfWeight, false, true);
           if (typeof comboResult === 'string') {
             console.warn('Combinations warning:', comboResult);
           } else if (comboResult) {
@@ -46,7 +46,7 @@
       }
     } catch (e: any) {
       console.error('PRO solve error:', e);
-      solveError = e?.message || String(e) || 'Error desconocido';
+      solveError = e?.message || String(e) || t('pro.unknownError');
     }
     solving = false;
   }
@@ -96,18 +96,18 @@
   <div class="pro-res-header">
     <div class="pro-res-solve-row">
       <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
-        {solving ? 'Calculando...' : 'Calcular'}
+        {solving ? t('pro.solving') : t('pro.solve')}
       </button>
       <label class="pro-sw-label">
         <input type="checkbox" bind:checked={includeSelfWeight} />
-        Peso propio
+        {t('pro.selfWeight')}
       </label>
     </div>
     {#if solveError}
       <div class="pro-solve-error">{solveError}</div>
     {/if}
     {#if results}
-      <span class="pro-res-status">Resuelto — {results.reactions.length} reacciones, {results.elementForces.length} barras</span>
+      <span class="pro-res-status">{t('pro.solvedStatus').replace('{reactions}', String(results.reactions.length)).replace('{elements}', String(results.elementForces.length))}</span>
     {/if}
   </div>
 
@@ -115,29 +115,30 @@
     <!-- 3D Visualization controls -->
     <div class="pro-viz-section">
       <div class="pro-viz-row">
-        <label class="pro-viz-label">Diagrama:</label>
+        <label class="pro-viz-label">{t('pro.diagramLabel')}</label>
         <select class="pro-viz-sel" bind:value={resultsStore.diagramType}>
-          <option value="none">Ninguno</option>
-          <option value="deformed">Deformada</option>
+          <option value="none">{t('pro.diagNone')}</option>
+          <option value="deformed">{t('pro.diagDeformed')}</option>
           <option value="momentY">My</option>
           <option value="momentZ">Mz</option>
           <option value="shearY">Vy</option>
           <option value="shearZ">Vz</option>
           <option value="axial">N</option>
           <option value="torsion">T</option>
-          <option value="axialColor">Color axil</option>
-          <option value="colorMap">Mapa de color</option>
+          <option value="axialColor">{t('pro.diagAxialColor')}</option>
+          <option value="colorMap">{t('pro.diagColorMap')}</option>
+          <option value="verification">{t('pro.diagVerification')}</option>
         </select>
       </div>
 
       {#if resultsStore.diagramType === 'colorMap'}
         <div class="pro-viz-row">
-          <label class="pro-viz-label">Variable:</label>
+          <label class="pro-viz-label">{t('pro.variableLabel')}</label>
           <select class="pro-viz-sel" bind:value={resultsStore.colorMapKind}>
-            <option value="moment">Momento</option>
-            <option value="shear">Corte</option>
-            <option value="axial">Axil</option>
-            <option value="stressRatio">Resistencia (σ/fy)</option>
+            <option value="moment">{t('pro.varMoment')}</option>
+            <option value="shear">{t('pro.varShear')}</option>
+            <option value="axial">{t('pro.varAxial')}</option>
+            <option value="stressRatio">{t('pro.varStressRatio')}</option>
             <option value="vonMises">Von Mises (σ)</option>
             <option value="shellVonMises">Shell σ Von Mises</option>
           </select>
@@ -146,7 +147,7 @@
 
       {#if resultsStore.diagramType === 'deformed'}
         <div class="pro-viz-row">
-          <label class="pro-viz-label">Escala:</label>
+          <label class="pro-viz-label">{t('pro.scaleLabel')}</label>
           <input type="range" class="pro-viz-range" min={1} max={500} bind:value={resultsStore.deformedScale} />
           <span class="pro-viz-val">{resultsStore.deformedScale}×</span>
         </div>
@@ -155,7 +156,13 @@
       <div class="pro-viz-row">
         <label class="pro-viz-check">
           <input type="checkbox" bind:checked={resultsStore.showReactions} />
-          Reacciones en 3D
+          {t('pro.showReactions3D')}
+        </label>
+      </div>
+      <div class="pro-viz-row">
+        <label class="pro-viz-check">
+          <input type="checkbox" bind:checked={resultsStore.showConstraintForces} />
+          {t('config.showConstraintForces')}
         </label>
       </div>
     </div>
@@ -163,15 +170,15 @@
     <!-- View mode selector -->
     {#if hasCombinations}
       <div class="pro-view-selector">
-        <button class="pro-view-btn" class:active={viewMode === 'single'} onclick={() => switchView('single')}>Caso</button>
-        <button class="pro-view-btn" class:active={viewMode === 'combo'} onclick={() => switchView('combo')}>Combo</button>
-        <button class="pro-view-btn" class:active={viewMode === 'envelope'} onclick={() => switchView('envelope')}>Envolvente</button>
+        <button class="pro-view-btn" class:active={viewMode === 'single'} onclick={() => switchView('single')}>{t('pro.viewCase')}</button>
+        <button class="pro-view-btn" class:active={viewMode === 'combo'} onclick={() => switchView('combo')}>{t('pro.viewCombo')}</button>
+        <button class="pro-view-btn" class:active={viewMode === 'envelope'} onclick={() => switchView('envelope')}>{t('pro.viewEnvelope')}</button>
 
         {#if viewMode === 'single' && caseKeys.length > 0}
           <select class="pro-view-sel" onchange={onCaseChange}>
             {#each caseKeys as cid}
               {@const lc = modelStore.loadCases.find(c => c.id === cid)}
-              <option value={cid}>{lc ? lc.name : `Caso ${cid}`}</option>
+              <option value={cid}>{lc ? lc.name : `${t('pro.caseN')}${cid}`}</option>
             {/each}
           </select>
         {/if}
@@ -180,7 +187,7 @@
           <select class="pro-view-sel" onchange={onComboChange}>
             {#each comboKeys as cid}
               {@const cb = modelStore.combinations.find(c => c.id === cid)}
-              <option value={cid}>{cb ? cb.name : `Combo ${cid}`}</option>
+              <option value={cid}>{cb ? cb.name : `${t('pro.comboN')}${cid}`}</option>
             {/each}
           </select>
         {/if}
@@ -191,12 +198,12 @@
     <div class="pro-res-scroll">
 
       <details class="res-detail" open>
-        <summary class="pro-res-section-title">Reacciones <span class="res-count">({results.reactions.length})</span></summary>
+        <summary class="pro-res-section-title">{t('pro.reactionsTitle')} <span class="res-count">({results.reactions.length})</span></summary>
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
               <tr>
-                <th>Nodo</th>
+                <th>{t('pro.nodeLabel')}</th>
                 <th>Fx (kN)</th>
                 <th>Fy (kN)</th>
                 <th>Fz (kN)</th>
@@ -223,12 +230,12 @@
       </details>
 
       <details class="res-detail" open>
-        <summary class="pro-res-section-title">Solicitaciones <span class="res-count">({results.elementForces.length} barras)</span></summary>
+        <summary class="pro-res-section-title">{t('pro.forcesTitle')} <span class="res-count">({results.elementForces.length})</span></summary>
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
               <tr>
-                <th>Elem</th>
+                <th>{t('pro.elemLabel')}</th>
                 <th>Ext.</th>
                 <th>N</th>
                 <th>Vy</th>
@@ -266,12 +273,12 @@
       </details>
 
       <details class="res-detail">
-        <summary class="pro-res-section-title">Desplazamientos <span class="res-count">({results.displacements.length} nodos)</span></summary>
+        <summary class="pro-res-section-title">{t('pro.displacementsTitle')} <span class="res-count">({results.displacements.length})</span></summary>
         <div class="pro-res-table-wrap">
           <table class="pro-res-table">
             <thead>
               <tr>
-                <th>Nodo</th>
+                <th>{t('pro.nodeLabel')}</th>
                 <th>ux (m)</th>
                 <th>uy (m)</th>
                 <th>uz (m)</th>
@@ -299,7 +306,7 @@
 
       {#if results.plateStresses?.length || results.quadStresses?.length}
         <details class="res-detail" open>
-          <summary class="pro-res-section-title">Tensiones losas/muros <span class="res-count">({(results.plateStresses?.length ?? 0) + (results.quadStresses?.length ?? 0)})</span></summary>
+          <summary class="pro-res-section-title">{t('pro.shellStresses')} <span class="res-count">({(results.plateStresses?.length ?? 0) + (results.quadStresses?.length ?? 0)})</span></summary>
           <div class="pro-res-table-wrap">
             {#if results.plateStresses?.length}
               <table class="pro-res-table">
@@ -345,6 +352,58 @@
                 </tbody>
               </table>
             {/if}
+          </div>
+        </details>
+      {/if}
+
+      {#if results.quadStresses?.some(qs => qs.nodalVonMises?.length)}
+        {@const nodalQuads = results.quadStresses!.filter(qs => qs.nodalVonMises?.length)}
+        <details class="res-detail">
+          <summary class="pro-res-section-title">{t('pro.nodalShellStresses')} <span class="res-count">({nodalQuads.length})</span></summary>
+          <div class="pro-res-table-wrap">
+            <table class="pro-res-table">
+              <thead><tr>
+                <th>{t('pro.elemLabel')}</th>
+                <th>{t('pro.nodalVmNode')} 1</th>
+                <th>{t('pro.nodalVmNode')} 2</th>
+                <th>{t('pro.nodalVmNode')} 3</th>
+                <th>{t('pro.nodalVmNode')} 4</th>
+                <th>Min</th>
+                <th>Max</th>
+              </tr></thead>
+              <tbody>
+                {#each nodalQuads as qs}
+                  {@const nvm = qs.nodalVonMises!}
+                  {@const quadDef = modelStore.quads.get(qs.elementId)}
+                  {@const vmMin = Math.min(...nvm)}
+                  {@const vmMax = Math.max(...nvm)}
+                  <tr>
+                    <td class="col-id">{qs.elementId}</td>
+                    {#each nvm as vm, i}
+                      <td class="col-num" title="{quadDef ? t('pro.nodeLabel') + ' ' + quadDef.nodes[i] : ''}">
+                        {fmtNum(vm)}
+                      </td>
+                    {/each}
+                    {#if nvm.length < 4}
+                      {#each { length: 4 - nvm.length } as _}
+                        <td class="col-num">—</td>
+                      {/each}
+                    {/if}
+                    <td class="col-num col-min">{fmtNum(vmMin)}</td>
+                    <td class="col-num col-max">{fmtNum(vmMax)}</td>
+                  </tr>
+                  {#if quadDef}
+                    <tr class="nodal-ids-row">
+                      <td></td>
+                      {#each quadDef.nodes as nid}
+                        <td class="col-node-id">N{nid}</td>
+                      {/each}
+                      <td></td><td></td>
+                    </tr>
+                  {/if}
+                {/each}
+              </tbody>
+            </table>
           </div>
         </details>
       {/if}
@@ -400,9 +459,9 @@
   {:else}
     <div class="pro-empty">
       {#if hasModel}
-        Presiona "Calcular" para resolver la estructura
+        {t('pro.pressCalculate')}
       {:else}
-        Defini nodos, elementos, materiales, secciones y apoyos primero
+        {t('pro.defineModelFirst')}
       {/if}
     </div>
   {/if}
@@ -622,6 +681,21 @@
   .col-id { width: 30px; color: #666; font-family: monospace; text-align: center; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
   .col-end { font-size: 0.6rem; color: #888; font-weight: 600; text-align: center; width: 20px; }
+
+  .nodal-ids-row td {
+    padding: 1px 5px;
+    border-bottom: 1px solid #0f2030;
+  }
+
+  .col-node-id {
+    font-size: 0.54rem;
+    font-family: monospace;
+    color: #556;
+    text-align: right;
+  }
+
+  .col-min { color: #4ecdc4; }
+  .col-max { color: #e94560; }
 
   .pro-empty {
     text-align: center;

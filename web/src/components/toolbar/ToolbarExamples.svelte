@@ -46,6 +46,10 @@
     { id: '', nameKey: 'ex.tower3D_2', descKey: 'ex.tower3D_2.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_2')!.generate(s) },
     { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
+  ];
+
+  // PRO-only examples — shown only in Pro mode
+  const examplesPro: { id: string; nameKey: string; descKey: string }[] = [
     { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
     { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
   ];
@@ -169,8 +173,26 @@
   }
 </script>
 
-{#if uiStore.analysisMode === '3d'}
-<!-- 3D mode: wrapper covers both example sections for tour spotlight -->
+{#if uiStore.analysisMode === 'pro'}
+<!-- PRO mode: only PRO examples -->
+<div class="toolbar-section" data-tour="examples-section">
+  <button class="section-toggle" onclick={() => showExamples = !showExamples}>
+    {showExamples ? '▾' : '▸'} {t('examples.titlePro')}
+  </button>
+  {#if showExamples}
+    <div class="examples-list">
+      {#each examplesPro as ex}
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+{:else if uiStore.analysisMode === '3d'}
+<!-- 3D mode: 2D + 3D example sections -->
 <div data-tour="examples-section" style="display:flex;flex-direction:column;gap:1rem">
 <div class="toolbar-section">
   <button class="section-toggle" onclick={() => showExamples = !showExamples}>
@@ -203,9 +225,24 @@
     </div>
   {/if}
 </div>
+</div>
 
-<!-- Duplicate-on-axis tool: hidden for now, pending proper UX design.
-     Function handleDuplicateAxis() and uiStore.duplicateAxis/duplicateDistance kept for future use. -->
+{:else if uiStore.analysisMode === 'edu'}
+<!-- EDU mode: same 2D examples as basic -->
+<div class="toolbar-section" data-tour="examples-section">
+  <button class="section-toggle" onclick={() => showExamples = !showExamples}>
+    {showExamples ? '▾' : '▸'} {t('examples.title')}
+  </button>
+  {#if showExamples}
+    <div class="examples-list">
+      {#each examples as ex}
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 {:else}

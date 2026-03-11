@@ -14,7 +14,7 @@ import type { PlasticResult } from '../engine/plastic';
 import type { SpectralResult } from '../engine/spectral';
 import type { SpectralResult3D } from '../engine/spectral-3d';
 
-export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
+export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types
   | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion';
 
@@ -120,6 +120,7 @@ function createResultsStore() {
   let bucklingResult3D = $state<BucklingResult3D | null>(null);
   let spectralResult3D = $state<SpectralResult3D | null>(null);
   let showReactions = $state<boolean>(true);
+  let showConstraintForces = $state<boolean>(false);
   let movingLoadShowEnvelope = $state<boolean>(false);
 
   // Moving load progress tracking
@@ -423,6 +424,9 @@ function createResultsStore() {
 
     get showReactions() { return showReactions; },
     set showReactions(v: boolean) { showReactions = v; },
+
+    get showConstraintForces() { return showConstraintForces; },
+    set showConstraintForces(v: boolean) { showConstraintForces = v; },
 
     get movingLoadShowEnvelope() { return movingLoadShowEnvelope; },
     set movingLoadShowEnvelope(v: boolean) { movingLoadShowEnvelope = v; },

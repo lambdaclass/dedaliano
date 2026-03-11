@@ -2,8 +2,11 @@
   import { modelStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
+  import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
 
-  type LoadKind = 'nodal' | 'distributed' | 'point' | 'surface';
+  let showAutoLoadsDialog = $state(false);
+
+  type LoadKind = 'nodal' | 'distributed' | 'point' | 'surface' | 'thermalQuad';
 
   let loadKind = $state<LoadKind>('nodal');
   let activeCaseId = $state(1); // default to first load case
@@ -34,6 +37,11 @@
   let slQuadId = $state('');
   let slQ = $state('');
 
+  // Thermal quad load fields
+  let tqQuadId = $state('');
+  let tqDtUniform = $state('');
+  let tqDtGradient = $state('');
+
   // New load case fields
   let newCaseName = $state('');
   let newCaseType = $state<LoadCaseType>('');
@@ -51,6 +59,7 @@
   const distLoads = $derived(caseLoads.filter(l => l.type === 'distributed3d'));
   const pointLoads = $derived(caseLoads.filter(l => l.type === 'pointOnElement3d'));
   const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
+  const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
 
   const caseTypeLabels = $derived<Record<string, string>>({
     'D': t('pro.caseTypeD'),
@@ -108,6 +117,16 @@
     slQuadId = ''; slQ = '';
   }
 
+  function addThermalQuadLoad() {
+    const quadId = parseInt(tqQuadId);
+    if (isNaN(quadId) || !modelStore.model.quads.has(quadId)) return;
+    const dtU = parseFloat(tqDtUniform) || 0;
+    const dtG = parseFloat(tqDtGradient) || 0;
+    if (dtU === 0 && dtG === 0) return;
+    modelStore.addThermalLoadQuad3D(quadId, dtU, dtG, activeCaseId);
+    tqQuadId = ''; tqDtUniform = ''; tqDtGradient = '';
+  }
+
   function removeLoad(loadId: number) {
     modelStore.removeLoad(loadId);
   }
@@ -161,6 +180,13 @@
 </script>
 
 <div class="pro-loads">
+  <!-- Auto-generate button -->
+  <div class="pro-autogen-bar">
+    <button class="pro-btn-autogen" onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
+  </div>
+
+  <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
+
   <!-- Load Cases Management -->
   <div class="pro-cases-section">
     <div class="pro-cases-header">
@@ -236,6 +262,7 @@
       <button class="pro-type-btn" class:active={loadKind === 'distributed'} onclick={() => loadKind = 'distributed'}>{t('pro.distributed')}</button>
       <button class="pro-type-btn" class:active={loadKind === 'point'} onclick={() => loadKind = 'point'}>{t('pro.pointLoad')}</button>
       <button class="pro-type-btn" class:active={loadKind === 'surface'} onclick={() => loadKind = 'surface'}>{t('pro.surfaceLoad')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'thermalQuad'} onclick={() => loadKind = 'thermalQuad'}>{t('pro.thermalQuadLoad')}</button>
     </div>
 
     {#if loadKind === 'nodal'}
@@ -282,13 +309,24 @@
         </div>
         <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
       </div>
-    {:else}
+    {:else if loadKind === 'surface'}
       <div class="pro-load-inputs">
         <div class="pro-load-row">
           <label>{t('pro.slab')}: <input type="text" bind:value={slQuadId} placeholder="ID" class="inp-sm" /></label>
           <label>q: <input type="text" bind:value={slQ} placeholder="kN/m²" class="inp-num" /></label>
         </div>
         <button class="pro-btn" onclick={addSurfaceLoad}>{t('pro.addSurfaceLoad')}</button>
+      </div>
+    {:else}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('pro.slab')}: <input type="text" bind:value={tqQuadId} placeholder="ID" class="inp-sm" /></label>
+        </div>
+        <div class="pro-load-row">
+          <label>{t('pro.dtUniform')}: <input type="text" bind:value={tqDtUniform} placeholder="°C" class="inp-num" /></label>
+          <label>{t('pro.dtGradient')}: <input type="text" bind:value={tqDtGradient} placeholder="°C" class="inp-num" /></label>
+        </div>
+        <button class="pro-btn" onclick={addThermalQuadLoad}>{t('pro.addThermalQuadLoad')}</button>
       </div>
     {/if}
   </div>
@@ -373,6 +411,24 @@
       </table>
     {/if}
 
+    {#if thermalQuadLoads.length > 0}
+      <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
+      <table class="pro-loads-table">
+        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')}</th><th>{t('pro.dtGradient')}</th><th></th></tr></thead>
+        <tbody>
+          {#each thermalQuadLoads as l}
+            <tr>
+              <td class="col-id">{l.data.id}</td>
+              <td class="col-num">{l.data.quadId}</td>
+              <td class="col-num">{fmtNum(l.data.dtUniform)}</td>
+              <td class="col-num">{fmtNum(l.data.dtGradient)}</td>
+              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>x</button></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
     {#if caseLoads.length === 0}
       <div class="pro-empty">{t('pro.noLoads')}</div>
     {/if}
@@ -381,6 +437,13 @@
 
 <style>
   .pro-loads { display: flex; flex-direction: column; height: 100%; }
+  .pro-autogen-bar { padding: 8px 10px; border-bottom: 1px solid #1a3050; }
+  .pro-btn-autogen {
+    width: 100%; padding: 7px 12px; font-size: 0.75rem; font-weight: 600;
+    color: #1a1a2e; background: #4ecdc4; border: none; border-radius: 5px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .pro-btn-autogen:hover { background: #3dbdb4; }
 
   /* Load Cases */
   .pro-cases-section { border-bottom: 1px solid #1a3050; }

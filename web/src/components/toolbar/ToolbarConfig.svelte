@@ -150,6 +150,10 @@
           <span>{t('config.showReactions')}</span>
         </label>
         <label class="checkbox-item">
+          <input type="checkbox" bind:checked={resultsStore.showConstraintForces} />
+          <span>{t('config.showConstraintForces')}</span>
+        </label>
+        <label class="checkbox-item">
           <input type="checkbox" bind:checked={uiStore.hideLoadsWithDiagram} />
           <span>{t('config.hideLoadsWithDiagram')}</span>
         </label>

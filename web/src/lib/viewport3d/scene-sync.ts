@@ -404,7 +404,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
 
   // Re-apply color map if active (syncSelection overwrites element colors)
   const dt = resultsStore.diagramType;
-  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
     // Import dynamically avoided — call syncColorMap3D from Viewport3D after syncSelection
     // The caller is responsible for re-applying color map.
     // We just set a flag so the caller knows.
