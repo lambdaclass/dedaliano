@@ -323,6 +323,14 @@ pub enum SolverLoad3D {
     SolidShellPressure(SolverPressureLoad),
     #[serde(rename = "solidShellSelfWeight")]
     SolidShellSelfWeight(SolverSolidShellSelfWeightLoad),
+    #[serde(rename = "curvedShellPressure")]
+    CurvedShellPressure(SolverPressureLoad),
+    #[serde(rename = "curvedShellThermal")]
+    CurvedShellThermal(SolverPlateThermalLoad),
+    #[serde(rename = "curvedShellEdge")]
+    CurvedShellEdge(SolverQuadEdgeLoad),
+    #[serde(rename = "curvedShellSelfWeight")]
+    CurvedShellSelfWeight(SolverQuadSelfWeightLoad),
 }
 
 /// Body force (self-weight) load on a quad element.
@@ -398,6 +406,8 @@ pub struct SolverInput3D {
     #[serde(default)]
     pub solid_shells: HashMap<String, SolverSolidShellElement>,
     #[serde(default)]
+    pub curved_shells: HashMap<String, SolverCurvedShellElement>,
+    #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorElement>,
@@ -438,6 +448,18 @@ pub struct SolverSolidShellElement {
     pub id: usize,
     pub nodes: [usize; 8],
     pub material_id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverCurvedShellElement {
+    pub id: usize,
+    pub nodes: [usize; 4],
+    pub material_id: usize,
+    pub thickness: f64,
+    /// Optional per-node director vectors (shell normals). Auto-computed if None.
+    #[serde(default)]
+    pub normals: Option<[[f64; 3]; 4]>,
 }
 
 /// Self-weight load for solid-shell elements.

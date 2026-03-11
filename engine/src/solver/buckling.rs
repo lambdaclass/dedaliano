@@ -227,8 +227,8 @@ pub fn solve_buckling_3d(
 
     let mut kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
 
-    // Add quad/solid-shell geometric stiffness from stress resultants
-    if !input.quads.is_empty() || !input.quad9s.is_empty() || !input.solid_shells.is_empty() {
+    // Add quad/solid-shell/curved-shell geometric stiffness from stress resultants
+    if !input.quads.is_empty() || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() {
         // Reconstruct displacement vector from linear results
         let mut u_full = vec![0.0; n];
         for d in &linear.displacements {
@@ -251,6 +251,11 @@ pub fn solve_buckling_3d(
         }
         if !input.solid_shells.is_empty() {
             super::geometric_stiffness::add_solid_shell_geometric_stiffness_3d(
+                input, &dof_num, &u_full, &mut kg_full,
+            );
+        }
+        if !input.curved_shells.is_empty() {
+            super::geometric_stiffness::add_curved_shell_geometric_stiffness_3d(
                 input, &dof_num, &u_full, &mut kg_full,
             );
         }

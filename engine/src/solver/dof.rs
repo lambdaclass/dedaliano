@@ -71,7 +71,7 @@ impl DofNumbering {
     /// Build DOF numbering for a 3D structure.
     pub fn build_3d(input: &SolverInput3D) -> Self {
         let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
-        let has_plate = !input.plates.is_empty() || !input.quads.is_empty() || !input.quad9s.is_empty();
+        let has_plate = !input.plates.is_empty() || !input.quads.is_empty() || !input.quad9s.is_empty() || !input.curved_shells.is_empty();
         let has_warping = input.sections.values().any(|s| s.cw.is_some());
         let dofs_per_node = if has_warping { 7 } else if has_frame || has_plate { 6 } else { 3 };
 

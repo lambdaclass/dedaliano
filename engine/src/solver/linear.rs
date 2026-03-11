@@ -1327,6 +1327,36 @@ pub(crate) fn compute_quad_stresses(
         });
     }
 
+    // Curved shell stress recovery (degenerated continuum — global displacements used directly)
+    for cs in input.curved_shells.values() {
+        let mat = mat_map[&cs.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let mut coords = [[0.0; 3]; 4];
+        for (i, &nid) in cs.nodes.iter().enumerate() {
+            let n = node_map[&nid];
+            coords[i] = [n.x, n.y, n.z];
+        }
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        let u_elem: Vec<f64> = cs_dofs.iter().map(|&d| u[d]).collect();
+        let mut u_arr = [0.0; 24];
+        u_arr.copy_from_slice(&u_elem);
+        let s = crate::element::curved_shell::curved_shell_stresses(&coords, &dirs, &u_arr, e, nu, cs.thickness);
+        let nodal_vm = crate::element::curved_shell::curved_shell_nodal_von_mises(&coords, &dirs, &u_arr, e, nu, cs.thickness);
+        stresses.push(QuadStress {
+            element_id: cs.id,
+            sigma_xx: s.sigma_xx,
+            sigma_yy: s.sigma_yy,
+            tau_xy: s.tau_xy,
+            mx: s.mx,
+            my: s.my,
+            mxy: s.mxy,
+            von_mises: s.von_mises,
+            nodal_von_mises: nodal_vm,
+        });
+    }
+
     stresses
 }
 

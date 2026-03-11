@@ -500,6 +500,7 @@ fn test_parity_3d_envelope_json_roundtrip() {
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),    };
 
     let results = solve_3d(&input).unwrap();
@@ -557,7 +558,7 @@ fn test_parity_3d_combination_superposition() {
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
             });
 
-        SolverInput3D { nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![] , connectors: HashMap::new() }
+        SolverInput3D { nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![] , connectors: HashMap::new() }
     };
 
     // Case 1: Fy = -10 kN at tip

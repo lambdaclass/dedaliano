@@ -528,6 +528,50 @@ pub fn add_solid_shell_geometric_stiffness_3d(
     }
 }
 
+/// Add curved shell geometric stiffness to a pre-built Kg matrix.
+pub fn add_curved_shell_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for cs in input.curved_shells.values() {
+        let mat = mat_by_id[&cs.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let mut coords = [[0.0; 3]; 4];
+        for (i, &nid) in cs.nodes.iter().enumerate() {
+            let n = node_by_id[&nid];
+            coords[i] = [n.x, n.y, n.z];
+        }
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        let u_elem: Vec<f64> = cs_dofs.iter().map(|&d| u[d]).collect();
+        let mut u_arr = [0.0; 24];
+        u_arr.copy_from_slice(&u_elem);
+
+        let s = crate::element::curved_shell::curved_shell_stresses(&coords, &dirs, &u_arr, e, nu, cs.thickness);
+        let nxx = s.sigma_xx * cs.thickness;
+        let nyy = s.sigma_yy * cs.thickness;
+        let nxy = s.tau_xy * cs.thickness;
+
+        let kg_elem = crate::element::curved_shell::curved_shell_geometric_stiffness(&coords, &dirs, cs.thickness, nxx, nyy, nxy);
+
+        let ndof = cs_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[cs_dofs[i] * n + cs_dofs[j]] += kg_elem[i * ndof + j];
+            }
+        }
+    }
+}
+
 /// Add 3D geometric stiffness from current displacements.
 pub fn add_geometric_stiffness_3d(
     input: &SolverInput3D,
