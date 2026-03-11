@@ -123,6 +123,7 @@ pub struct SolveTimings {
     pub numeric_us: u64,
     pub solve_us: u64,
     pub residual_us: u64,
+    pub dense_fallback_us: u64,
     pub reactions_us: u64,
     pub stress_recovery_us: u64,
     pub total_us: u64,

@@ -981,22 +981,22 @@ fn bench_solve_phases(c: &mut Criterion) {
         );
 
         let sym = symbolic_cholesky(&asm.k_ff);
-        group.bench_with_input(
-            BenchmarkId::new("numeric_cholesky", &label),
-            &(&sym, &asm.k_ff),
-            |b, (s, kff)| {
-                b.iter(|| numeric_cholesky(s, kff));
-            },
-        );
-
-        let num = numeric_cholesky(&sym, &asm.k_ff).unwrap();
-        group.bench_with_input(
-            BenchmarkId::new("triangular_solve", &label),
-            &(&num, &f_f),
-            |b, (factor, rhs)| {
-                b.iter(|| sparse_cholesky_solve(factor, rhs));
-            },
-        );
+        if let Some(num) = numeric_cholesky(&sym, &asm.k_ff) {
+            group.bench_with_input(
+                BenchmarkId::new("numeric_cholesky", &label),
+                &(&sym, &asm.k_ff),
+                |b, (s, kff)| {
+                    b.iter(|| numeric_cholesky(s, kff));
+                },
+            );
+            group.bench_with_input(
+                BenchmarkId::new("triangular_solve", &label),
+                &(&num, &f_f),
+                |b, (factor, rhs)| {
+                    b.iter(|| sparse_cholesky_solve(factor, rhs));
+                },
+            );
+        }
     }
 
     group.finish();

@@ -193,6 +193,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let assembly_us = t0.elapsed().as_micros() as u64;
 
         let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
+        let mut dense_fb_us: u64 = 0;
 
         // Sparse diagonal conditioning check
         let t0 = Instant::now();
@@ -279,7 +280,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         ),
                         severity: "warning".into(),
                     });
-                    (dense_lu_fallback()?, s_us, r_us)
+                    let t0 = Instant::now();
+                    let u_fb = dense_lu_fallback()?;
+                    dense_fb_us = t0.elapsed().as_micros() as u64;
+                    (u_fb, s_us, r_us)
                 }
             }
             None => {
@@ -288,7 +292,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     message: "Sparse Cholesky failed (likely drilling DOFs), fell back to dense LU".into(),
                     severity: "warning".into(),
                 });
-                (dense_lu_fallback()?, 0, 0)
+                let t0 = Instant::now();
+                let u_fb = dense_lu_fallback()?;
+                dense_fb_us = t0.elapsed().as_micros() as u64;
+                (u_fb, 0, 0)
             }
         };
 
@@ -334,6 +341,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             numeric_us,
             solve_us,
             residual_us,
+            dense_fallback_us: dense_fb_us,
             reactions_us,
             stress_recovery_us,
             total_us,
