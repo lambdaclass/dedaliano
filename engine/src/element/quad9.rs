@@ -12,7 +12,7 @@
 /// MITC4 performs poorly (e.g. pinched hemisphere, twisted beam).
 ///
 /// Node numbering:
-/// ```
+/// ```text
 /// 4---7---3      Natural coords:
 /// |       |      1:(-1,-1) 2:(+1,-1) 3:(+1,+1) 4:(-1,+1)
 /// 8   9   6      5:(0,-1) 6:(+1,0) 7:(0,+1) 8:(-1,0) 9:(0,0)
