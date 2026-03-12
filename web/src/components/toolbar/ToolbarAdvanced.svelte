@@ -1,13 +1,14 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads, solveMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { solvePlastic as solvePlasticJS } from '../../lib/engine/plastic';
   import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
   import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
   import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
   import { solveSpectral3D as jsSpectral3D } from '../../lib/engine/spectral-3d';
   import { cirsoc103Spectrum } from '../../lib/engine/spectral';
-  import { getPredefinedTrains } from '../../lib/engine/moving-loads';
+  import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
@@ -194,7 +195,7 @@
     }
     try {
       const t0 = performance.now();
-      const result = solvePlastic({ solver: input, sections, materials });
+      const result = solvePlasticJS(input, sections, materials);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPlasticResult(result);
@@ -217,7 +218,12 @@
 
     try {
       const t0 = performance.now();
-      const result = solveMovingLoads({ solver: input, train });
+      const result = await solveMovingLoadsAsync(
+        input,
+        { train, step: 0.25 },
+        (p) => resultsStore.updateMovingLoadProgress(p.current, p.total),
+        abortController.signal,
+      );
       const dt = performance.now() - t0;
 
       if (abortController.signal.aborted) return;
@@ -247,7 +253,7 @@
 
     try {
       const t0 = performance.now();
-      const result = solveMovingLoads3D({ solver: input, train });
+      const result = wasmMovingLoads3D({ solver: input, train });
       const dt = performance.now() - t0;
 
       if (abortController.signal.aborted) return;
@@ -349,12 +355,13 @@
           combination: 'CQC',
         });
       } catch {
+        // JS fallback: single-direction analysis (X is primary seismic direction)
         result = jsSpectral3D(input, resultsStore.modalResult3D!, densities, {
           direction: 'X', spectrum, rule: 'CQC',
         });
       }
-      const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      const dt = performance.now() - t0;
       resultsStore.setSpectralResult3D(result);
       uiStore.toast(t('toast.spectralSuccess').replace('{vBase}', result.baseShear.toFixed(1)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
@@ -508,6 +515,10 @@
       <button class="adv-btn" style="flex:1"
         class:active={resultsStore.activeView === 'envelope'}
         onclick={() => {
+          if (resultsStore.activeView === 'envelope') {
+            resultsStore.activeView = 'single';
+            return;
+          }
           if (modelStore.model.combinations.length === 0) {
             uiStore.toast(t('advanced.defineCombosFirst'), 'error');
             return;
@@ -577,7 +588,17 @@
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.currentTool === 'influenceLine'}
-        onclick={() => { uiStore.currentTool = uiStore.currentTool === 'influenceLine' ? 'select' : 'influenceLine'; }}>
+        onclick={() => {
+          if (uiStore.currentTool === 'influenceLine') {
+            uiStore.currentTool = 'select';
+            return;
+          }
+          if (!resultsStore.results && !resultsStore.results3D) {
+            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
+            return;
+          }
+          uiStore.currentTool = 'influenceLine';
+        }}>
         ⌇ {t('advanced.influenceLine')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>

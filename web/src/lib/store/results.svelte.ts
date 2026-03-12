@@ -1,7 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope, SolverDiagnostic, ConstraintForce, AssemblyDiagnostic } from '../engine/types';
+import type { ElementForces, FullEnvelope, SolverDiagnostic, ConstraintForce, AssemblyDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult } from '../engine/pdelta';
@@ -73,10 +73,12 @@ export type ResultsView = 'single' | 'combo' | 'envelope';
 function createResultsStore() {
   let results = $state<AnalysisResults | null>(null);
   let diagramType = $state<DiagramType>('none');
+  /** Remembers last user-visible diagram so live-calc can restore it after clear() */
+  let _lastDiagramType: DiagramType = 'none';
   let deformedScale = $state<number>(100); // Scale factor for deformed shape (1x = true 1:1 real scale)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
-  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises'>('moment');
+  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending'>('moment');
   let showDiagramValues = $state<boolean>(true);
   let animSpeed = $state<number>(1.0); // animation speed multiplier (0.25 - 3x)
 
@@ -150,10 +152,17 @@ function createResultsStore() {
   let diagnostics3DArr = $state<SolverDiagnostic[]>([]);
   let constraintForces3DArr = $state<ConstraintForce[]>([]);
 
+  // Solve timings
+  let solveTimings2D = $state<SolveTimings | null>(null);
+  let solveTimings3D = $state<SolveTimings | null>(null);
+
   return {
     get results() { return results; },
     get diagramType() { return diagramType; },
-    set diagramType(v: DiagramType) { diagramType = v; },
+    set diagramType(v: DiagramType) {
+      diagramType = v;
+      if (v !== 'none') _lastDiagramType = v;
+    },
     get deformedScale() { return deformedScale; },
     set deformedScale(v: number) { deformedScale = v; },
     get diagramScale() { return diagramScale; },
@@ -161,7 +170,7 @@ function createResultsStore() {
     get animateDeformed() { return animateDeformed; },
     set animateDeformed(v: boolean) { animateDeformed = v; },
     get colorMapKind() { return colorMapKind; },
-    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises') { colorMapKind = v; },
+    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending') { colorMapKind = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
     get animSpeed() { return animSpeed; },
@@ -413,10 +422,10 @@ function createResultsStore() {
 
     get spectralResult3D() { return spectralResult3D; },
     setSpectralResult3D(r: SpectralResult3D) {
-      pdeltaResult3D = null;
-      bucklingResult3D = null;
-      activeBucklingMode = 0;
+      this.clearAdvanced();
       spectralResult3D = r;
+      results3D = r.results;
+      diagramType = 'deformed';
     },
     clearSpectral3D() {
       spectralResult3D = null;
@@ -463,13 +472,24 @@ function createResultsStore() {
       ilAnimProgress = 0;
     },
 
-    setResults(r: AnalysisResults) {
+    setResults(r: AnalysisResults, preserveDiagram = false) {
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      // Preserve current diagram type if it's a results-based view; only default to 'deformed' if none
-      const resultsDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
-      if (!resultsDiagrams.includes(diagramType)) {
+      // Preserve current diagram type during live-calc re-solves
+      const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
+      if (preserveDiagram) {
+        // clear() may have reset diagramType to 'none' — restore last user-chosen diagram
+        if (diagramType === 'none' && validDiagrams.includes(_lastDiagramType)) {
+          diagramType = _lastDiagramType;
+        }
+        // Keep current diagram if valid, otherwise fall back to deformed
+        if (!validDiagrams.includes(diagramType) && diagramType !== 'none') {
+          diagramType = 'deformed';
+          _lastDiagramType = 'deformed';
+        }
+      } else if (!validDiagrams.includes(diagramType)) {
         diagramType = 'deformed';
+        _lastDiagramType = 'deformed';
       }
       activeView = 'single';
       activeCaseId = null;
@@ -481,6 +501,7 @@ function createResultsStore() {
       // Extract diagnostics and constraint forces from results
       diagnostics2D = [];
       constraintForces2D = r.constraintForces ?? [];
+      solveTimings2D = r.timings ?? null;
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
@@ -547,18 +568,30 @@ function createResultsStore() {
       constraintForces2D = [];
       diagnostics3DArr = [];
       constraintForces3DArr = [];
+      solveTimings2D = null;
+      solveTimings3D = null;
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
 
     get results3D() { return results3D; },
 
-    setResults3D(r: AnalysisResults3D) {
+    setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       results3D = r;
       singleResults3D = r;
-      const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
-      if (!valid3DDiagrams.includes(diagramType)) {
+      // Preserve current diagram type during live-calc re-solves
+      const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
+      if (preserveDiagram) {
+        if (diagramType === 'none' && valid3DDiagrams.includes(_lastDiagramType)) {
+          diagramType = _lastDiagramType;
+        }
+        if (!valid3DDiagrams.includes(diagramType) && diagramType !== 'none') {
+          diagramType = 'deformed';
+          _lastDiagramType = 'deformed';
+        }
+      } else if (!valid3DDiagrams.includes(diagramType)) {
         diagramType = 'deformed';
+        _lastDiagramType = 'deformed';
       }
       // Reset 3D combos on fresh solve
       activeView = 'single';
@@ -569,6 +602,7 @@ function createResultsStore() {
       // Extract diagnostics and constraint forces from results
       diagnostics3DArr = [];
       constraintForces3DArr = r.constraintForces ?? [];
+      solveTimings3D = r.timings ?? null;
     },
 
     clear3D() {
@@ -579,6 +613,7 @@ function createResultsStore() {
       envelope3D = null;
       diagnostics3DArr = [];
       constraintForces3DArr = [];
+      solveTimings3D = null;
       pdeltaResult3D = null;
       modalResult3D = null;
       bucklingResult3D = null;
@@ -600,15 +635,19 @@ function createResultsStore() {
       perCombo3D = pco;
       envelope3D = env;
       activeCaseId = null;
-      // Default: show single results if available
-      if (singleResults3D) {
+      activeComboId = pco.keys().next().value ?? null;
+      // Default: show first combination if available (avoids nonsensical
+      // all-loads-combined view when contradictory cases exist, e.g. wind ±X)
+      if (activeComboId !== null && pco.has(activeComboId)) {
+        results3D = pco.get(activeComboId)!;
+        activeView = 'combo';
+      } else if (singleResults3D) {
         results3D = singleResults3D;
         activeView = 'single';
       } else {
         results3D = env.maxAbsResults3D;
         activeView = 'envelope';
       }
-      activeComboId = pco.keys().next().value ?? null;
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
         diagramType = 'momentZ';
@@ -649,6 +688,10 @@ function createResultsStore() {
         Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2)
       ));
     },
+
+    // ─── Solve Timings ─────────────────────────────────────────
+    get solveTimings() { return solveTimings2D; },
+    get solveTimings3DData() { return solveTimings3D; },
 
     // ─── Diagnostics ───────────────────────────────────────────
     get diagnostics() { return diagnostics2D; },
