@@ -72,7 +72,7 @@ fn corotational_3d_small_load_matches_linear() {
     let input = cantilever_3d(3.0, 0.0, 0.0, -0.001, 200.0, 0.3, 0.01, 1e-4, 1e-4, 1e-4);
 
     let linear = solve_3d(&input).unwrap();
-    let corot = solve_corotational_3d(&input, 50, 1e-6, 1).unwrap();
+    let corot = solve_corotational_3d(&input, 50, 1e-6, 1, false).unwrap();
 
     assert!(corot.converged);
 
@@ -89,7 +89,7 @@ fn corotational_3d_converges_with_increments() {
     // Moderate load with multiple increments
     let input = cantilever_3d(3.0, 0.0, 0.0, -50.0, 200.0, 0.3, 0.01, 1e-4, 1e-4, 1e-4);
 
-    let corot = solve_corotational_3d(&input, 100, 1e-6, 10).unwrap();
+    let corot = solve_corotational_3d(&input, 100, 1e-6, 10, false).unwrap();
     assert!(corot.converged, "Should converge with 10 increments");
     assert!(corot.max_displacement > 0.0);
     assert!(corot.iterations > 0);
@@ -153,7 +153,7 @@ fn corotational_3d_axial_truss() {
         connectors: HashMap::new(),
     };
 
-    let corot = solve_corotational_3d(&input, 50, 1e-8, 1).unwrap();
+    let corot = solve_corotational_3d(&input, 50, 1e-8, 1, false).unwrap();
     assert!(corot.converged);
 
     let ef = &corot.results.element_forces[0];
@@ -226,7 +226,7 @@ fn corotational_3d_l_frame() {
         connectors: HashMap::new(),
     };
 
-    let corot = solve_corotational_3d(&input, 100, 1e-6, 5).unwrap();
+    let corot = solve_corotational_3d(&input, 100, 1e-6, 5, false).unwrap();
     assert!(corot.converged, "L-frame should converge");
     assert_eq!(corot.results.element_forces.len(), 2);
 }
@@ -244,8 +244,8 @@ fn corotational_3d_geometric_stiffening() {
         3.0, 500.0, 0.0, -10.0, 200.0, 0.3, 0.01, 1e-4, 1e-4, 1e-4,
     );
 
-    let result_no_tension = solve_corotational_3d(&input_transverse, 100, 1e-6, 5).unwrap();
-    let result_with_tension = solve_corotational_3d(&input_with_tension, 100, 1e-6, 5).unwrap();
+    let result_no_tension = solve_corotational_3d(&input_transverse, 100, 1e-6, 5, false).unwrap();
+    let result_with_tension = solve_corotational_3d(&input_with_tension, 100, 1e-6, 5, false).unwrap();
 
     assert!(result_no_tension.converged);
     assert!(result_with_tension.converged);
@@ -305,6 +305,34 @@ fn corotational_3d_no_free_dofs_error() {
         connectors: HashMap::new(),
     };
 
-    let result = solve_corotational_3d(&input, 50, 1e-8, 1);
+    let result = solve_corotational_3d(&input, 50, 1e-8, 1, false);
     assert!(result.is_err());
+}
+
+#[test]
+fn corotational_3d_modified_nr_parity() {
+    // Small load cantilever — well within convergence radius for modified NR
+    let input = cantilever_3d(3.0, 0.0, 0.0, -0.1, 200.0, 0.3, 0.01, 1e-4, 1e-4, 1e-4);
+
+    let full = solve_corotational_3d(&input, 50, 1e-6, 1, false).unwrap();
+    let modified = solve_corotational_3d(&input, 200, 1e-6, 1, true).unwrap();
+
+    assert!(full.converged, "Full NR should converge");
+    assert!(modified.converged, "Modified NR should converge");
+
+    let d_full = full.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let d_mod = modified.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+
+    let rel_uz = (d_full.uz - d_mod.uz).abs() / d_full.uz.abs().max(1e-15);
+    assert!(
+        rel_uz < 1e-4,
+        "uz mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
+        d_full.uz, d_mod.uz, rel_uz
+    );
+
+    assert!(
+        modified.iterations >= full.iterations,
+        "Modified NR should take at least as many iterations: full={}, modified={}",
+        full.iterations, modified.iterations
+    );
 }

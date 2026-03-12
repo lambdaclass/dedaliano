@@ -67,7 +67,7 @@ fn validation_corotational_ext_williams_toggle() {
         elems.clone(), sups.clone(), loads_small,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20);
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false);
     match result {
         Ok(res) => {
             if res.converged {
@@ -107,7 +107,7 @@ fn validation_corotational_ext_williams_toggle() {
     );
 
     // Should not panic, may or may not converge
-    let result_large = corotational::solve_corotational_2d(&input_large, 50, 1e-6, 30);
+    let result_large = corotational::solve_corotational_2d(&input_large, 50, 1e-6, 30, false);
     match result_large {
         Ok(res) => {
             assert!(res.iterations > 0, "Should have attempted iterations");
@@ -157,7 +157,7 @@ fn validation_corotational_ext_cantilever_large_rotation() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20, false).unwrap();
     assert!(result.converged, "Cantilever 45-deg should converge");
 
     let tip = result.results.displacements.iter()
@@ -258,7 +258,7 @@ fn validation_corotational_ext_lee_frame() {
         elems, sups, loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 80, 1e-5, 15).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 80, 1e-5, 15, false).unwrap();
     assert!(result.converged, "Lee frame should converge");
 
     let tip = result.results.displacements.iter()
@@ -347,7 +347,7 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
         elems.clone(), sups.clone(), loads_small,
     );
 
-    let result_small = corotational::solve_corotational_2d(&input_small, 50, 1e-5, 10).unwrap();
+    let result_small = corotational::solve_corotational_2d(&input_small, 50, 1e-5, 10, false).unwrap();
     assert!(result_small.converged, "Arch should converge for small load");
 
     let crown_small = result_small.results.displacements.iter()
@@ -368,7 +368,7 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
         elems.clone(), sups.clone(), loads_moderate,
     );
 
-    let result_moderate = corotational::solve_corotational_2d(&input_moderate, 80, 1e-5, 20);
+    let result_moderate = corotational::solve_corotational_2d(&input_moderate, 80, 1e-5, 20, false);
     match result_moderate {
         Ok(res) => {
             if res.converged {
@@ -402,7 +402,7 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
         elems, sups, loads_large,
     );
 
-    let result_large = corotational::solve_corotational_2d(&input_large, 50, 1e-5, 30);
+    let result_large = corotational::solve_corotational_2d(&input_large, 50, 1e-5, 30, false);
     // Should not panic regardless of convergence
     match result_large {
         Ok(res) => {
@@ -462,7 +462,7 @@ fn validation_corotational_ext_shallow_arch_rise_ratio() {
             elems, sups, loads,
         );
 
-        let result = corotational::solve_corotational_2d(&input, 50, 1e-5, 15);
+        let result = corotational::solve_corotational_2d(&input, 50, 1e-5, 15, false);
         match result {
             Ok(res) if res.converged => {
                 let crown = res.results.displacements.iter()
@@ -555,7 +555,7 @@ fn validation_corotational_ext_elastica_comparison() {
             })],
         );
 
-        let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20).unwrap();
+        let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20, false).unwrap();
         assert!(result.converged, "Elastica alpha={} should converge", alpha);
 
         let tip = result.results.displacements.iter()
@@ -635,7 +635,7 @@ fn validation_corotational_ext_post_buckling_column() {
             elems, sups, loads,
         );
 
-        let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+        let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
         assert!(
             result.converged,
             "Column at {:.0}% P_cr should converge",
@@ -705,7 +705,7 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
         elems.clone(), sups.clone(), loads_small,
     );
 
-    let result_small = corotational::solve_corotational_2d(&input_small, 50, 1e-6, 10).unwrap();
+    let result_small = corotational::solve_corotational_2d(&input_small, 50, 1e-6, 10, false).unwrap();
     assert!(result_small.converged, "Small load on two-bar truss should converge");
 
     let apex_small = result_small.results.displacements.iter()
@@ -729,7 +729,7 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
             elems.clone(), sups.clone(), loads,
         );
 
-        let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 15);
+        let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 15, false);
         match result {
             Ok(res) if res.converged => {
                 let apex = res.results.displacements.iter()

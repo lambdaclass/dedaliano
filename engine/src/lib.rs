@@ -175,7 +175,7 @@ pub fn solve_moving_loads_3d(json: &str) -> Result<String, JsValue> {
 pub fn solve_corotational_2d(json: &str, max_iter: usize, tolerance: f64, n_increments: usize) -> Result<String, JsValue> {
     let input: types::SolverInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let results = solver::corotational::solve_corotational_2d(&input, max_iter, tolerance, n_increments)
+    let results = solver::corotational::solve_corotational_2d(&input, max_iter, tolerance, n_increments, false)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
@@ -186,7 +186,7 @@ pub fn solve_corotational_2d(json: &str, max_iter: usize, tolerance: f64, n_incr
 pub fn solve_corotational_3d(json: &str, max_iter: usize, tolerance: f64, n_increments: usize) -> Result<String, JsValue> {
     let input: types::SolverInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let results = solver::corotational::solve_corotational_3d(&input, max_iter, tolerance, n_increments)
+    let results = solver::corotational::solve_corotational_3d(&input, max_iter, tolerance, n_increments, false)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))

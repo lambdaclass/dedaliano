@@ -727,7 +727,7 @@ fn benchmark_corotational_constraint_forces() {
         plane: "XY".to_string(),
     }));
 
-    let result = corotational::solve_corotational_2d(&input, 10, 1e-6, 5)
+    let result = corotational::solve_corotational_2d(&input, 10, 1e-6, 5, false)
         .expect("Corotational solve failed");
     assert!(result.converged, "Corotational solve did not converge");
 
@@ -800,7 +800,7 @@ fn benchmark_constraint_force_parity_across_solvers() {
     let linear_result = linear::solve_2d(&solver_input).expect("Linear solve failed");
 
     // 2. Corotational (small load → matches linear)
-    let corot_result = corotational::solve_corotational_2d(&solver_input, 10, 1e-8, 5)
+    let corot_result = corotational::solve_corotational_2d(&solver_input, 10, 1e-8, 5, false)
         .expect("Corotational solve failed");
     assert!(corot_result.converged);
     let corot_cf = &corot_result.results.constraint_forces;
@@ -846,6 +846,7 @@ fn benchmark_constraint_force_parity_across_solvers() {
         max_iter: 30,
         tolerance: 1e-8,
         n_increments: 1,
+        modified_nr: false,
     };
     let fiber_result = fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber_input)
         .expect("Fiber nonlinear solve failed");

@@ -50,7 +50,7 @@ fn validation_corotational_cantilever_end_moment() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false);
 
     let lin_disp = lin_res.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
@@ -115,7 +115,7 @@ fn validation_corotational_tension_stiffening() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false);
 
     let lin_mid_uy = lin_res.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap().uy;
@@ -189,7 +189,7 @@ fn validation_corotational_shallow_arch() {
         })],
     );
 
-    let corot_res = corotational::solve_corotational_2d(&input, 80, 1e-5, 15);
+    let corot_res = corotational::solve_corotational_2d(&input, 80, 1e-5, 15, false);
 
     if let Ok(corot) = corot_res {
         if corot.converged {
@@ -229,7 +229,7 @@ fn validation_corotational_portal_pdelta() {
     let input = make_portal_frame(h, w, E, A, IZ, p_lateral, p_gravity);
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-5, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-5, 10, false);
 
     // Linear sway at top-left node (node 2)
     let lin_sway = lin_res.displacements.iter()
@@ -275,7 +275,7 @@ fn validation_corotational_equilibrium_preservation() {
         })],
     );
 
-    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 15);
+    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 15, false);
 
     if let Ok(corot) = corot_res {
         assert!(corot.converged, "Should converge for equilibrium check");
@@ -332,7 +332,7 @@ fn validation_corotational_mesh_convergence() {
             })],
         );
 
-        let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 10);
+        let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 10, false);
 
         if let Ok(corot) = corot_res {
             if corot.converged {
@@ -385,7 +385,7 @@ fn validation_corotational_symmetry() {
         })],
     );
 
-    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 60, 1e-6, 10, false);
 
     if let Ok(corot) = corot_res {
         assert!(corot.converged, "Symmetric fixed-fixed should converge");
@@ -461,7 +461,7 @@ fn validation_corotational_beam_column_interaction() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 80, 1e-6, 15);
+    let corot_res = corotational::solve_corotational_2d(&input, 80, 1e-6, 15, false);
 
     let lin_mid_uy = lin_res.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap().uy;

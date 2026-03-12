@@ -870,7 +870,7 @@ fn bench_corotational(c: &mut Criterion) {
             })],
         );
         group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
-            b.iter(|| corotational::solve_corotational_2d(input, 20, 1e-6, 10).unwrap());
+            b.iter(|| corotational::solve_corotational_2d(input, 20, 1e-6, 10, false).unwrap());
         });
     }
     group.finish();
@@ -974,6 +974,7 @@ fn bench_fiber_nonlinear(c: &mut Criterion) {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 5,
+            modified_nr: false,
         };
         group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b_iter, input| {
             b_iter.iter(|| fiber_nonlinear::solve_fiber_nonlinear_2d(input).unwrap());

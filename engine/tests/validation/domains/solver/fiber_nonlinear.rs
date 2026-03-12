@@ -112,6 +112,7 @@ fn cantilever_fiber_2d(
         max_iter,
         tolerance,
         n_increments,
+        modified_nr: false,
     }
 }
 
@@ -473,6 +474,7 @@ fn symmetric_section_symmetric_response() {
         max_iter: 30,
         tolerance: 1e-6,
         n_increments: 1,
+        modified_nr: false,
     };
 
     let result = solve_fiber_nonlinear_2d(&input).unwrap();
@@ -654,4 +656,36 @@ fn fiber_nonlinear_solver_converges_within_iteration_limit() {
             desc,
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Test 9 -- Modified Newton-Raphson parity
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fiber_modified_nr_parity() {
+    let full = cantilever_fiber_2d(
+        5.0, 0.2, 0.4, 10,
+        FiberMaterial::Elastic { e: 200_000.0 },
+        0.0, -50.0, 0.0, 1, 30, 1e-8,
+    );
+    let mut modified = full.clone();
+    modified.modified_nr = true;
+    modified.max_iter = 200; // Modified NR needs more iterations
+
+    let r_full = solve_fiber_nonlinear_2d(&full).unwrap();
+    let r_mod = solve_fiber_nonlinear_2d(&modified).unwrap();
+
+    assert!(r_full.converged, "Full NR should converge");
+    assert!(r_mod.converged, "Modified NR should converge");
+
+    let d_full = r_full.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
+    let d_mod = r_mod.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
+
+    let rel_uy = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+    assert!(
+        rel_uy < 1e-4,
+        "uy mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
+        d_full.uy, d_mod.uy, rel_uy
+    );
 }

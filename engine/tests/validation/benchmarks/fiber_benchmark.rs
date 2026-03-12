@@ -220,6 +220,7 @@ fn benchmark_fiber_3d_elastic_w_section() {
         max_iter: 30,
         tolerance: 1e-8,
         n_increments: 1,
+        modified_nr: false,
     };
 
     let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -310,6 +311,7 @@ fn benchmark_fiber_3d_steel_plastic_moment() {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 1,
+            modified_nr: false,
         };
 
         let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -348,6 +350,7 @@ fn benchmark_fiber_3d_steel_plastic_moment() {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 5,
+            modified_nr: false,
         };
 
         let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -462,6 +465,7 @@ fn benchmark_fiber_3d_rc_column_pushover() {
         max_iter: 50,
         tolerance: 1e-4,
         n_increments: 20,
+        modified_nr: false,
     };
 
     let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -546,6 +550,7 @@ fn benchmark_fiber_3d_biaxial_symmetry() {
         max_iter: 30,
         tolerance: 1e-8,
         n_increments: 1,
+        modified_nr: false,
     };
 
     let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -629,6 +634,7 @@ fn benchmark_fiber_3d_confined_concrete_column() {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 1,
+            modified_nr: false,
         };
 
         let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -671,6 +677,7 @@ fn benchmark_fiber_3d_confined_concrete_column() {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 1,
+            modified_nr: false,
         };
 
         let result = solve_fiber_nonlinear_3d(&fiber_input)
@@ -753,6 +760,7 @@ fn benchmark_fiber_3d_beam_column_interaction() {
         max_iter: 50,
         tolerance: 1e-6,
         n_increments: 5,
+        modified_nr: false,
     };
 
     let result = solve_fiber_nonlinear_3d(&fiber_input)

@@ -157,7 +157,7 @@ fn capability_vm14a_mattiasson_elastica() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 100, 1e-8, 40).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 100, 1e-8, 40, false).unwrap();
     assert!(result.converged, "Mattiasson elastica should converge");
 
     let tip = result

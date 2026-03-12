@@ -55,7 +55,7 @@ fn validation_corot_symmetric_buckling() {
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, a, iz)], elems, sups, loads);
 
     // At 90% Pcr, corotational should converge
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(result.converged, "Should converge at 90% Pcr");
 
     let mid = result.results.displacements.iter()
@@ -101,9 +101,9 @@ fn validation_corot_incremental_convergence() {
         })],
     );
 
-    let res_5 = corotational::solve_corotational_2d(&input, 50, 1e-6, 5);
-    let res_20 = corotational::solve_corotational_2d(&input, 50, 1e-6, 20);
-    let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50);
+    let res_5 = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false);
+    let res_20 = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false);
+    let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50, false);
 
     // All should converge for this moderate load
     let tip_5 = if let Ok(ref r) = res_5 {
@@ -159,7 +159,7 @@ fn validation_corot_vs_linear_small_load() {
     );
 
     let linear_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 5).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false).unwrap();
     assert!(corot_res.converged, "Should converge for small load");
 
     let tip_lin = linear_res.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -219,7 +219,7 @@ fn validation_corot_arch_snap_through() {
     );
 
     // Solver should handle without panicking
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20);
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false);
 
     match result {
         Ok(res) => {

@@ -192,7 +192,7 @@ fn test_line_search_improves_cantilever_convergence() {
 
     // Run standard corotational (full Newton steps, no line search)
     let result_standard =
-        solve_corotational_2d(&input, max_iter, tolerance, n_increments).unwrap();
+        solve_corotational_2d(&input, max_iter, tolerance, n_increments, false).unwrap();
     assert!(
         result_standard.converged,
         "Standard corotational should converge"
@@ -636,7 +636,7 @@ fn test_corotational_line_search_portal_frame() {
 
     // Standard corotational solution (baseline)
     let result_standard =
-        solve_corotational_2d(&input, max_iter, tolerance, n_increments).unwrap();
+        solve_corotational_2d(&input, max_iter, tolerance, n_increments, false).unwrap();
     assert!(
         result_standard.converged,
         "Standard corotational portal frame should converge"

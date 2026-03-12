@@ -15,6 +15,7 @@ pub fn solve_corotational_2d(
     max_iter: usize,
     tolerance: f64,
     n_increments: usize,
+    modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
     let dof_num = DofNumbering::build_2d(input);
 
@@ -48,6 +49,7 @@ pub fn solve_corotational_2d(
 
         // Newton-Raphson inner loop
         let mut nr_converged = false;
+        let mut cached_factor: Option<CachedCholeskyFactor> = None;
         for _iter in 0..max_iter {
             total_iterations += 1;
 
@@ -95,15 +97,46 @@ pub fn solve_corotational_2d(
             }
 
             // Solve K_T * delta_u = R for free DOFs
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let (k_s, r_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
+            let r_s = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                (k_ff, r_f)
+                r_f
             };
 
-            let delta_u_indep = solve_free_dofs(&k_s, &r_s, ns)?;
+            let delta_u_indep = if modified_nr {
+                if let Some(ref factor) = cached_factor {
+                    solve_with_cholesky_factor(&factor.l, &r_s, factor.n)
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let k_s = if let Some(ref cs) = cs {
+                        cs.reduce_matrix(&k_ff)
+                    } else {
+                        k_ff
+                    };
+                    match try_cholesky_factor(&k_s, ns) {
+                        Some(factor) => {
+                            let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
+                            cached_factor = Some(factor);
+                            result
+                        }
+                        None => {
+                            // Cholesky failed — fall back to full NR for this increment
+                            solve_free_dofs(&k_s, &r_s, ns)?
+                        }
+                    }
+                }
+            } else {
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_s = if let Some(ref cs) = cs {
+                    cs.reduce_matrix(&k_ff)
+                } else {
+                    k_ff
+                };
+                solve_free_dofs(&k_s, &r_s, ns)?
+            };
+
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep)
             } else {
@@ -521,6 +554,28 @@ fn add_spring_contributions(
 }
 
 /// Solve the free-DOF system K_ff * x = r using dense Cholesky with LU fallback.
+/// Cached Cholesky factor (L stored in-place in row-major dense format).
+struct CachedCholeskyFactor {
+    l: Vec<f64>,
+    n: usize,
+}
+
+/// Try to compute a Cholesky factorization and return the cached factor.
+fn try_cholesky_factor(k: &[f64], n: usize) -> Option<CachedCholeskyFactor> {
+    let mut l = k.to_vec();
+    if cholesky_decompose(&mut l, n) {
+        Some(CachedCholeskyFactor { l, n })
+    } else {
+        None
+    }
+}
+
+/// Solve using a previously factored Cholesky L (stored in-place).
+fn solve_with_cholesky_factor(l: &[f64], r: &[f64], n: usize) -> Vec<f64> {
+    let y = forward_solve(l, r, n);
+    back_solve(l, &y, n)
+}
+
 fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();
     match cholesky_solve(&mut k_work, r_f, nf) {
@@ -781,6 +836,7 @@ pub fn solve_corotational_3d(
     max_iter: usize,
     tolerance: f64,
     n_increments: usize,
+    modified_nr: bool,
 ) -> Result<CorotationalResult3D, String> {
     let dof_num = DofNumbering::build_3d(input);
 
@@ -809,6 +865,7 @@ pub fn solve_corotational_3d(
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        let mut cached_factor: Option<CachedCholeskyFactor> = None;
         for _iter in 0..max_iter {
             total_iterations += 1;
 
@@ -848,14 +905,43 @@ pub fn solve_corotational_3d(
             }
 
             // Solve K_T * delta_u = R (with constraint reduction if present)
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let (k_s, r_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
+            let r_s = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                (k_ff, r_f)
+                r_f
             };
-            let delta_u_indep = solve_free_dofs(&k_s, &r_s, ns)?;
+
+            let delta_u_indep = if modified_nr {
+                if let Some(ref factor) = cached_factor {
+                    solve_with_cholesky_factor(&factor.l, &r_s, factor.n)
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let k_s = if let Some(ref cs) = cs {
+                        cs.reduce_matrix(&k_ff)
+                    } else {
+                        k_ff
+                    };
+                    match try_cholesky_factor(&k_s, ns) {
+                        Some(factor) => {
+                            let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
+                            cached_factor = Some(factor);
+                            result
+                        }
+                        None => solve_free_dofs(&k_s, &r_s, ns)?,
+                    }
+                }
+            } else {
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_s = if let Some(ref cs) = cs {
+                    cs.reduce_matrix(&k_ff)
+                } else {
+                    k_ff
+                };
+                solve_free_dofs(&k_s, &r_s, ns)?
+            };
+
             let delta_u = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep)
             } else {
@@ -1596,7 +1682,7 @@ mod tests {
         let input = cantilever_input(3.0, -0.001);
 
         let linear = super::super::linear::solve_2d(&input).unwrap();
-        let corot = solve_corotational_2d(&input, 50, 1e-6, 1).unwrap();
+        let corot = solve_corotational_2d(&input, 50, 1e-6, 1, false).unwrap();
 
         assert!(corot.converged, "Should converge");
 
@@ -1624,7 +1710,7 @@ mod tests {
     fn test_corotational_converges_with_increments() {
         let input = cantilever_input(3.0, -50.0);
 
-        let corot = solve_corotational_2d(&input, 100, 1e-6, 10).unwrap();
+        let corot = solve_corotational_2d(&input, 100, 1e-6, 10, false).unwrap();
         assert!(corot.converged, "Should converge with 10 increments");
         assert!(corot.max_displacement > 0.0, "Should have nonzero displacement");
         assert!(corot.iterations > 0, "Should take some iterations");
@@ -1682,7 +1768,7 @@ mod tests {
         ];
 
         let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
-        let corot = solve_corotational_2d(&input, 50, 1e-8, 1).unwrap();
+        let corot = solve_corotational_2d(&input, 50, 1e-8, 1, false).unwrap();
 
         assert!(corot.converged);
         let ef = &corot.results.element_forces[0];
@@ -1736,7 +1822,7 @@ mod tests {
             connectors: HashMap::new(),
         };
 
-        let result = solve_corotational_2d(&input, 50, 1e-8, 1);
+        let result = solve_corotational_2d(&input, 50, 1e-8, 1, false);
         assert!(result.is_err());
     }
 
@@ -1784,7 +1870,7 @@ mod tests {
         ];
 
         let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
-        let corot = solve_corotational_2d(&input, 100, 1e-6, 5).unwrap();
+        let corot = solve_corotational_2d(&input, 100, 1e-6, 5, false).unwrap();
         assert!(corot.converged, "Two-element frame should converge");
         assert_eq!(corot.results.element_forces.len(), 2);
     }

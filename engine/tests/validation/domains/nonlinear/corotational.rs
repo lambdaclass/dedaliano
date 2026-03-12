@@ -60,7 +60,7 @@ fn validation_corotational_vm14_eccentric_column() {
         elems, sups, loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(result.converged, "VM14 should converge");
 
     // Midspan lateral deflection
@@ -114,7 +114,7 @@ fn validation_corotational_mattiasson_elastica() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
     assert!(result.converged, "Elastica should converge");
 
     let tip = result.results.displacements.iter()
@@ -158,7 +158,7 @@ fn validation_corotational_pdelta_regression() {
     let input = make_portal_frame(h, w, E, a, iz, lateral, gravity);
 
     let pdelta_res = pdelta::solve_pdelta_2d(&input, 30, 1e-5).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 5).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false).unwrap();
 
     assert!(pdelta_res.converged, "P-delta should converge");
     assert!(corot_res.converged, "Co-rotational should converge");
@@ -218,7 +218,7 @@ fn validation_corotational_williams_toggle() {
         elems, sups, loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10);
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false);
 
     match result {
         Ok(res) => {
@@ -233,4 +233,59 @@ fn validation_corotational_williams_toggle() {
             // Snap-through failure is acceptable — the solver doesn't panic
         }
     }
+}
+
+// ================================================================
+// 5. Modified Newton-Raphson Parity
+// ================================================================
+
+/// Modified NR should converge to the same result as full NR for a well-behaved problem.
+#[test]
+fn validation_modified_nr_parity_2d() {
+    // Cantilever with moderate load — well within convergence radius
+    let nodes = vec![(1, 0.0, 0.0), (2, 3.0, 0.0)];
+    let elems = vec![(1, "frame", 1, 2, 1, 1, false, false)];
+    let sups = vec![(1, 1, "fixed")];
+    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+    })];
+
+    let input = make_input(
+        nodes, vec![(1, E, 0.3)], vec![(1, 0.01, 1e-4)],
+        elems, sups, loads,
+    );
+
+    let full = corotational::solve_corotational_2d(&input, 50, 1e-8, 5, false).unwrap();
+    let modified = corotational::solve_corotational_2d(&input, 200, 1e-8, 5, true).unwrap();
+
+    assert!(full.converged, "Full NR should converge");
+    assert!(modified.converged, "Modified NR should converge");
+
+    let d_full = full.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let d_mod = modified.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+
+    let rel_uy = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+    let rel_ux = if d_full.ux.abs() > 1e-12 {
+        (d_full.ux - d_mod.ux).abs() / d_full.ux.abs()
+    } else {
+        (d_full.ux - d_mod.ux).abs()
+    };
+
+    assert!(
+        rel_uy < 1e-4,
+        "uy mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
+        d_full.uy, d_mod.uy, rel_uy
+    );
+    assert!(
+        rel_ux < 1e-3,
+        "ux mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
+        d_full.ux, d_mod.ux, rel_ux
+    );
+
+    // Modified NR should take more iterations (linear convergence vs quadratic)
+    assert!(
+        modified.iterations >= full.iterations,
+        "Modified NR should take at least as many iterations: full={}, modified={}",
+        full.iterations, modified.iterations
+    );
 }

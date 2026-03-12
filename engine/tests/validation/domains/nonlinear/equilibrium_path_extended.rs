@@ -244,7 +244,7 @@ fn validation_path_ext_corotational_cantilever_force_balance() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 5).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false).unwrap();
     assert!(result.converged, "Corotational cantilever should converge");
 
     let results = &result.results;

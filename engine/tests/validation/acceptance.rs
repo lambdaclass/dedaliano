@@ -928,6 +928,7 @@ fn acceptance_4d_fiber_pushover() {
         max_iter: 30,
         tolerance: 1e-6,
         n_increments: 1,
+        modified_nr: false,
     };
 
     let fiber_elastic = fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber_elastic_input)
@@ -971,6 +972,7 @@ fn acceptance_4d_fiber_pushover() {
         max_iter: 30,
         tolerance: 1e-6,
         n_increments: 20,
+        modified_nr: false,
     };
 
     let fiber_yield = fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber_yield_input)
@@ -1701,7 +1703,7 @@ fn acceptance_5a_corotational_2d_diaphragm() {
         }),
     ];
 
-    let result = corotational::solve_corotational_2d(&solver, 50, 1e-6, 20)
+    let result = corotational::solve_corotational_2d(&solver, 50, 1e-6, 20, false)
         .expect("Corotational 2D + diaphragm failed");
 
     // 1. Converged
@@ -1786,7 +1788,7 @@ fn acceptance_5b_corotational_3d_rigid_link() {
         }),
     ];
 
-    let result = corotational::solve_corotational_3d(&input, 50, 1e-6, 5)
+    let result = corotational::solve_corotational_3d(&input, 50, 1e-6, 5, false)
         .expect("Corotational 3D + rigid link failed");
 
     // 1. Converged
@@ -1911,7 +1913,7 @@ fn acceptance_5c_corotational_3d_diaphragm() {
     ];
 
     // Tolerance 1e-3: linearized constraints introduce small residual in geometric NL
-    let result = corotational::solve_corotational_3d(&input, 50, 1e-3, 10)
+    let result = corotational::solve_corotational_3d(&input, 50, 1e-3, 10, false)
         .expect("Corotational 3D + diaphragm failed");
 
     // 1. Converged
@@ -2019,7 +2021,7 @@ fn acceptance_5d_corotational_3d_linear_parity() {
     let lin_result = linear::solve_3d(&input).expect("Linear 3D solve failed for 5D");
 
     // Corotational solve (1 increment, tiny load → should behave linearly)
-    let cor_result = corotational::solve_corotational_3d(&input, 50, 1e-5, 1)
+    let cor_result = corotational::solve_corotational_3d(&input, 50, 1e-5, 1, false)
         .expect("Corotational 3D solve failed for 5D");
 
     assert!(cor_result.converged, "Corotational did not converge for 5D");
@@ -2243,6 +2245,7 @@ fn acceptance_5g_fiber_nonlinear_2d_diaphragm() {
         max_iter: 30,
         tolerance: 1e-6,
         n_increments: 5,
+        modified_nr: false,
     };
 
     let result = fiber_nonlinear::solve_fiber_nonlinear_2d(&input)
@@ -2352,6 +2355,7 @@ fn acceptance_5h_fiber_nonlinear_3d_rigid_link() {
         max_iter: 30,
         tolerance: 1e-5,
         n_increments: 1,
+        modified_nr: false,
     };
 
     let fiber_result = fiber_nonlinear::solve_fiber_nonlinear_3d(&fiber_input)

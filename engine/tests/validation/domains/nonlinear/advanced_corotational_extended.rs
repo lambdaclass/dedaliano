@@ -173,7 +173,7 @@ fn validation_corot_ext_pure_axial_frame() {
         loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 5).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false).unwrap();
     assert!(result.converged, "Pure axial frame should converge");
 
     // Axial displacement: δ = PL/(EA_eff)
@@ -264,7 +264,7 @@ fn validation_corot_ext_fixed_fixed_column_stiffness_reduction() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(corot_res.converged, "Fixed-fixed column should converge at 40% Pcr");
 
     let mid_lin = lin_res
@@ -364,7 +364,7 @@ fn validation_corot_ext_l_frame_tip_load() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(corot_res.converged, "L-frame should converge");
 
     // Tip should displace horizontally
@@ -466,7 +466,7 @@ fn validation_corot_ext_symmetric_displacements() {
         loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(result.converged, "Symmetric beam should converge");
 
     let qtr1 = result
@@ -535,7 +535,7 @@ fn validation_corot_ext_global_equilibrium() {
 
     let input = make_portal_frame(h, w, E, a, iz, p_lateral, p_gravity);
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(result.converged, "Portal frame should converge");
 
     // Sum of applied loads
@@ -618,7 +618,7 @@ fn validation_corot_ext_cantilever_distributed_load() {
     let delta_linear_analytical: f64 = q * l.powi(4) / (8.0 * E_EFF * iz);
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false).unwrap();
     assert!(corot_res.converged, "Cantilever UDL should converge");
 
     let tip_node = n + 1;

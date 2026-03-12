@@ -35,6 +35,9 @@ pub struct FiberNonlinearInput {
     /// Number of load increments
     #[serde(default = "default_n_inc")]
     pub n_increments: usize,
+    /// Use Modified Newton-Raphson (reuse tangent from iteration 0)
+    #[serde(default)]
+    pub modified_nr: bool,
 }
 
 fn default_n_ip() -> usize { 5 }
@@ -114,6 +117,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        let mut cached_l: Option<(Vec<f64>, usize)> = None;
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
@@ -166,15 +170,46 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             }
 
             // Solve
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let (k_s, r_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
+            let r_s = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                (k_ff, r_f)
+                r_f
             };
 
-            let delta_u_indep = {
+            let delta_u_indep = if input.modified_nr {
+                if let Some((ref l, sz)) = cached_l {
+                    let y = forward_solve(l, &r_s, sz);
+                    back_solve(l, &y, sz)
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let k_s = if let Some(ref cs) = cs {
+                        cs.reduce_matrix(&k_ff)
+                    } else {
+                        k_ff
+                    };
+                    let mut l = k_s.clone();
+                    if cholesky_decompose(&mut l, ns) {
+                        let y = forward_solve(&l, &r_s, ns);
+                        let result = back_solve(&l, &y, ns);
+                        cached_l = Some((l, ns));
+                        result
+                    } else {
+                        // Cholesky failed — fall back to full NR
+                        let mut k_work = k_s;
+                        let mut f_work = r_s;
+                        lu_solve(&mut k_work, &mut f_work, ns)
+                            .ok_or("Singular tangent stiffness in fiber N-R")?
+                    }
+                }
+            } else {
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_s = if let Some(ref cs) = cs {
+                    cs.reduce_matrix(&k_ff)
+                } else {
+                    k_ff
+                };
                 let mut k_work = k_s.clone();
                 match cholesky_solve(&mut k_work, &r_s, ns) {
                     Some(u) => u,
@@ -186,6 +221,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                     }
                 }
             };
+
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep)
             } else {
@@ -483,6 +519,9 @@ pub struct FiberNonlinearInput3D {
     pub tolerance: f64,
     #[serde(default = "default_n_inc")]
     pub n_increments: usize,
+    /// Use Modified Newton-Raphson (reuse tangent from iteration 0)
+    #[serde(default)]
+    pub modified_nr: bool,
 }
 
 /// Fiber nonlinear result (3D).
@@ -539,6 +578,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        let mut cached_l: Option<(Vec<f64>, usize)> = None;
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
@@ -585,15 +625,45 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 break;
             }
 
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let (k_s, r_s) = if let Some(ref cs) = cs {
-                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
+            let r_s = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                (k_ff, r_f)
+                r_f
             };
 
-            let delta_u_indep = {
+            let delta_u_indep = if input.modified_nr {
+                if let Some((ref l, sz)) = cached_l {
+                    let y = forward_solve(l, &r_s, sz);
+                    back_solve(l, &y, sz)
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let k_s = if let Some(ref cs) = cs {
+                        cs.reduce_matrix(&k_ff)
+                    } else {
+                        k_ff
+                    };
+                    let mut l = k_s.clone();
+                    if cholesky_decompose(&mut l, ns) {
+                        let y = forward_solve(&l, &r_s, ns);
+                        let result = back_solve(&l, &y, ns);
+                        cached_l = Some((l, ns));
+                        result
+                    } else {
+                        let mut k_work = k_s;
+                        let mut f_work = r_s;
+                        lu_solve(&mut k_work, &mut f_work, ns)
+                            .ok_or("Singular tangent stiffness in 3D fiber N-R")?
+                    }
+                }
+            } else {
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_s = if let Some(ref cs) = cs {
+                    cs.reduce_matrix(&k_ff)
+                } else {
+                    k_ff
+                };
                 let mut k_work = k_s.clone();
                 match cholesky_solve(&mut k_work, &r_s, ns) {
                     Some(u) => u,
@@ -605,6 +675,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     }
                 }
             };
+
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep)
             } else {
@@ -895,6 +966,7 @@ mod tests {
             max_iter: 30,
             tolerance: 1e-6,
             n_increments: 1,
+            modified_nr: false,
         }
     }
 

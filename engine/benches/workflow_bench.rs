@@ -419,7 +419,7 @@ fn bench_corotational_e2e(c: &mut Criterion) {
         let input = make_frame(stories, bays);
         let label = format!("{}s_{}b", stories, bays);
         group.bench_with_input(BenchmarkId::new("solve", &label), &input, |b, input| {
-            b.iter(|| corotational::solve_corotational_2d(input, 20, 1e-6, 10).unwrap());
+            b.iter(|| corotational::solve_corotational_2d(input, 20, 1e-6, 10, false).unwrap());
         });
     }
     group.finish();

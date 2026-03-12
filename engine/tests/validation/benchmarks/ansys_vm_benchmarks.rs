@@ -943,7 +943,7 @@ fn validation_ansys_vm40_large_deflection_cantilever() {
     );
 
     // Corotational large displacement solution
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
     assert!(result.converged, "VM40 should converge");
 
     let tip = result

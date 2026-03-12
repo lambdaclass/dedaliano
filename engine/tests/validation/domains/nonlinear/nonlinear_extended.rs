@@ -73,7 +73,7 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
         elems.clone(), sups.clone(), loads_sub,
     );
 
-    let result_sub = corotational::solve_corotational_2d(&input_sub, 50, 1e-6, 20).unwrap();
+    let result_sub = corotational::solve_corotational_2d(&input_sub, 50, 1e-6, 20, false).unwrap();
     assert!(result_sub.converged, "Williams toggle should converge at 20% limit load");
 
     let apex_sub = result_sub.results.displacements.iter()
@@ -101,7 +101,7 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems, sups, loads_over,
     );
-    let result_over = corotational::solve_corotational_2d(&input_over, 50, 1e-6, 30);
+    let result_over = corotational::solve_corotational_2d(&input_over, 50, 1e-6, 30, false);
     // Should not panic; may or may not converge
     match result_over {
         Ok(res) => {
@@ -161,7 +161,7 @@ fn validation_nonlin_ext_2_large_rotation_cantilever() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20, false).unwrap();
     assert!(result.converged, "Elastica alpha=1.0 should converge");
 
     let tip = result.results.displacements.iter()
@@ -230,7 +230,7 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems.clone(), sups.clone(), loads1,
     );
-    let res1 = corotational::solve_corotational_2d(&input1, 50, 1e-5, 10).unwrap();
+    let res1 = corotational::solve_corotational_2d(&input1, 50, 1e-5, 10, false).unwrap();
     assert!(res1.converged, "Shallow arch should converge at small load P={}", p1);
     let crown1 = res1.results.displacements.iter()
         .find(|d| d.node_id == crown_node).unwrap();
@@ -243,7 +243,7 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems, sups, loads2,
     );
-    let res2 = corotational::solve_corotational_2d(&input2, 80, 1e-5, 20);
+    let res2 = corotational::solve_corotational_2d(&input2, 80, 1e-5, 20, false);
 
     match res2 {
         Ok(ref r) if r.converged => {
@@ -321,7 +321,7 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
         elems.clone(), sups.clone(), loads,
     );
 
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 15).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 15, false).unwrap();
     assert!(result.converged, "Two-bar truss at 30% P_cr should converge");
 
     let apex = result.results.displacements.iter()
@@ -427,7 +427,7 @@ fn validation_nonlin_ext_5_frame_second_order_moments() {
         .find(|d| d.node_id == top_left).unwrap().ux;
 
     // Corotational solution
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false).unwrap();
     assert!(corot_res.converged, "Portal frame should converge");
 
     let sway_corot = corot_res.results.displacements.iter()
@@ -504,7 +504,7 @@ fn validation_nonlin_ext_6_column_large_deflection() {
         .find(|d| d.node_id == tip_node).unwrap().uy;
 
     // Corotational solution
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10).unwrap();
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false).unwrap();
     assert!(corot_res.converged, "Column at 30% Pe should converge");
 
     let tip_corot_uy = corot_res.results.displacements.iter()
@@ -565,7 +565,7 @@ fn validation_nonlin_ext_7_cantilever_follower_moment() {
         })],
     );
 
-    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20).unwrap();
+    let result = corotational::solve_corotational_2d(&input, 100, 1e-6, 20, false).unwrap();
     assert!(result.converged, "Cantilever 30-deg moment should converge");
 
     let tip = result.results.displacements.iter()
@@ -633,21 +633,21 @@ fn validation_nonlin_ext_8_multi_step_loading() {
     );
 
     // Solve with 5 increments
-    let res_5 = corotational::solve_corotational_2d(&input, 50, 1e-6, 5).unwrap();
+    let res_5 = corotational::solve_corotational_2d(&input, 50, 1e-6, 5, false).unwrap();
     assert!(res_5.converged, "5-increment solution should converge");
     let tip_5 = res_5.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
     let uy_5 = tip_5.uy;
 
     // Solve with 20 increments
-    let res_20 = corotational::solve_corotational_2d(&input, 50, 1e-6, 20).unwrap();
+    let res_20 = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
     assert!(res_20.converged, "20-increment solution should converge");
     let tip_20 = res_20.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
     let uy_20 = tip_20.uy;
 
     // Solve with 50 increments (reference)
-    let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50).unwrap();
+    let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50, false).unwrap();
     assert!(res_50.converged, "50-increment solution should converge");
     let tip_50 = res_50.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();

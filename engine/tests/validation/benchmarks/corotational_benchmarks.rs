@@ -51,7 +51,7 @@ fn validation_corotational_vm14_eccentric_column() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
     if let Ok(corot) = corot_res {
         let tip_lin = lin_res.displacements.iter()
@@ -93,7 +93,7 @@ fn validation_corotational_small_load_equals_linear() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 5);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 5, false);
 
     if let Ok(corot) = corot_res {
         let lin_uy = lin_res.displacements.iter()
@@ -133,7 +133,7 @@ fn validation_corotational_large_load_stiffening() {
     );
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 100, 1e-5, 20);
+    let corot_res = corotational::solve_corotational_2d(&input, 100, 1e-5, 20, false);
 
     if let Ok(corot) = corot_res {
         let lin_uy = lin_res.displacements.iter()
@@ -173,7 +173,7 @@ fn validation_corotational_convergence_monitoring() {
         })],
     );
 
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
     if let Ok(corot) = corot_res {
         assert!(corot.converged, "Moderate load should converge");
@@ -200,9 +200,9 @@ fn validation_corotational_increments_convergence() {
     );
 
     // Few increments
-    let res_few = corotational::solve_corotational_2d(&input, 50, 1e-5, 3);
+    let res_few = corotational::solve_corotational_2d(&input, 50, 1e-5, 3, false);
     // Many increments
-    let res_many = corotational::solve_corotational_2d(&input, 50, 1e-5, 20);
+    let res_many = corotational::solve_corotational_2d(&input, 50, 1e-5, 20, false);
 
     // Both should converge (if they do, compare results)
     if let (Ok(few), Ok(many)) = (res_few, res_many) {

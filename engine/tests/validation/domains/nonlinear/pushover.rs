@@ -138,7 +138,7 @@ fn validation_pushover_corotational_large_displacement() {
         .find(|d| d.node_id == n + 1).unwrap().uy;
 
     // Corotational solution
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10);
+    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
     if let Ok(corot) = corot_res {
         let corot_tip = corot.results.displacements.iter()
