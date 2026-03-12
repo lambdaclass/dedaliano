@@ -7,8 +7,8 @@
  *   { type: 'solve3d', id: number, json: string } → solve and return results
  */
 
-import { initSync, solve_3d } from '../wasm/dedaliano_engine.js';
-
+let initSync: ((moduleOrBytes: any) => void) | null = null;
+let solve_3d: ((json: string) => string) | null = null;
 let ready = false;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -16,7 +16,11 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (msg.type === 'init') {
     try {
-      // Compile WASM module from bytes and initialize synchronously
+      // Dynamic import so the build doesn't fail when WASM files are absent
+      const wasm = await import(/* @vite-ignore */ '../wasm/dedaliano_engine.js');
+      initSync = wasm.initSync;
+      solve_3d = wasm.solve_3d;
+
       const module = new WebAssembly.Module(msg.wasmBytes);
       initSync(module);
       ready = true;
@@ -28,7 +32,7 @@ self.onmessage = async (e: MessageEvent) => {
   }
 
   if (msg.type === 'solve3d') {
-    if (!ready) {
+    if (!ready || !solve_3d) {
       self.postMessage({ type: 'result', id: msg.id, error: 'Worker not initialized' });
       return;
     }
