@@ -116,6 +116,7 @@ If the goal is `best open structural solver`, the current priority order is:
    - no-dense-fallback gates on representative shell models
    - sparse modal parity and no-`k_full`-overbuild expectations
    - broader invariant, property-based, and fuzzing coverage around sparse/shell paths
+   - signal-driven benchmark growth: add tests that improve proof, regression protection, performance confidence, or edge-case coverage
 
 5. `Broader sparse-path reuse`
    Sparse reuse is now partly done in 3D modal, buckling, harmonic, Guyan, and Craig-Bampton flows. The next step is to extend sparse reuse where still missing and push sparse deeper than `assemble_sparse_3d() + to_dense_symmetric()`.
@@ -143,6 +144,12 @@ If the goal is `best open structural solver`, the current priority order is:
 
 11. `Reference benchmark expansion`
     Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
+    Prefer:
+    - reference cases that close real proof gaps
+    - acceptance models that protect multi-feature workflows
+    - regression tests for real bugs
+    - performance gates that protect runtime, fill, and no-fallback expectations
+    Avoid low-signal count inflation.
 
 12. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
@@ -350,6 +357,15 @@ Focus:
 - property-based tests
 - fuzzing
 - differential consistency tests
+- signal-driven benchmark growth only
+
+Rule:
+- do not add low-signal tests just to increase the count
+- add tests that improve:
+  - proof
+  - regression protection
+  - performance confidence
+  - edge-case coverage
 
 Why it matters:
 This is how the solver becomes visibly trustworthy rather than merely feature-rich.
