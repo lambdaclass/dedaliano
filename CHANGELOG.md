@@ -11,6 +11,18 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Measured sparse vs dense runtime gains
+
+- added dense vs sparse benchmarks for all three shell families: MITC4, Quad9, and curved shell
+- measured factorization-only speedups: 4.5× at 700 DOFs, 22× at 2600 DOFs, 77-89× at 5700 DOFs
+- measured end-to-end speedup: 22× at 30×30 MITC4 (sparse 0.56s vs dense 12.3s)
+- 0 pivot perturbations across all tested sizes and element families
+- sparse wins on all families above ~500 DOFs; dense still faster at curved 8×8 (~450 DOFs)
+- fill ratio grows from 2.6× (10×10) to 7.0× (50×50) under RCM ordering — not constant as previously estimated
+- extended `bench_solve_3d_shell` to 20×20 and 30×30 mesh sizes
+- added `bench_solve_3d_quad9` (5×5 to 15×15), `bench_solve_3d_curved` (8×8 to 24×24), and `bench_full_solve_3d_families` criterion benchmarks
+- added `sparse_vs_dense_comparison` test in `bench_phases.rs` printing formatted speedup table
+
 #### Sparse shell solve viability and deterministic assembly
 
 - replaced broken etree-based symbolic Cholesky with direct left-looking symbolic factorization that correctly computes fill structure

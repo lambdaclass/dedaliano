@@ -609,7 +609,10 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         input.sections.values().map(|s| (s.id, s)).collect();
     let load_index = build_load_index_3d(&input.loads);
 
-    // Collect all elements into unified vec
+    // Collect all elements into unified vec, sorted by ID for deterministic assembly.
+    // HashMap iteration order is randomized in Rust; without sorting, triplet
+    // accumulation order varies across runs, causing floating-point differences
+    // in the CSC matrix that propagate into the Cholesky factorization.
     let mut all_elements: Vec<AnyElement3D> = Vec::new();
     for e in input.elements.values() { all_elements.push(AnyElement3D::Frame(e)); }
     for p in input.plates.values() { all_elements.push(AnyElement3D::Plate(p)); }
@@ -618,6 +621,15 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
     for ss in input.solid_shells.values() { all_elements.push(AnyElement3D::SolidShell(ss)); }
     for cs in input.curved_shells.values() { all_elements.push(AnyElement3D::CurvedShell(cs)); }
     for conn in input.connectors.values() { all_elements.push(AnyElement3D::Connector(conn)); }
+    all_elements.sort_by_key(|e| match e {
+        AnyElement3D::Frame(f) => f.id,
+        AnyElement3D::Plate(p) => p.id,
+        AnyElement3D::Quad(q) => q.id,
+        AnyElement3D::Quad9(q) => q.id,
+        AnyElement3D::SolidShell(s) => s.id,
+        AnyElement3D::CurvedShell(c) => c.id,
+        AnyElement3D::Connector(c) => c.id,
+    });
 
     // Parallel phase: compute element stiffness + scatter triplets
     let contributions: Vec<ElementContribution3D> = all_elements.par_iter().map(|any_elem| {

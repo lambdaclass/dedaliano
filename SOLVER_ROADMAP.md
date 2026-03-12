@@ -30,13 +30,37 @@ Historical progress belongs in [`CHANGELOG.md`](/Users/unbalancedparen/projects/
 
 ## Current Frontier
 
-The sparse shell solve viability blocker is now resolved. Dense LU fallback has been eliminated on representative shell models (fill ratio 673× → 1.8×, wall-time share 87% → 0%). Assembly and DOF numbering are deterministic. Residual-based parity testing is in place.
+The sparse shell solve viability blocker is resolved and runtime gains are now measured. Dense LU fallback has been eliminated on representative shell models. Sparse Cholesky delivers 22-89× factorization speedup over dense LU (22× end-to-end at 30×30 MITC4), with 0 perturbations across all tested sizes and families. Fill ratio grows from 2.6× to 7.0× with mesh size under RCM ordering. Assembly and DOF numbering are deterministic. Residual-based parity testing is in place.
+
+Measured runtime data (Criterion, factorization only):
+
+| Family | Mesh | nf | Dense LU | Sparse Chol | Speedup |
+|--------|------|----|----------|-------------|---------|
+| MITC4 | 6×6 | ~210 | 1.19ms | 0.88ms | 1.4× |
+| MITC4 | 10×10 | 684 | 18.8ms | 4.17ms | 4.5× |
+| MITC4 | 15×15 | ~1400 | 184ms | 16.4ms | 11× |
+| MITC4 | 20×20 | 2564 | 986ms | 43.8ms | 22× |
+| MITC4 | 30×30 | 5644 | 12.2s | 157ms | 77× |
+| Quad9 | 5×5 | ~700 | 18.9ms | 4.2ms | 4.5× |
+| Quad9 | 10×10 | ~2600 | 974ms | 56ms | 17× |
+| Quad9 | 15×15 | ~5700 | 12.5s | 141ms | 89× |
+| Curved | 8×8 | ~450 | 5.9ms | 10.1ms | 0.58× |
+| Curved | 16×16 | ~1700 | 277ms | 109ms | 2.6× |
+| Curved | 24×24 | ~3600 | 3.0s | 406ms | 7.4× |
+
+Key observations:
+- sparse wins on all families above ~500 DOFs
+- dense still wins at curved 8×8 (~450 DOFs) — sparse overhead dominates at small sizes
+- fill ratio grows with mesh size (not constant); AMD ordering may help
+- 0 perturbations everywhere — Cholesky is clean
+- at 30×30 MITC4 (5644 DOFs), sparse assembly + solve takes 0.56s vs 12.3s dense — 22× end-to-end
 
 The main remaining work is:
 
-- measure real full-model runtime gains (not just phase breakdown)
+- sparse assembly runtime overhead on medium/large models
+- fill-ratio and ordering investigation (RCM vs AMD and beyond)
 - verification hardening around the new sparse path (determinism, parity gates, fill-ratio gates)
-- broader sparse-path reuse (modal, buckling, harmonic, reduction solvers)
+- broader sparse-path reuse and deeper sparse eigensolver integration
 - long-tail nonlinear hardening (mixed nonlinear cases)
 - product surfacing (deterministic diagnostics and solve timings in the app)
 - shell-family workflow maturity and selection guidance
@@ -49,7 +73,7 @@ The main remaining work is:
 Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, the remaining gaps are not “missing the basics.” They are:
 
 1. `Performance / scale maturity`
-   Sparse shell solve viability is done: dense LU fallback eliminated, fill ratio 1.8×, assembly deterministic. The next steps are measuring real full-model runtime gains, extending the sparse path into modal/buckling/harmonic/reduction solvers, then eigensolver cleanup and iterative-solver infrastructure.
+   Sparse Cholesky runtime gains are measured: 22-89× factorization speedup, 22× end-to-end, 0 perturbations. Sparse-path reuse is now partly done across modal/buckling/harmonic/reduction. The next steps are cutting sparse assembly overhead, choosing better ordering/fill behavior, then pushing sparse deeper into eigensolver internals and broader solver families.
 
 2. `Long-tail nonlinear maturity`
    More years of hardened edge cases are still needed in mixed nonlinear workflows:
@@ -75,10 +99,16 @@ This changes the strategic target:
 
 If the goal is `best open structural solver`, the current priority order is:
 
-1. `Measure real runtime gains`
-   The sparse shell path now survives. The next step is full-model benchmarks that prove actual runtime and memory wins on representative models, not just phase-breakdown diagnostics.
+1. ~~`Measure real runtime gains`~~ — DONE
+   Measured across MITC4, Quad9, and curved shell families: 22-89× factorization speedup over dense LU, 22× end-to-end at 30×30 MITC4, 0 perturbations. Sparse wins above ~500 DOFs on all families. Fill ratio grows 2.6-7.0× with mesh size.
 
-2. `Verification hardening around the new sparse path`
+2. `Sparse assembly runtime`
+   Sparse assembly is now the dominant performance issue on some workflows. Current measurements show roughly 2× memory reduction and OOM avoidance at 50×50+, but `assemble_sparse_3d` can still be 5-25× slower than dense assembly/extraction on MITC4 plate meshes. This is the next performance blocker.
+
+3. `Fill-ratio investigation`
+   Fill ratio grows from 2.6× to 7.0× with mesh size under RCM ordering. AMD ordering is implemented and should now be compared directly. This directly affects factorization time and memory at scale.
+
+4. `Verification hardening around the new sparse path`
    The sparse path is now live and deterministic. Lock it in with:
    - determinism gates (sorted assembly, merged DOF numbering)
    - residual-based parity gates (sparse vs dense solutions verified via residual norm)
@@ -86,88 +116,94 @@ If the goal is `best open structural solver`, the current priority order is:
    - no-dense-fallback gates on representative shell models
    - broader invariant, property-based, and fuzzing coverage around sparse/shell paths
 
-3. `Broader sparse-path reuse`
-   Modal, buckling, harmonic, reduction, and other solvers should now benefit from the healthy sparse path. Extend sparse extraction/reuse into all 3D solver families that currently use dense assembly.
+5. `Broader sparse-path reuse`
+   Sparse reuse is now partly done in 3D modal, buckling, harmonic, Guyan, and Craig-Bampton flows. The next step is to measure those paths, extend sparse reuse where still missing, and push sparse deeper than `assemble_sparse_3d() + to_dense_symmetric()`.
 
-4. `Long-tail nonlinear hardening`
+6. `Long-tail nonlinear hardening`
    Now that the linear/shell sparse base is healthier, mixed nonlinear cases become more worth attacking:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-5. `Product surfacing`
+7. `Product surfacing`
    Deterministic diagnostics and solve timings are now much more valuable in the app:
    - expose pivot perturbation counts and fill ratios in the UI
    - surface solve phase breakdowns for user visibility
    - make solver-path selection and fallback behavior transparent
 
-6. `Solver-path consistency`
+8. `Solver-path consistency`
    Keep dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows converging to the same behavior.
 
-7. `Constraint-system maturity`
+9. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-8. `Advanced contact maturity`
+10. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-9. `Reference benchmark expansion`
-   Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
+11. `Reference benchmark expansion`
+    Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
 
-10. `Shell-family workflow maturity`
+12. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
 
-11. `Shell-family automatic selection policy`
+13. `Shell-family automatic selection policy`
     Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
 
-12. `Shell-adjacent workflow breadth competitors still expose clearly`
+14. `Shell-adjacent workflow breadth competitors still expose clearly`
     Add the highest-value missing shell-related workflow classes:
-   - layered / laminated shell workflows
-   - axisymmetric workflows
-   - deeper nonlinear / corotational shell depth
+    - layered / laminated shell workflows
+    - axisymmetric workflows
+    - deeper nonlinear / corotational shell depth
 
-13. `Reduction, staged/PT coupling, and other second-tier depth`
+15. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
 
 The current near-term sequence is:
 
-1. `Measure real runtime gains`
-   Dense LU fallback is eliminated and fill is controlled. Now measure actual end-to-end runtime and memory wins on representative full models using criterion and wall-clock benchmarks, not just phase-breakdown diagnostics.
+1. ~~`Measure real runtime gains`~~ — DONE
+   Measured: 22-89× factorization speedup, 22× end-to-end at 30×30 MITC4, 0 perturbations across all families/sizes. Sparse wins above ~500 DOFs. Dense still wins at curved 8×8 (~450 DOFs).
 
-2. `Verification hardening around the new sparse path`
+2. `Sparse assembly runtime`
+   Profile and reduce the overhead inside `assemble_sparse_3d`. Current measurements show sparse assembly/extraction is still slower than dense assembly/extraction at medium MITC4 sizes, even though the sparse path wins decisively on memory and large-scale solvability.
+
+3. `Fill-ratio investigation`
+   Fill ratio grows from 2.6× (10×10) to 7.0× (50×50) under RCM ordering. AMD ordering is already implemented and should now be compared directly across mesh sizes and element families.
+
+4. `Verification hardening around the new sparse path`
    Lock in the sparse path with:
    - determinism gates (sorted assembly and merged DOF numbering are in place; add broader coverage)
    - residual-based parity gates (sparse vs dense verified via residual norm < 1e-6)
    - fill-ratio and no-dense-fallback benchmark gates
    - invariant, property-based, and fuzzing coverage around sparse/shell paths
 
-3. `Broader sparse-path reuse`
-   Extend sparse assembly and solve into modal, buckling, harmonic, reduction, and other 3D solver families that currently still use dense assembly.
+5. `Broader sparse-path reuse`
+   Modal, buckling, harmonic, Guyan, and Craig-Bampton 3D now sparse-assemble and then convert `K_ff` back to dense. The next step is to measure those workflows and push sparse deeper into eigensolver and reduction internals.
 
-4. `Long-tail nonlinear hardening`
+6. `Long-tail nonlinear hardening`
    Focus on the hardest mixed cases:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-5. `Product surfacing`
+7. `Product surfacing`
    Make the now-healthy sparse path visible in the app:
    - expose solve timings, pivot perturbation stats, and fill ratios
    - surface solver-path selection and fallback behavior
    - deterministic diagnostics for user trust
 
-6. `Solver-path consistency and remaining maturity work`
+8. `Solver-path consistency and remaining maturity work`
    Finish:
    - constrained vs unconstrained parity hardening
    - remaining constraint deepening
    - advanced contact maturity
    - clearer solver-side diagnostics and output semantics
 
-7. `Shell-family workflow guidance and frontier tracking`
+9. `Shell-family workflow guidance and frontier tracking`
    Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current `MITC4 / MITC9 / SHB8-ANS / curved-shell` stack proves insufficient.
 
-8. `Shell-adjacent workflow breadth`
+10. `Shell-adjacent workflow breadth`
    Add the highest-value shell-related workflow classes competitors still expose clearly:
    - layered / laminated shell workflows
    - axisymmetric workflows
@@ -261,6 +297,8 @@ Current status:
 - memory benchmarks show 11-22× reduction on representative 10×10 to 15×15 shell models
 - criterion benchmarks cover flat-plate (up to 50×50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8×8 slab)
 - the Lanczos tridiagonal eigensolver still falls back to dense Jacobi on the tridiagonal matrix; this is real eigensolver debt
+- sparse assembly reuse is now in place for 3D modal, buckling, harmonic, Guyan, and Craig-Bampton workflows, eliminating dense `n×n` assembly there
+- assembly/extraction measurements show a new bottleneck: on MITC4 plate meshes, sparse assembly/extraction can still be 5-25× slower than dense assembly/extraction even though it wins decisively on memory and large-scale solvability
 
 Measured parallel assembly results (Apple Silicon, release build):
 
@@ -276,22 +314,23 @@ MITC4 element stiffness is lightweight (~200 ops), so the parallel overhead near
 Updated numerical-methods order:
 
 1. ~~sparse shell solve viability~~ — DONE
-2. ~~fill-reducing ordering quality~~ — DONE (RCM, 1.8× fill)
-3. measure real full-model runtime gains (current focus)
-4. extend sparse path into modal, buckling, harmonic, and reduction solvers
-5. tridiagonal eigensolver fix
-6. sparse shift-invert eigensolver path
-7. iterative refinement and Krylov solvers
-8. modified Newton
-9. quasi-Newton variants
+2. ~~fill-reducing ordering quality~~ — DONE (RCM, 1.8× fill on representative shell meshes)
+3. ~~measure real full-model runtime gains~~ — DONE
+4. reduce sparse assembly overhead
+5. extend sparse path deeper into modal, buckling, harmonic, and reduction internals
+6. tridiagonal eigensolver fix
+7. sparse shift-invert eigensolver path
+8. iterative refinement and Krylov solvers
+9. modified Newton
+10. quasi-Newton variants
 
 See [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md).
 
 Next steps:
-- measure real end-to-end runtime and memory wins on representative full models
-- benchmark heavy families explicitly (`MITC9`, `SHB8-ANS`, curved shell) to see where parallel assembly actually pays off
-- extend sparse extraction/reuse into buckling/modal/harmonic/reduction 3D solvers
-- heavier-element benchmarks (quad9, curved-shell) where parallel scaling will be larger
+- profile and reduce `assemble_sparse_3d` overhead
+- compare RCM vs AMD on representative shell and mixed models
+- measure the now-sparse modal/buckling/harmonic/reduction workflows
+- push sparse deeper into eigensolver internals instead of converting `K_ff` back to dense
 - fix the Lanczos tridiagonal eigensolver debt
 
 Why it matters:
@@ -346,10 +385,10 @@ Already done:
 - residual-based parity testing and benchmark gates
 
 Remaining to close:
-- real full-model runtime wins measured and tracked
-- sparse path extended into modal, buckling, harmonic, and reduction solvers
-- large-model memory/runtime baselines tracked in CI
-- eigensolver debt resolved
+- sparse assembly overhead is no longer a dominant cost on medium shell models
+- sparse path is extended deeper than `assemble_sparse_3d() + to_dense_symmetric()` in modal, buckling, harmonic, and reduction workflows
+- large-model memory/runtime baselines are tracked in CI
+- eigensolver debt is resolved
 
 ### Verification hardening
 

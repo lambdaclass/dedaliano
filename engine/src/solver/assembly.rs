@@ -378,7 +378,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
     let quad_map: std::collections::HashMap<usize, &SolverQuadElement> =
         input.quads.values().map(|q| (q.id, q)).collect();
 
-    for elem in input.elements.values() {
+    // Sort elements for deterministic assembly (HashMap iteration order is randomized)
+    let mut sorted_dense_elems: Vec<&SolverElement3D> = input.elements.values().collect();
+    sorted_dense_elems.sort_by_key(|e| e.id);
+    for elem in sorted_dense_elems {
         let node_i = node_map[&elem.node_i];
         let node_j = node_map[&elem.node_j];
         let mat = mat_map[&elem.material_id];
@@ -479,8 +482,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
-    // Assemble plate element stiffness matrices
-    for plate in input.plates.values() {
+    // Assemble plate element stiffness matrices (sorted for determinism)
+    let mut sorted_dense_plates: Vec<&SolverPlateElement> = input.plates.values().collect();
+    sorted_dense_plates.sort_by_key(|p| p.id);
+    for plate in sorted_dense_plates {
         let mat = mat_map[&plate.material_id];
         let e = mat.e * 1000.0; // MPa → kN/m²
         let nu = mat.nu;
@@ -507,8 +512,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
-    // Assemble quad (MITC4 shell) element stiffness matrices
-    for quad in input.quads.values() {
+    // Assemble quad (MITC4 shell) element stiffness matrices (sorted for determinism)
+    let mut sorted_dense_quads: Vec<&SolverQuadElement> = input.quads.values().collect();
+    sorted_dense_quads.sort_by_key(|q| q.id);
+    for quad in sorted_dense_quads {
         let mat = mat_map[&quad.material_id];
         let e = mat.e * 1000.0; // MPa → kN/m²
         let nu = mat.nu;
@@ -537,8 +544,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
-    // Assemble quad9 (MITC9 shell) element stiffness matrices
-    for quad9 in input.quad9s.values() {
+    // Assemble quad9 (MITC9 shell) element stiffness matrices (sorted for determinism)
+    let mut sorted_dense_q9s: Vec<&SolverQuad9Element> = input.quad9s.values().collect();
+    sorted_dense_q9s.sort_by_key(|q| q.id);
+    for quad9 in sorted_dense_q9s {
         let mat = mat_map[&quad9.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -555,8 +564,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
-    // Assemble solid-shell element stiffness matrices
-    for ss in input.solid_shells.values() {
+    // Assemble solid-shell element stiffness matrices (sorted for determinism)
+    let mut sorted_dense_ss: Vec<&SolverSolidShellElement> = input.solid_shells.values().collect();
+    sorted_dense_ss.sort_by_key(|s| s.id);
+    for ss in sorted_dense_ss {
         let mat = mat_map[&ss.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -571,8 +582,10 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
-    // Assemble curved shell element stiffness matrices (degenerated continuum)
-    for cs in input.curved_shells.values() {
+    // Assemble curved shell element stiffness matrices (degenerated continuum, sorted for determinism)
+    let mut sorted_dense_cs: Vec<&SolverCurvedShellElement> = input.curved_shells.values().collect();
+    sorted_dense_cs.sort_by_key(|c| c.id);
+    for cs in sorted_dense_cs {
         let mat = mat_map[&cs.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -1604,8 +1617,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         };
     }
 
-    // Frame and truss elements
-    for elem in input.elements.values() {
+    // Frame and truss elements (sorted by ID for deterministic assembly)
+    let mut sorted_elems: Vec<&SolverElement3D> = input.elements.values().collect();
+    sorted_elems.sort_by_key(|e| e.id);
+    for elem in sorted_elems {
         let node_i = node_map[&elem.node_i];
         let node_j = node_map[&elem.node_j];
         let mat = mat_map[&elem.material_id];
@@ -1698,8 +1713,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         }
     }
 
-    // Connector elements
-    for conn in input.connectors.values() {
+    // Connector elements (sorted by ID for deterministic assembly)
+    let mut sorted_conns: Vec<&crate::types::ConnectorElement> = input.connectors.values().collect();
+    sorted_conns.sort_by_key(|c| c.id);
+    for conn in sorted_conns {
         let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => continue };
         let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => continue };
         let dx = nj_node.x - ni.x;
@@ -1725,8 +1742,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         }
     }
 
-    // Plate elements (DKT+CST, 18 DOFs per element)
-    for plate in input.plates.values() {
+    // Plate elements (DKT+CST, 18 DOFs per element, sorted for determinism)
+    let mut sorted_plates: Vec<&SolverPlateElement> = input.plates.values().collect();
+    sorted_plates.sort_by_key(|p| p.id);
+    for plate in sorted_plates {
         let mat = mat_map[&plate.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -1742,8 +1761,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         scatter!(k_glob, plate_dofs, ndof);
     }
 
-    // Quad elements (MITC4 shell, 24 DOFs per element)
-    for quad in input.quads.values() {
+    // Quad elements (MITC4 shell, 24 DOFs per element, sorted for determinism)
+    let mut sorted_quads: Vec<&SolverQuadElement> = input.quads.values().collect();
+    sorted_quads.sort_by_key(|q| q.id);
+    for quad in sorted_quads {
         let mat = mat_map[&quad.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -1760,8 +1781,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         scatter!(k_glob, quad_dofs, ndof);
     }
 
-    // Quad9 elements (MITC9 shell, 54 DOFs per element)
-    for q9 in input.quad9s.values() {
+    // Quad9 elements (MITC9 shell, 54 DOFs per element, sorted for determinism)
+    let mut sorted_q9s: Vec<&SolverQuad9Element> = input.quad9s.values().collect();
+    sorted_q9s.sort_by_key(|q| q.id);
+    for q9 in sorted_q9s {
         let mat = mat_map[&q9.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -1774,8 +1797,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         scatter!(k_glob, q9_dofs, ndof);
     }
 
-    // Solid-shell elements (8 nodes × 3 DOFs = 24 DOFs per element)
-    for ss in input.solid_shells.values() {
+    // Solid-shell elements (8 nodes × 3 DOFs = 24 DOFs per element, sorted for determinism)
+    let mut sorted_ss: Vec<&SolverSolidShellElement> = input.solid_shells.values().collect();
+    sorted_ss.sort_by_key(|s| s.id);
+    for ss in sorted_ss {
         let mat = mat_map[&ss.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
@@ -1786,8 +1811,10 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         scatter!(k_elem, ss_dofs, ndof);
     }
 
-    // Curved shell elements (degenerated continuum, 4 nodes × 6 DOFs = 24 DOFs)
-    for cs in input.curved_shells.values() {
+    // Curved shell elements (degenerated continuum, 4 nodes × 6 DOFs = 24 DOFs, sorted for determinism)
+    let mut sorted_cs: Vec<&SolverCurvedShellElement> = input.curved_shells.values().collect();
+    sorted_cs.sort_by_key(|c| c.id);
+    for cs in sorted_cs {
         let mat = mat_map[&cs.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
