@@ -224,3 +224,99 @@ So the practical answer is:
 
 - `renderer`: yes, when/if viewport scale makes it worthwhile
 - `solver`: yes, selectively later, mainly if Dedaliano adds iterative methods
+
+## Long-Term GPU Research Track
+
+There is substantial research literature around GPU-accelerated FEM and structural solvers, but the highest-value directions are not "move the current sparse direct solver to GPU unchanged."
+
+The most relevant long-term tracks for Dedaliano are:
+
+### 1. GPU iterative solvers
+
+Best-fit research direction for structural FEM on GPU:
+- `CG` / `PCG`
+- `GMRES`
+- `MINRES`
+- block Krylov variants
+
+Why relevant:
+- sparse matrix-vector products
+- dot products
+- vector updates
+map naturally to GPU kernels.
+
+### 2. GPU sparse linear algebra kernels
+
+Supporting pieces for iterative methods:
+- sparse mat-vec
+- sparse triangular solves
+- preconditioner application
+
+These are far more realistic than GPU sparse direct factorization as an early solver-GPU target.
+
+### 3. GPU FEM assembly
+
+Batched element stiffness/load evaluation can make sense for:
+- large uniform shell meshes
+- repeated element-level postprocessing
+- heavier shell families where per-element work is significant
+
+This is plausible later, but only after profiling proves element math dominates rather than sparse data-structure overhead or factorization.
+
+### 4. GPU eigensolvers
+
+Mostly iterative eigensolver research:
+- `Lanczos`
+- `Arnoldi`
+- `LOBPCG`
+
+This becomes relevant if Dedaliano continues pushing sparse eigensolver depth.
+
+### 5. Matrix-free FEM on GPU
+
+A stronger long-term research direction than GPU sparse direct factorization:
+- do not explicitly assemble the full global matrix
+- apply the operator directly
+- combine with iterative solvers / multigrid
+
+This is the most plausible "deep GPU solver" direction if Dedaliano ever wants a major GPU solver program.
+
+### 6. GPU direct sparse solvers
+
+Research exists, but this is not the first practical target:
+- sparse `Cholesky`
+- sparse `LDL^T`
+- sparse `LU`
+
+Why lower-priority:
+- fill-in
+- ordering
+- pivoting
+- irregular memory access
+make this much harder than iterative approaches.
+
+### 7. Domain decomposition and multigrid on GPU
+
+Important for very large FEM systems, but higher complexity than the near-term Dedaliano roadmap.
+
+## Recommended GPU Research Order
+
+If Dedaliano adds a long-term GPU program, the sensible order is:
+
+1. `WebGPU renderer and result visualization`
+2. `GPU postprocessing kernels`
+3. `Iterative linear solver research on CPU first`
+4. `GPU acceleration for iterative solver kernels`
+5. `Maybe batched shell element kernels`
+6. `Maybe matrix-free structural operators`
+7. `Only much later, if justified: GPU sparse direct factorization`
+
+## Practical Long-Term Conclusion
+
+The strongest GPU research path for Dedaliano is:
+
+- keep direct sparse solves on CPU for now
+- improve the renderer and visualization pipeline on WebGPU
+- explore GPU acceleration later through iterative methods and matrix-free/operator-style workflows
+
+That is a much more realistic and higher-ROI trajectory than trying to port the current sparse direct solver architecture to GPU as-is.
