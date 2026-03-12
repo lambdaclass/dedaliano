@@ -29,7 +29,7 @@ Current measured inventory:
 - latest reported full-suite status: `5906` passing tests, `0` failures
 - `25` integration test files (`182` integration test functions)
 - dedicated property / differential fuzz coverage (`90` passing tests)
-- explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, sparse 3D parity, and sparse modal / buckling / harmonic behavior
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 - the benchmark ledger below is curated and intentionally narrower than the full automated suite
 
@@ -38,12 +38,12 @@ Current measured inventory:
 | Area | Implemented | Benchmarked | Gated | Main Remaining Gap |
 |---|---|---|---|---|
 | Linear / second-order core | Yes | Yes | Partial | broader large-model and sparse-path proof |
-| Dynamics (modal / spectrum / time history / harmonic) | Yes | Yes | Partial | more mixed shell/frame and nonlinear depth |
+| Dynamics (modal / spectrum / time history / harmonic) | Yes | Yes | Partial | more mixed shell/frame and nonlinear depth; sparse eigensolver depth still grows solver-by-solver |
 | Nonlinear frames / fiber / staged | Yes | Yes | Partial | harder mixed nonlinear workflows and convergence edge cases |
 | Contact / SSI | Yes | Yes | Partial | tougher mixed cases and more long-tail reference coverage |
 | Shells / plates | Yes | Yes | Yes | MITC4+MITC9+SHB8-ANS+curved-shell multi-family stack implemented and acceptance-covered; remaining work is shell-family guidance, workflow hardening, and shell-adjacent breadth |
 | Constraints / reduction | Yes | Yes | Yes | chained-constraint maturity and broader solver-path consistency |
-| Sparse / conditioning paths | Yes | Yes | Yes | sparse Cholesky measured: 22-89× factorization speedup over dense LU, 0 perturbations, fill 2.6-7.0× (grows with mesh size); sparse reuse is partly done in modal/buckling/harmonic/reduction, modal and buckling 3D now have sparse eigensolver paths; next blockers are deeper sparse eigensolver integration and runtime measurement on the newly sparse workflows |
+| Sparse / conditioning paths | Yes | Yes | Yes | sparse Cholesky measured: 22-89× factorization speedup over dense LU, 0 perturbations, fill 2.6-7.0× (grows with mesh size); sparse reuse is partly done in modal/buckling/harmonic/reduction, modal/buckling/harmonic now have sparse eigensolver paths, and Guyan/Craig-Bampton now reuse one factorization; next blockers are reduction-internal sparse depth and keeping workflow-specific runtime gates current |
 | Design-check / postprocess stack | Yes | Yes | No | workflow/product packaging rather than core mechanics |
 
 Use this table first.
@@ -100,7 +100,7 @@ The main remaining needs are no longer basic feature categories. They are:
 - shell-family hardening
   MITC4+MITC9+SHB8-ANS+curved-shell multi-family stack is implemented and acceptance-covered; remaining work is selection guidance, workflow hardening, and shell-adjacent breadth rather than missing core shell families
 - performance and scale maturity
-  sparse Cholesky runtime gains are now measured (22-89× factorization speedup, 22× end-to-end, 0 perturbations); sparse reuse is partly done into modal/buckling/harmonic/reduction, modal and buckling 3D now have sparse eigensolver paths, AMD currently wins on fill for larger shell meshes, and the remaining work is deeper sparse eigensolver integration, runtime measurement on the newly sparse workflows, and eigensolver cleanup
+  sparse Cholesky runtime gains are now measured (22-89× factorization speedup, 22× end-to-end, 0 perturbations); sparse reuse is partly done into modal/buckling/harmonic/reduction, modal/buckling/harmonic now have sparse eigensolver paths, Guyan/Craig-Bampton now reuse one factorization with measured ~44× reduction speedups, AMD currently wins on fill for larger shell meshes, and the remaining work is deeper sparse eigensolver integration in reduction workflows, workflow-specific runtime/fill gates, and the next eigensolver cleanup steps
 - verification depth
   more invariants, property-based testing, fuzzing, and acceptance-model discipline around the newest solver families
 - long-tail nonlinear hardening
@@ -162,6 +162,33 @@ The benchmark suite is only one part of solver verification. A structural solver
    Representative building, bridge, plate/shell, cable, prestress, and staged-construction models that look like actual engineering work, not only textbook cases.
 10. `Benchmark gate testing`
    A compact set of must-pass suites for constraints, contact, shells, reduction, and sparse / conditioning paths.
+
+### Current Sparse / Reduction CI Priorities
+
+The sparse and reduction path is now strong enough that the most important benchmark growth is no longer raw count. It is targeted protection for the new workflow wins:
+
+- sparse shell gates:
+  - no dense fallback
+  - fill-ratio bounds
+  - deterministic sparse assembly
+  - residual-based sparse vs dense parity
+- sparse modal / buckling / harmonic parity gates
+- sparse reduction gates:
+  - Guyan single-factorization behavior
+  - Craig-Bampton interior eigensolve success
+  - reduction parity where available
+- release-mode sparse smoke coverage
+- `parallel`-feature smoke coverage
+- doctest coverage
+
+What still needs more testing:
+
+- buckling runtime/fill gates on the newer sparse path
+- harmonic / reduction workflow runtime gates after the recent optimizations
+- no-`k_full`-overbuild expectations in every workflow that should build only `k_ff`
+- broader mixed shell + nonlinear acceptance models
+- broader contact + nonlinear + staging acceptance models
+- more invariant/property/fuzz coverage around sparse eigensolver and reduction paths
 
 ### Notes on Differential Testing
 

@@ -27,9 +27,10 @@ Latest reported status:
 - deterministic assembly and DOF numbering (sorted HashMap iterations, merged support constraints)
 - parallel element assembly (rayon) wired into the 3D sparse solver path
 - sparse assembly is now reused in 3D modal, buckling, harmonic, and reduction workflows, eliminating full dense `n×n` assembly there
-- sparse modal 3D and sparse buckling 3D now have real sparse eigensolver paths in the common unconstrained case; modal already shows an `11.8×` measured speedup at `20×20 MITC4`
+- sparse modal 3D, sparse buckling 3D, and sparse harmonic 3D now have real sparse eigensolver paths in the common unconstrained case; modal already shows an `11.8×` measured speedup at `20×20 MITC4`, and harmonic modal response shows a `51.5×` speedup at the same shell size
 - measured AMD vs RCM comparison now shows AMD winning materially on fill for larger shell meshes and should be treated as the current default ordering direction
 - residual-based sparse vs dense parity testing and benchmark gate coverage
+- Guyan and Craig-Bampton now reuse one factorization instead of repeating hundreds of LU decompositions, with measured reduction speedups around `44×`
 - strong benchmark, acceptance-model, integration, and differential/parity coverage
 
 At a high level, Dedaliano already has:
@@ -60,7 +61,7 @@ That same solver surface can support multiple user layers:
 The biggest remaining gaps are no longer basic solver categories. They are:
 
 - sparse eigensolver depth and scale
-  runtime gains are now measured (22-89× factorization speedup, 22× end-to-end at 30×30), sparse reuse is partly done in modal/buckling/harmonic/reduction, and both modal 3D and buckling 3D now have real sparse eigensolver paths in the common unconstrained case. The next bottlenecks are deeper sparse eigensolver integration in harmonic/reduction and runtime measurement on the newly sparse workflows
+  runtime gains are now measured (22-89× factorization speedup, 22× end-to-end at 30×30), sparse reuse is partly done in modal/buckling/harmonic/reduction, modal and buckling 3D now have real sparse eigensolver paths in the common unconstrained case, and harmonic now has a measured `51.5×` modal-response speedup. The next bottlenecks are deeper sparse eigensolver integration in reduction workflows, buckling runtime measurement on the newer sparse path, and any remaining workflow-specific bottlenecks after the recent harmonic and reduction wins
 - shell-family hardening
   MITC4, MITC9, SHB8-ANS, and curved shells are all implemented; remaining work is shell-family guidance, workflow maturity, and broader shell-adjacent behavior rather than missing core shell breadth
 - product-layer shell-family defaults
@@ -83,9 +84,9 @@ The biggest remaining gaps are no longer basic solver categories. They are:
 
 ## Next Priorities
 
-1. deeper sparse eigensolver integration — modal and buckling 3D are partly there; harmonic and reduction still rely on denser eigensolver internals than necessary
-2. runtime measurement on the newly sparse workflows — quantify the actual wins for buckling, harmonic, Guyan, and Craig-Bampton, and keep modal numbers current
-3. verification hardening around the new sparse path — determinism, residual-based parity, fill-ratio gates, sparse modal/buckling parity, and no-overbuild expectations
+1. deeper sparse eigensolver integration — modal, buckling, and harmonic 3D are now partly there; reduction internals are the clearest next sparse-depth target
+2. runtime measurement on the newly sparse workflows — keep buckling, harmonic, Guyan, and Craig-Bampton numbers current and use them to drive the next bottleneck fixes
+3. verification hardening around the new sparse path — determinism, residual-based parity, fill-ratio gates, sparse modal/buckling/harmonic parity, sparse reduction gates, and no-overbuild expectations
 4. long-tail nonlinear hardening — mixed shell/contact/nonlinear/staging edge cases
 5. product surfacing — deterministic diagnostics and solve timings become much more valuable in the app now
 
@@ -95,11 +96,11 @@ Within `performance and scale`, the completed and remaining order is:
 2. ~~improve ordering and reduce fill~~ — DONE (RCM ordering, fill ratio 673× → 2.6-7.0× depending on mesh size)
 3. ~~measure real full-model runtime gains~~ — DONE (22-89× factorization speedup, 22× end-to-end at 30×30 MITC4, all three shell families measured)
 4. ~~cut sparse assembly overhead (`from_triplets` / duplicate compaction, `k_ff`-only assembly where possible)~~ — DONE
-5. ~~extend sparse path into modal, buckling, harmonic, and reduction solvers~~ — PARTLY DONE (sparse assembly reused there; modal 3D and buckling 3D now have sparse eigensolver paths in the common unconstrained case)
+5. ~~extend sparse path into modal, buckling, harmonic, and reduction solvers~~ — PARTLY DONE (sparse assembly reused there; modal, buckling, and harmonic 3D now have sparse eigensolver paths in the common unconstrained case, and Guyan / Craig-Bampton reuse one factorization instead of repeated LU)
 6. ~~compare AMD vs RCM and set the default ordering policy from measured fill/runtime data~~ — DONE (AMD currently wins materially on fill for larger shell meshes)
-7. measure runtime on the newly sparse modal/buckling/harmonic/reduction workflows
-8. fix the Lanczos tridiagonal eigensolver debt
-9. deepen sparse shift-invert / sparse eigensolver integration
+7. measure runtime on the newly sparse modal/buckling/harmonic/reduction workflows and keep those gates current
+8. ~~fix the Lanczos tridiagonal eigensolver debt~~ — DONE
+9. deepen sparse shift-invert / sparse eigensolver integration, especially in reduction workflows
 10. iterative refinement and Krylov solvers
 
 ## Working Description
