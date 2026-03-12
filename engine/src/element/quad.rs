@@ -23,7 +23,6 @@
 ///   - Bathe & Dvorkin (1986): "A formulation of general shell elements"
 ///   - Hughes & Brezzi (1989): Drilling rotations formulation
 ///   - Cook et al.: "Concepts and Applications of FEA", Ch. 13
-
 use serde::{Serialize, Deserialize};
 
 /// Stress results at a quad element (centroid averages).
@@ -245,9 +244,7 @@ fn invert_small_matrix(n: usize, m: &[f64]) -> Vec<f64> {
 
         if max_row != col {
             for c in 0..cols {
-                let tmp = a[col * cols + c];
-                a[col * cols + c] = a[max_row * cols + c];
-                a[max_row * cols + c] = tmp;
+                a.swap(col * cols + c, max_row * cols + c);
             }
         }
 

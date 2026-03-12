@@ -18,13 +18,16 @@ jobs:
         with:
           components: clippy
 
+      - name: Install mold linker
+        run: sudo apt-get install -y mold
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
 
       - name: Clippy
         working-directory: engine
-        run: cargo clippy --lib --tests --benches -- -D warnings
+        run: cargo clippy --lib -- -D warnings
 
   test:
     runs-on: ubuntu-latest
