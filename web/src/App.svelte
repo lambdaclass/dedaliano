@@ -36,7 +36,19 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
+  import LandingPage from './components/LandingPage.svelte';
+
   const isEmbedDemo = new URLSearchParams(location.search).has('embed');
+  let showLanding = $state(!isEmbedDemo);
+
+  function enterApp() {
+    showLanding = false;
+  }
+
+  // Listen for enter-app event from LandingPage "Try Demo" buttons
+  if (typeof window !== 'undefined') {
+    window.addEventListener('dedaliano-enter-app', enterApp);
+  }
 
   // ─── Per-mode model persistence ───
   // When switching between básico/edu/pro, save the current model and restore
@@ -268,7 +280,11 @@
   });
 </script>
 
-<div class="app-container" class:embed-mode={uiStore.embedMode}>
+{#if showLanding}
+  <LandingPage />
+{/if}
+
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header">
     <div class="logo">
       <span class="logo-icon">△</span>
@@ -546,6 +562,12 @@
     height: 100dvh;
     background: #1a1a2e;
     color: #eee;
+  }
+
+  .hidden-behind-landing {
+    pointer-events: none;
+    filter: blur(4px);
+    opacity: 0.3;
   }
 
   .app-header {
