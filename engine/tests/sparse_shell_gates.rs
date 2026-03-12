@@ -4,7 +4,8 @@
 use dedaliano_engine::solver::{linear, modal, buckling};
 use dedaliano_engine::solver::assembly::{assemble_sparse_3d, assemble_3d};
 use dedaliano_engine::solver::dof::DofNumbering;
-use dedaliano_engine::linalg::{symbolic_cholesky, symbolic_cholesky_with, numeric_cholesky, CholOrdering, cholesky_solve, extract_submatrix, extract_subvec, lu_solve, mat_vec_rect};
+use dedaliano_engine::solver::reduction::{GuyanInput3D, CraigBamptonInput3D};
+use dedaliano_engine::linalg::{symbolic_cholesky, symbolic_cholesky_with, numeric_cholesky, CholOrdering, cholesky_solve, extract_submatrix, extract_subvec, lu_solve, mat_vec_rect, cholesky_decompose, forward_solve, back_solve};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -562,6 +563,117 @@ fn sparse_modal_parity() {
             i, sparse_freqs[i], dense_freqs[i], rel_err
         );
     }
+}
+
+/// Build an nx×ny SS plate and return the node grid for boundary node selection.
+fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usize>>) {
+    let lx = 10.0;
+    let ly = 10.0;
+    let t = 0.1;
+    let e = 200_000.0;
+    let nu = 0.3;
+
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let x = (i as f64 / nx as f64) * lx;
+            let y = (j as f64 / ny as f64) * ly;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: 0.0 });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(
+                qid.to_string(),
+                SolverQuadElement {
+                    id: qid,
+                    nodes: [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]],
+                    material_id: 1,
+                    thickness: t,
+                },
+            );
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    let mut boundary = Vec::new();
+    for j in 0..=ny {
+        boundary.push(grid[0][j]);
+        boundary.push(grid[nx][j]);
+    }
+    for i in 0..=nx {
+        boundary.push(grid[i][0]);
+        boundary.push(grid[i][ny]);
+    }
+    boundary.sort();
+    boundary.dedup();
+    for &n in &boundary {
+        supports.insert(
+            sid.to_string(),
+            SolverSupport3D {
+                node_id: n,
+                rx: false, ry: false, rz: true,
+                rrx: false, rry: false, rrz: false,
+                kx: None, ky: None, kz: None,
+                krx: None, kry: None, krz: None,
+                dx: None, dy: None, dz: None,
+                drx: None, dry: None, drz: None,
+                normal_x: None, normal_y: None, normal_z: None,
+                is_inclined: None, rw: None, kw: None,
+            },
+        );
+        sid += 1;
+    }
+    supports.insert(
+        sid.to_string(),
+        SolverSupport3D {
+            node_id: grid[0][0],
+            rx: true, ry: true, rz: true,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        },
+    );
+
+    let n_quads = quads.len();
+    let loads: Vec<SolverLoad3D> = (1..=n_quads)
+        .map(|eid| SolverLoad3D::QuadPressure(SolverPressureLoad { element_id: eid, pressure: -1.0 }))
+        .collect();
+
+    let input = SolverInput3D {
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads,
+        quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+    (input, grid)
 }
 
 /// Build an nx×ny compressed MITC4 plate for buckling analysis.

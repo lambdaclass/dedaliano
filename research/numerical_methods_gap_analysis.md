@@ -24,6 +24,7 @@ The current solver already has:
 - `k_ff`-only sparse assembly where full reactions are not needed
 - sparse assembly reuse in modal, buckling, harmonic, Guyan, and Craig-Bampton workflows
 - sparse modal 3D eigensolver path in the common unconstrained case
+- sparse buckling 3D eigensolver path in the common unconstrained case
 - measured AMD vs RCM fill comparison on shell meshes
 - line search
 - adaptive stepping
@@ -37,7 +38,7 @@ The current solver does **not** yet have:
 - quasi-Newton updates (`BFGS`, `L-BFGS`, `Broyden`, `SR1`)
 - a finished tridiagonal eigensolver in the Lanczos path
 - a true sparse shift-invert eigensolver path
-- end-to-end sparse eigensolver depth across modal, buckling, harmonic, and reduction solvers
+- end-to-end sparse eigensolver depth across harmonic and reduction, plus broader sparse eigensolver maturity beyond the common unconstrained modal/buckling cases
 
 ## Corrected Priority Order
 
@@ -66,7 +67,7 @@ The sparse path is healthy and measured:
 ### P1: Deeper Sparse Eigensolver Integration
 
 5. `Deepen sparse eigensolver integration`
-   Sparse assembly reuse is partly done, and modal 3D already has a sparse eigensolver path. The next step is to reduce remaining dense eigensolver internals in buckling, harmonic, and reduction workflows.
+   Sparse assembly reuse is partly done, and modal 3D plus buckling 3D already have sparse eigensolver paths in the common unconstrained case. The next step is to reduce remaining dense eigensolver internals in harmonic and reduction workflows and broaden sparse eigensolver maturity further.
 
 6. `Fix the tridiagonal eigensolver`
    The current Lanczos tridiagonal step still falls back to dense Jacobi on the tridiagonal matrix. That is real debt and should be corrected.
@@ -114,7 +115,7 @@ These claims are substantially correct:
 - no modified Newton or quasi-Newton variants
 - tridiagonal eigensolver path is unfinished and falls back to dense Jacobi
 - sparse shift-invert eigensolver path is still underdeveloped
-- sparse eigensolver depth is still incomplete across modal, buckling, harmonic, and reduction workflows
+- sparse eigensolver depth is still incomplete across harmonic and reduction workflows, and still needs broader maturity around modal/buckling edge cases
 
 These claims are now resolved:
 - ~~dense LU fallback on shell models~~ — eliminated via direct left-looking symbolic Cholesky + two-tier pivot perturbation
@@ -144,9 +145,9 @@ Use this order in the solver roadmap:
 2. ~~fill-reducing ordering quality~~ — DONE (RCM, 1.8× fill)
 3. ~~measure real full-model runtime gains~~ — DONE
 4. deeper sparse eigensolver integration
-5. tridiagonal eigensolver fix
-6. sparse shift-invert eigensolver
-7. measure runtime on the newly sparse modal/buckling/harmonic/reduction workflows
+5. measure runtime on the newly sparse modal/buckling/harmonic/reduction workflows
+6. tridiagonal eigensolver fix
+7. sparse shift-invert eigensolver
 8. iterative refinement
 9. PCG + Jacobi
 10. preconditioner stack

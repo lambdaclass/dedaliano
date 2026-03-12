@@ -11,6 +11,13 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Sparse buckling eigensolver milestone
+
+- added `lanczos_buckling_eigen_sparse` in `engine/src/linalg/lanczos.rs`
+- wired `solve_buckling_3d` to use the sparse buckling eigensolver path directly in the common unconstrained case, while keeping a dense path for small models and conservative fallback behavior
+- added sparse shell gate coverage for sparse buckling parity
+- confirmed the sparse buckling path handles the generalized `K phi = lambda (-Kg) phi` case by factorizing `K` and applying `K^{-1}(-Kg)` as the operator
+
 #### Sparse modal eigensolver milestone
 
 - added sparse Lanczos operators in `engine/src/linalg/lanczos.rs`, including sparse symmetric mat-vec and sparse shift-invert helpers
