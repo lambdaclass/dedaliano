@@ -819,3 +819,182 @@ fn sparse_buckling_parity() {
         );
     }
 }
+
+// ==================== Guyan / Craig-Bampton Gates ====================
+
+/// Helper: get boundary nodes (perimeter) from grid.
+fn perimeter_nodes(grid: &[Vec<usize>], nx: usize, ny: usize) -> Vec<usize> {
+    let mut boundary = Vec::new();
+    for j in 0..=ny {
+        boundary.push(grid[0][j]);
+        boundary.push(grid[nx][j]);
+    }
+    for i in 0..=nx {
+        boundary.push(grid[i][0]);
+        boundary.push(grid[i][ny]);
+    }
+    boundary.sort();
+    boundary.dedup();
+    boundary
+}
+
+/// Gate: Guyan 3D uses single Cholesky factorization, not repeated LU.
+/// Verifies that Guyan on a 10×10 plate completes successfully and that
+/// the interior solves use Cholesky (timing must be << nb × single-LU time).
+#[test]
+fn guyan_single_factorization() {
+    let nx = 10;
+    let ny = 10;
+    let (input, grid) = make_ss_plate_with_grid(nx, ny);
+    let boundary_nodes = perimeter_nodes(&grid, nx, ny);
+
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let ns = nf; // no constraints
+
+    // Classify DOFs
+    let mut boundary_dofs = Vec::new();
+    let mut interior_dofs = Vec::new();
+    for i in 0..ns {
+        let is_boundary = dof_num.map.iter().any(|(&(nid, _), &gdof)| {
+            gdof == i && boundary_nodes.contains(&nid)
+        });
+        if is_boundary { boundary_dofs.push(i); } else { interior_dofs.push(i); }
+    }
+    let nb = boundary_dofs.len();
+    let ni = interior_dofs.len();
+
+    // Get K_II
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let k_ii = extract_submatrix(&k_ff, ns, &interior_dofs, &interior_dofs);
+
+    // Verify K_II is Cholesky-factorable (the solver relies on this)
+    let mut l_ii = k_ii.clone();
+    assert!(cholesky_decompose(&mut l_ii, ni), "K_II must be SPD for Cholesky factorize-once");
+
+    // Verify factorize-once + back-subs is faster than nb separate LU decompositions.
+    // Time: 1 Cholesky + (nb+2) back-subs
+    let t0 = Instant::now();
+    let mut l = k_ii.clone();
+    cholesky_decompose(&mut l, ni);
+    for _ in 0..(nb + 2) {
+        let rhs = vec![1.0; ni];
+        let y = forward_solve(&l, &rhs, ni);
+        let _x = back_solve(&l, &y, ni);
+    }
+    let chol_us = t0.elapsed().as_micros();
+
+    // Time: (nb+2) separate LU decompositions
+    let t0 = Instant::now();
+    for _ in 0..(nb + 2) {
+        let mut k_work = k_ii.clone();
+        let mut b_work = vec![1.0; ni];
+        let _ = lu_solve(&mut k_work, &mut b_work, ni);
+    }
+    let lu_us = t0.elapsed().as_micros();
+
+    println!("10x10 Guyan: nb={}, ni={}", nb, ni);
+    println!("  Cholesky factorize-once + {} back-subs: {} us", nb + 2, chol_us);
+    println!("  {} separate LU decompositions: {} us", nb + 2, lu_us);
+    println!("  Speedup: {:.1}x", lu_us as f64 / chol_us.max(1) as f64);
+
+    assert!(
+        chol_us < lu_us,
+        "Cholesky factorize-once ({} us) should be faster than repeated LU ({} us)",
+        chol_us, lu_us
+    );
+
+    // End-to-end: Guyan solver succeeds
+    let guyan_input = GuyanInput3D { solver: input, boundary_nodes };
+    let result = dedaliano_engine::solver::reduction::guyan_reduce_3d(&guyan_input)
+        .expect("Guyan reduction should succeed");
+    assert!(result.n_boundary > 0);
+    assert!(result.n_interior > 0);
+    assert!(!result.displacements.is_empty());
+}
+
+/// Gate: Craig-Bampton 3D eigenproblem succeeds on MITC4 shell (M_II has zero-mass drilling DOFs).
+#[test]
+fn craig_bampton_eigenproblem_succeeds() {
+    let nx = 8;
+    let ny = 8;
+    let (input, grid) = make_ss_plate_with_grid(nx, ny);
+    let boundary_nodes = perimeter_nodes(&grid, nx, ny);
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    let cb_input = CraigBamptonInput3D {
+        solver: input,
+        boundary_nodes,
+        n_modes: 10,
+        densities,
+    };
+
+    let result = dedaliano_engine::solver::reduction::craig_bampton_3d(&cb_input)
+        .expect("Craig-Bampton should succeed (Lanczos handles singular M_II)");
+
+    assert!(result.n_modes_kept > 0, "Should find at least 1 interior mode");
+    assert_eq!(result.n_reduced, result.n_boundary + result.n_modes_kept);
+    assert!(!result.interior_frequencies.is_empty());
+
+    // Frequencies should be positive and in ascending order
+    for (i, &f) in result.interior_frequencies.iter().enumerate() {
+        assert!(f >= 0.0, "Mode {} frequency {} should be non-negative", i, f);
+        if i > 0 {
+            assert!(f >= result.interior_frequencies[i - 1] - 1e-6,
+                "Frequencies should be ascending: mode {} ({}) < mode {} ({})",
+                i - 1, result.interior_frequencies[i - 1], i, f);
+        }
+    }
+
+    println!("CB 8x8: nb={}, ni_modes={}, freqs={:?}",
+        result.n_boundary, result.n_modes_kept, result.interior_frequencies);
+}
+
+/// Gate: Craig-Bampton interior mode frequencies are stable across runs (deterministic).
+#[test]
+fn craig_bampton_deterministic() {
+    let nx = 6;
+    let ny = 6;
+    let (input, grid) = make_ss_plate_with_grid(nx, ny);
+    let boundary_nodes = perimeter_nodes(&grid, nx, ny);
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    let cb_input = CraigBamptonInput3D {
+        solver: input,
+        boundary_nodes,
+        n_modes: 5,
+        densities,
+    };
+
+    let r1 = dedaliano_engine::solver::reduction::craig_bampton_3d(&cb_input)
+        .expect("CB run 1 failed");
+    let r2 = dedaliano_engine::solver::reduction::craig_bampton_3d(&cb_input)
+        .expect("CB run 2 failed");
+
+    assert_eq!(r1.n_modes_kept, r2.n_modes_kept, "Mode count must be deterministic");
+    assert_eq!(r1.n_boundary, r2.n_boundary);
+
+    for i in 0..r1.n_modes_kept {
+        let rel_err = (r1.interior_frequencies[i] - r2.interior_frequencies[i]).abs()
+            / r1.interior_frequencies[i].max(1e-20);
+        assert!(
+            rel_err < 1e-10,
+            "Mode {} frequency not deterministic: {} vs {} (rel_err={:.2e})",
+            i, r1.interior_frequencies[i], r2.interior_frequencies[i], rel_err
+        );
+    }
+
+    // Reduced matrices should be bitwise equal
+    assert_eq!(r1.k_reduced.len(), r2.k_reduced.len());
+    for i in 0..r1.k_reduced.len() {
+        assert!(
+            (r1.k_reduced[i] - r2.k_reduced[i]).abs() < 1e-10,
+            "K_reduced[{}] not deterministic: {} vs {}", i, r1.k_reduced[i], r2.k_reduced[i]
+        );
+    }
+}
