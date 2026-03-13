@@ -1,8 +1,11 @@
 <script lang="ts">
   import { resultsStore } from '../../lib/store';
-  import type { EduExercise } from './exercises';
+  import type { EduExercise, DiagramShape } from './exercises';
   import { t } from '../../lib/i18n';
   import { eduStore } from './edu-store.svelte';
+  import type { SolveTimings } from '../../lib/engine/types';
+
+  const SHAPE_OPTIONS: DiagramShape[] = ['zero', 'constant', 'linear', 'quadratic'];
 
   interface Props {
     exercise: EduExercise;
@@ -22,6 +25,13 @@
   let charAnswers = $state<string[]>(exercise.characteristics.map(() => ''));
   let diagramAnswers = $state<string[]>(exercise.diagramQuestions.map(() => ''));
 
+  // ─── Kinematic + diagram shape answers ───────────────────────
+  let kinematicAnswer = $state<'isostatic' | 'hyperstatic' | ''>('');
+  let kinematicDegreeAnswer = $state('');
+  let shapeAnswers = $state<(DiagramShape | '')[]>(
+    (exercise.diagramShapeQuestions ?? []).map(() => '' as (DiagramShape | ''))
+  );
+
   // ─── Verification state ────────────────────────────────────
   type VerifState = 'pending' | 'correct' | 'incorrect';
   let reactionVerif = $state<Array<Record<string, VerifState>>>(
@@ -33,6 +43,9 @@
   );
   let charVerif = $state<VerifState[]>(exercise.characteristics.map(() => 'pending'));
   let diagramVerif = $state<VerifState[]>(exercise.diagramQuestions.map(() => 'pending'));
+  let kinematicVerif = $state<VerifState>('pending');
+  let kinematicDegreeVerif = $state<VerifState>('pending');
+  let shapeVerif = $state<VerifState[]>((exercise.diagramShapeQuestions ?? []).map(() => 'pending'));
   let hints = $state<string[]>([]);
   let diagramHints = $state<string[]>([]);
   let charHints = $state<string[]>([]);
@@ -50,12 +63,25 @@
 
   const TOLERANCE = 0.05;
 
+  // Solver insight for educational display
+  const timings = $derived<SolveTimings | undefined>(eduStore.results?.timings);
+
   // ─── Step completion ───────────────────────────────────────
+  const kinematicComplete = $derived(
+    !exercise.kinematicQuestion || (
+      kinematicVerif === 'correct' &&
+      (exercise.kinematicQuestion.classification !== 'hyperstatic' || kinematicDegreeVerif === 'correct')
+    )
+  );
   const step1Complete = $derived(
-    reactionVerif.every(v => Object.values(v).every(s => s === 'correct'))
+    reactionVerif.every(v => Object.values(v).every(s => s === 'correct')) && kinematicComplete
+  );
+  const shapesComplete = $derived(
+    !exercise.diagramShapeQuestions || exercise.diagramShapeQuestions.length === 0 ||
+    shapeVerif.every(s => s === 'correct')
   );
   const step2Complete = $derived(
-    exercise.diagramQuestions.length === 0 || diagramVerif.every(s => s === 'correct')
+    (exercise.diagramQuestions.length === 0 || diagramVerif.every(s => s === 'correct')) && shapesComplete
   );
   const step3Complete = $derived(
     charVerif.every(s => s === 'correct')
@@ -117,6 +143,25 @@
       }
     }
     reactionVerif = newVerif;
+  }
+
+  function verifyKinematic() {
+    const kq = exercise.kinematicQuestion;
+    if (!kq) return;
+    kinematicVerif = kinematicAnswer === kq.classification ? 'correct' : (kinematicAnswer ? 'incorrect' : 'pending');
+    if (kinematicAnswer === 'hyperstatic' && kq.classification === 'hyperstatic' && kq.degree !== undefined) {
+      const deg = parseInt(kinematicDegreeAnswer);
+      kinematicDegreeVerif = !isNaN(deg) && deg === kq.degree ? 'correct' : (kinematicDegreeAnswer ? 'incorrect' : 'pending');
+    } else if (kinematicAnswer === 'hyperstatic' && kq.classification !== 'hyperstatic') {
+      // Wrong classification — degree is irrelevant
+      kinematicDegreeVerif = 'pending';
+    }
+  }
+
+  function verifyShapes() {
+    const qs = exercise.diagramShapeQuestions;
+    if (!qs) return;
+    shapeVerif = qs.map((q, i) => shapeAnswers[i] === q.correct ? 'correct' : (shapeAnswers[i] ? 'incorrect' : 'pending'));
   }
 
   function revealReaction(supIdx: number, dof: string) {
@@ -248,11 +293,40 @@
     <p>{exercise.description}</p>
   </div>
 
+  <!-- Section data (given info for strength/advanced exercises) -->
+  {#if exercise.sectionData && exercise.sectionData.length > 0}
+    <div class="section-data-card">
+      <span class="section-data-title">{t('edu.sectionDataTitle')}</span>
+      <div class="section-data-grid">
+        {#each exercise.sectionData as item}
+          <div class="section-data-item">
+            <span class="section-data-label">{item.label}</span>
+            <span class="section-data-value">{item.value}</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Solver insight (educational) -->
+  {#if timings}
+    <div class="solver-insight">
+      <span class="solver-insight-icon">{'\u2139'}</span>
+      <span>
+        {t('edu.solverInsight')
+          .replace('{dofs}', String(timings.nFree))
+          .replace('{total}', String(timings.nTotal))
+          .replace('{solver}', timings.solverType === 'cholesky' ? 'Cholesky' : 'LU')
+          .replace('{time}', timings.totalMs.toFixed(1))}
+      </span>
+    </div>
+  {/if}
+
   <!-- Step 1: Reactions -->
   <section class="step-section" class:completed={step1Complete}>
     <h3 class="step-title">
       {t('edu.step1Title')}
-      {#if step1Complete}<span class="step-done">\u2713</span>{/if}
+      {#if step1Complete}<span class="step-done">✓</span>{/if}
     </h3>
 
     {#each exercise.supports as sup, i}
@@ -286,7 +360,37 @@
       </div>
     {/each}
 
-    <button class="verify-btn" onclick={verifyReactions} disabled={step1Complete}>
+    <!-- Kinematic classification -->
+    {#if exercise.kinematicQuestion}
+      <div class="kinematic-section">
+        <span class="kinematic-label">{t('edu.kinematicQuestion')}</span>
+        <div class="kinematic-options">
+          <label class="radio-option" class:verif-correct={kinematicVerif === 'correct' && kinematicAnswer === 'isostatic'} class:verif-incorrect={kinematicVerif === 'incorrect' && kinematicAnswer === 'isostatic'}>
+            <input type="radio" name="kinematic" value="isostatic" bind:group={kinematicAnswer} disabled={kinematicVerif === 'correct'} />
+            {t('edu.isostatic')}
+          </label>
+          <label class="radio-option" class:verif-correct={kinematicVerif === 'correct' && kinematicAnswer === 'hyperstatic'} class:verif-incorrect={kinematicVerif === 'incorrect' && kinematicAnswer === 'hyperstatic'}>
+            <input type="radio" name="kinematic" value="hyperstatic" bind:group={kinematicAnswer} disabled={kinematicVerif === 'correct'} />
+            {t('edu.hyperstatic')}
+          </label>
+        </div>
+        {#if kinematicAnswer === 'hyperstatic'}
+          <div class="kinematic-degree">
+            <span class="dof-name">{t('edu.hyperstaticDegree')}</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              bind:value={kinematicDegreeAnswer}
+              class={verifClass(kinematicDegreeVerif)}
+              readonly={kinematicDegreeVerif === 'correct'}
+            />
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <button class="verify-btn" onclick={() => { verifyReactions(); verifyKinematic(); }} disabled={step1Complete}>
       {step1Complete ? '\u2713 ' + t('edu.verified') : t('edu.verifyReactions')}
     </button>
 
@@ -303,8 +407,31 @@
   <section class="step-section" class:completed={step2Complete}>
     <h3 class="step-title">
       {t('edu.step2Title')}
-      {#if step2Complete}<span class="step-done">\u2713</span>{/if}
+      {#if step2Complete}<span class="step-done">✓</span>{/if}
     </h3>
+
+    <!-- Diagram shape questions -->
+    {#if exercise.diagramShapeQuestions && exercise.diagramShapeQuestions.length > 0}
+      <p class="step-info">{t('edu.shapeQuestion')}</p>
+      <div class="shape-questions">
+        {#each exercise.diagramShapeQuestions as sq, i}
+          <div class="shape-row" class:verif-correct={shapeVerif[i] === 'correct'} class:verif-incorrect={shapeVerif[i] === 'incorrect'}>
+            <span class="shape-diagram-label">{t('edu.diagram')} {sq.diagram}:</span>
+            <div class="shape-options">
+              {#each SHAPE_OPTIONS as opt}
+                <label class="radio-option radio-small" class:selected={shapeAnswers[i] === opt}>
+                  <input type="radio" name={`shape-${i}`} value={opt} bind:group={shapeAnswers[i]} disabled={shapeVerif[i] === 'correct'} />
+                  {t(`edu.shape.${opt}`)}
+                </label>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </div>
+      <button class="verify-btn verify-btn-small" onclick={verifyShapes} disabled={shapesComplete}>
+        {shapesComplete ? '\u2713 ' + t('edu.verified') : t('edu.verifyShapes')}
+      </button>
+    {/if}
 
     {#if exercise.diagramQuestions.length > 0}
       <p class="step-info">{t('edu.step2DescNew')}</p>
@@ -355,7 +482,7 @@
   <section class="step-section" class:completed={step3Complete}>
     <h3 class="step-title">
       {t('edu.step3Title')}
-      {#if step3Complete}<span class="step-done">\u2713</span>{/if}
+      {#if step3Complete}<span class="step-done">✓</span>{/if}
     </h3>
 
     <div class="char-inputs">
@@ -484,6 +611,27 @@
     color: #bbb;
     margin: 0;
     line-height: 1.5;
+  }
+
+  /* ─── Solver insight ─── */
+  .solver-insight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(78, 205, 196, 0.08);
+    border: 1px solid rgba(78, 205, 196, 0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    font-size: 0.72rem;
+    color: #8cc;
+    line-height: 1.4;
+  }
+
+  .solver-insight-icon {
+    font-size: 1rem;
+    color: #4ecdc4;
+    flex-shrink: 0;
   }
 
   /* ─── Steps ─── */
@@ -669,6 +817,184 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  /* ─── Section data card ─── */
+  .section-data-card {
+    background: #0f1a2e;
+    border: 1px solid #2a4a6a;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+
+  .section-data-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #f0a500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .section-data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+  }
+
+  .section-data-item {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    font-size: 0.72rem;
+  }
+
+  .section-data-label {
+    color: #888;
+    font-weight: 500;
+  }
+
+  .section-data-value {
+    color: #ddd;
+    font-family: monospace;
+  }
+
+  /* ─── Kinematic classification ─── */
+  .kinematic-section {
+    margin: 12px 0;
+    padding: 10px 12px;
+    background: #0f1a2e;
+    border: 1px solid #1a3a5a;
+    border-radius: 6px;
+  }
+
+  .kinematic-label {
+    font-size: 0.72rem;
+    color: #aaa;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .kinematic-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .kinematic-degree {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 0.72rem;
+  }
+
+  .kinematic-degree input {
+    width: 50px;
+    padding: 4px 6px;
+    background: #0a1628;
+    border: 1px solid #334;
+    border-radius: 4px;
+    color: #eee;
+    font-size: 0.75rem;
+    font-family: monospace;
+    text-align: center;
+  }
+
+  .kinematic-degree input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+  }
+
+  /* ─── Radio options ─── */
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: #bbb;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .radio-option:hover {
+    background: rgba(78, 205, 196, 0.08);
+  }
+
+  .radio-option input[type="radio"] {
+    accent-color: #4ecdc4;
+    margin: 0;
+  }
+
+  .radio-option.verif-correct {
+    border-color: #4caf50;
+    background: #0a200a;
+    color: #4caf50;
+  }
+
+  .radio-option.verif-incorrect {
+    border-color: #e94560;
+    background: #200a0a;
+    color: #e94560;
+  }
+
+  .radio-small {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+
+  /* ─── Shape questions ─── */
+  .shape-questions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .shape-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .shape-row.verif-correct {
+    border-color: #4caf50;
+    background: rgba(76, 175, 80, 0.05);
+  }
+
+  .shape-row.verif-incorrect {
+    border-color: #e94560;
+    background: rgba(233, 69, 96, 0.05);
+  }
+
+  .shape-diagram-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #aaa;
+    min-width: 60px;
+  }
+
+  .shape-options {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .verify-btn-small {
+    font-size: 0.68rem;
+    padding: 4px 12px;
+    margin-bottom: 12px;
   }
 
   /* ─── Success banner ─── */

@@ -9,6 +9,7 @@
 import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { t } from '../../lib/i18n';
 import { eduStore } from './edu-store.svelte';
+import { solvePDelta } from '../../lib/engine/pdelta';
 
 /**
  * Solve the current model silently for educational mode.
@@ -17,7 +18,28 @@ import { eduStore } from './edu-store.svelte';
  * is suppressed.
  */
 export function solveForEdu(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
+  const exercise = eduStore.exercise;
+  const usePDelta = exercise?.solverType === 'pdelta';
+
+  let r: ReturnType<typeof modelStore.solve>;
+
+  if (usePDelta) {
+    // Build solver input and run P-Delta
+    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+    if (!input) {
+      uiStore.toast(t('results.emptyModelError'), 'error');
+      return;
+    }
+    const pdResult = solvePDelta(input);
+    if (typeof pdResult === 'string') {
+      uiStore.toast(pdResult, 'error');
+      return;
+    }
+    r = pdResult.results;
+  } else {
+    r = modelStore.solve(uiStore.includeSelfWeight);
+  }
+
   if (typeof r === 'string') {
     uiStore.toast(r, 'error');
     return;
