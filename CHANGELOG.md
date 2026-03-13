@@ -11,6 +11,16 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Design-grade beam station extraction
+
+- added `engine/src/postprocess/beam_stations.rs` with 2D and 3D station extraction
+- `extract_beam_stations()` and `extract_beam_stations_3d()` evaluate M/V/N (or all 6 force components in 3D) at configurable stations per member, across all load combinations, tracking governing pos/neg values with combo provenance
+- exposed as WASM functions `extract_beam_stations` and `extract_beam_stations_3d` for direct use from the product layer
+- default 11 stations (tenth-points), configurable via `num_stations`
+- 8 unit tests (endpoint parity, midspan UDL, governing combo split, configurable count, missing element skip, determinism, 3D endpoint parity, envelope cross-check)
+- 3 integration tests (full solve→station extraction with multi-span continuous beam and two combos, JSON round-trip with camelCase verification, snapshot stability test for product-team contract)
+- unblocks RC design tables, reinforcement schedules, and downstream BBS generation
+
 #### Modified Newton-Raphson for nonlinear solvers
 
 - added `modified_nr: bool` parameter to corotational 2D/3D and fiber nonlinear 2D/3D solvers

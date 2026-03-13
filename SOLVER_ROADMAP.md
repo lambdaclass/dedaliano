@@ -61,7 +61,7 @@ The main remaining work is:
 - deeper sparse eigensolver integration after the now-partly-done sparse reuse into modal/buckling/harmonic/reduction, with modal and buckling already on sparse eigensolver paths in the common unconstrained case
 - runtime and memory measurement on the newly sparse modal/buckling/harmonic/reduction workflows
 - verification hardening around the new sparse path (determinism, parity gates, fill-ratio gates)
-- RC-unblocking design-grade result extraction (beam stations, governing combinations, deterministic design outputs)
+- RC-unblocking design-grade result extraction — beam station extraction is done; remaining: sign-convention docs, additional provenance fields, 3D integration test depth
 - long-tail nonlinear hardening (mixed nonlinear cases)
 - product surfacing (deterministic diagnostics and solve timings in the app)
 - shell-family workflow maturity and selection guidance
@@ -156,12 +156,11 @@ If the goal is `best open structural solver`, the current priority order is:
    - signal-driven benchmark growth: add tests that improve proof, regression protection, performance confidence, or edge-case coverage
 
 4. `Design-grade result extraction for downstream RC workflows`
-   This is now a near-term solver priority because it unblocks parallel product work on RC design, reinforcement schedules, and later BBS generation. The solver side should provide:
-   - stable section-force envelopes at design stations
-   - governing combination extraction
-   - deterministic beam result sampling and sign conventions
-   - design-ready metadata for section geometry, materials, cover assumptions, and result provenance
-   - parity/regression coverage so product work can depend on these outputs safely
+   Beam station extraction is now implemented (`extract_beam_stations` / `extract_beam_stations_3d`): configurable stations per member, per-combo forces via diagram evaluation, governing pos/neg tracking with combo provenance, section/material metadata, WASM-exported, snapshot-tested. Remaining work:
+   - explicit sign-convention and local-axis documentation for product consumers
+   - review whether additional provenance fields are needed (cover assumptions, bar schedules)
+   - 3D integration test coverage (currently 2D-only in integration tests)
+   - design-ready metadata for cover assumptions once RC design integration begins
 
 5. `Long-tail nonlinear hardening`
    Now that the linear/shell sparse base is healthier, mixed nonlinear cases become more worth attacking:

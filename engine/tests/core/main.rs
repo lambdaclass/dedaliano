@@ -11,4 +11,5 @@ mod parity;
 mod pdelta;
 mod plastic;
 mod postprocess;
+mod beam_stations;
 mod sparse;

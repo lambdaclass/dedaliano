@@ -32,6 +32,7 @@ Latest reported status:
 - measured AMD vs RCM comparison now shows AMD winning materially on fill for larger shell meshes and should be treated as the current default ordering direction
 - residual-based sparse vs dense parity testing and benchmark gate coverage
 - Guyan and Craig-Bampton now reuse one factorization instead of repeating hundreds of LU decompositions, with measured reduction speedups around `44×`
+- design-grade beam station extraction (`extract_beam_stations` / `extract_beam_stations_3d`) with per-combo forces, governing provenance, and snapshot-tested JSON contract — unblocks RC design tables and BBS
 - strong benchmark, acceptance-model, integration, and differential/parity coverage
 
 At a high level, Dedaliano already has:

@@ -789,6 +789,28 @@ pub fn check_spread_footings(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Beam Station Extraction ====================
+
+/// Extract 2D beam design stations with per-combo forces and governing values. JSON: BeamStationInput
+#[wasm_bindgen]
+pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::beam_stations::BeamStationInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::beam_stations::extract_beam_stations(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Extract 3D beam design stations with per-combo forces and governing values. JSON: BeamStationInput3D
+#[wasm_bindgen]
+pub fn extract_beam_stations_3d(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::beam_stations::BeamStationInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::beam_stations::extract_beam_stations_3d(&input);
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Imperfections ====================
 
 /// Apply imperfections to a 2D model and solve. JSON in → JSON out.
