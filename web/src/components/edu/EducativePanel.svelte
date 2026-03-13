@@ -1,12 +1,12 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { getExercises, type EduExercise } from './exercises';
+  import { getExerciseSections, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
   import { solveForEdu, registerEduSolveHandler } from './edu-solver';
   import { eduStore } from './edu-store.svelte';
 
-  const exerciseList = $derived(getExercises());
+  const sections = $derived(getExerciseSections());
 
   // Register the edu global-solve listener once on mount
   registerEduSolveHandler();
@@ -52,19 +52,26 @@
       <h2>{t('edu.title')}</h2>
       <p class="edu-subtitle">{t('edu.subtitle')}</p>
 
-      <div class="exercise-list">
-        {#each exerciseList as ex}
-          <button class="exercise-card" onclick={() => loadExercise(ex)}>
-            <div class="exercise-header">
-              <span class="exercise-title">{ex.title}</span>
-              <span class="difficulty difficulty-{ex.difficulty}">
-                {t('edu.' + ex.difficulty)}
-              </span>
+      {#each sections as section}
+        {#if section.exercises.length > 0}
+          <div class="exercise-section">
+            <h3 class="section-title">{section.title}</h3>
+            <div class="exercise-list">
+              {#each section.exercises as ex}
+                <button class="exercise-card" onclick={() => loadExercise(ex)}>
+                  <div class="exercise-header">
+                    <span class="exercise-title">{ex.title}</span>
+                    <span class="difficulty difficulty-{ex.difficulty}">
+                      {t('edu.' + ex.difficulty)}
+                    </span>
+                  </div>
+                  <p class="exercise-desc">{ex.description}</p>
+                </button>
+              {/each}
             </div>
-            <p class="exercise-desc">{ex.description}</p>
-          </button>
-        {/each}
-      </div>
+          </div>
+        {/if}
+      {/each}
 
       <div class="edu-footer">
         <p>{t('edu.moreExercises')}</p>
@@ -110,6 +117,21 @@
     font-size: 0.82rem;
     color: #888;
     margin: 0 0 20px;
+  }
+
+  .exercise-section {
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4ecdc4;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1a3a5a;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .exercise-list {
