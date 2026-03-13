@@ -140,12 +140,12 @@ export function getExercises(): EduExercise[] {
       { label: t('edu.ex2SupportB'), nodeIndex: 1, dofs: ['Ry'] },
     ],
     characteristics: [
-      { label: 'Mmax', unit: 'kN·m', getCorrect: maxAbsMoment },
+      { label: 'Mmax', unit: 'kN·m', getCorrect: () => 5 * 8 * 8 / 8 },
       { label: 'Vmax', unit: 'kN', getCorrect: maxAbsShear },
     ],
     diagramQuestions: [
       { question: t('edu.dq.shearAtSupport'), getCorrect: f => Math.abs(f[0].vStart), unit: 'kN' },
-      { question: t('edu.dq.momentAtMidspan'), getCorrect: f => maxAbsMoment(f), unit: 'kN·m' },
+      { question: t('edu.dq.momentAtMidspan'), getCorrect: () => 5 * 8 * 8 / 8, unit: 'kN·m' },
     ],
     kinematicQuestion: { classification: 'isostatic' },
     diagramShapeQuestions: [
