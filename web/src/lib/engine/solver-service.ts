@@ -3,7 +3,7 @@
 
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
-import { computeLocalAxes3D } from './solver-3d';
+import { computeLocalAxes3D, solve3D as solve3DFallback } from './solver-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
 
@@ -1085,7 +1085,13 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return results;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return `Error al resolver 3D: ${err.message}`;
+    try {
+      console.warn('WASM 3D solver failed, falling back to JS solver');
+      return solve3DFallback(input);
+    } catch (fallbackErr: any) {
+      console.error('Solver 3D JS fallback error:', fallbackErr);
+      return `Error al resolver 3D: ${err.message}`;
+    }
   }
 }
 
