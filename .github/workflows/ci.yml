@@ -27,7 +27,7 @@ jobs:
 
       - name: Clippy
         working-directory: engine
-        run: cargo clippy --lib -- -A clippy::erasing_op
+        run: cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
   test:
     runs-on: ubuntu-latest
@@ -36,12 +36,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Install mold linker
+        run: sudo apt-get install -y mold
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
-
-      - name: Install mold linker
-        run: sudo apt-get install -y mold
 
       - uses: taiki-e/install-action@nextest
 
