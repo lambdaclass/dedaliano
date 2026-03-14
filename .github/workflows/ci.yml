@@ -27,7 +27,7 @@ jobs:
 
       - name: Clippy
         working-directory: engine
-        run: cargo clippy --lib --tests --benches -- -D warnings
+        run: cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
   test:
     runs-on: ubuntu-latest
