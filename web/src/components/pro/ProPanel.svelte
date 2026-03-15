@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
-  import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../../lib/store';
   import {
     generateCableStayedBridge3D,
     generateFullStadium3D,
@@ -89,7 +89,7 @@
     { nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc', load: () => modelStore.loadExample('pro-edificio-7p') },
     { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
     { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 84, nLevels: 12, baseWidth: 28, topWidth: 8, lateralLoad: 24 }) },
-    { nameKey: 'ex.xlDiagridTower3D', descKey: 'ex.xlDiagridTower3D.desc', load: () => generateXLDiagridTower3D(modelStore, { H: 216, nLevels: 44, nSides: 24, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 24, topRadiusZ: 18, lateralLoad: 18 }) },
+    { nameKey: 'ex.xlDiagridTower3D', descKey: 'ex.xlDiagridTower3D.desc', load: () => generateXLDiagridTower3D(modelStore, { H: 228, nLevels: 42, nSides: 20, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 22, topRadiusZ: 16, lateralLoad: 18 }) },
     { nameKey: 'ex.suspensionBridge3D', descKey: 'ex.suspensionBridge3D.desc', load: () => generateSuspensionBridge3D(modelStore, { mainSpan: 480, sideSpan: 120, deckWidth: 22, towerHeight: 90, sag: 45, nPanelsMain: 40, nPanelsSide: 10, trussDepth: 8, deckLoad: -32 }) },
     { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }) },
     { nameKey: 'ex.fullStadium3D', descKey: 'ex.fullStadium3D.desc', load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }) },
@@ -346,11 +346,17 @@
     }
   }
 
-  function loadProExample(load: () => void) {
-    load();
+  function loadProExample(ex: { nameKey: string; descKey: string; load: () => void }) {
+    ex.load();
     uiStore.includeSelfWeight = true;
     uiStore.showGrid3D = false;
     uiStore.showAxes3D = false;
+    if (ex.nameKey === 'ex.xlDiagridTower3D') {
+      uiStore.showNodeLabels3D = false;
+      uiStore.showElementLabels3D = false;
+      uiStore.showLengths3D = false;
+    }
+    tabManager.syncActiveTabName();
     resultsStore.clear();
     resultsStore.clear3D();
     showExampleMenu = false;
@@ -373,7 +379,7 @@
           </div>
           <div class="pro-example-grid">
             {#each proExamples as ex}
-              <button class="pro-example-item" onclick={() => loadProExample(ex.load)}>
+              <button class="pro-example-item" onclick={() => loadProExample(ex)}>
                 <span class="pro-example-name">{t(ex.nameKey)}</span>
                 <span class="pro-example-desc">{t(ex.descKey)}</span>
               </button>

@@ -1019,11 +1019,21 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     const coreWidthX = Math.max(10, p.baseRadiusX * 0.32);
     const coreWidthZ = Math.max(10, p.baseRadiusZ * 0.32);
 
+    const radiusAt = (base: number, top: number, alpha: number) => {
+      if (alpha < 0.45) return base + (alpha / 0.45) * ((base * 0.9) - base);
+      if (alpha < 0.8) {
+        const local = (alpha - 0.45) / 0.35;
+        return base * 0.9 + local * ((base * 0.68) - (base * 0.9));
+      }
+      const local = (alpha - 0.8) / 0.2;
+      return base * 0.68 + local * (top - (base * 0.68));
+    };
+
     for (let lev = 0; lev <= p.nLevels; lev++) {
       const y = lev * levelH;
       const alpha = lev / p.nLevels;
-      const rx = p.baseRadiusX + alpha * (p.topRadiusX - p.baseRadiusX);
-      const rz = p.baseRadiusZ + alpha * (p.topRadiusZ - p.baseRadiusZ);
+      const rx = radiusAt(p.baseRadiusX, p.topRadiusX, alpha);
+      const rz = radiusAt(p.baseRadiusZ, p.topRadiusZ, alpha);
 
       perimeter[lev] = [];
       for (let i = 0; i < p.nSides; i++) {
@@ -1045,8 +1055,11 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
       for (let i = 0; i < p.nSides; i++) {
         const next = (i + 1) % p.nSides;
         store.addElement(perimeter[lev][i], perimeter[lev + 1][i], 'frame');
-        store.addElement(perimeter[lev][i], perimeter[lev + 1][next], 'truss');
-        store.addElement(perimeter[lev][next], perimeter[lev + 1][i], 'truss');
+        if ((lev + i) % 2 === 0) {
+          store.addElement(perimeter[lev][i], perimeter[lev + 1][next], 'truss');
+        } else {
+          store.addElement(perimeter[lev][next], perimeter[lev + 1][i], 'truss');
+        }
       }
 
       for (let c = 0; c < 4; c++) {
@@ -1084,12 +1097,25 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     }
 
     // Crown ring and mast.
-    const crownCenter = store.addNode(0, p.H + levelH * 0.7, 0);
+    const crownLevel = p.nLevels;
+    const crownRing: number[] = [];
+    const crownRx = p.topRadiusX * 0.72;
+    const crownRz = p.topRadiusZ * 0.72;
+    for (let i = 0; i < p.nSides; i += 2) {
+      const theta = (2 * Math.PI * i) / p.nSides;
+      crownRing.push(store.addNode(crownRx * Math.cos(theta), p.H + levelH * 0.45, crownRz * Math.sin(theta)));
+    }
+    for (let i = 0; i < crownRing.length; i++) {
+      store.addElement(crownRing[i], crownRing[(i + 1) % crownRing.length], 'frame');
+      store.addElement(perimeter[crownLevel][(i * 2) % p.nSides], crownRing[i], 'frame');
+    }
+
+    const crownCenter = store.addNode(0, p.H + levelH * 0.85, 0);
     const mastTop = store.addNode(0, p.H + levelH * 1.6, 0);
     store.addElement(crownCenter, mastTop, 'frame');
-    for (let i = 0; i < p.nSides; i += 2) {
-      store.addElement(perimeter[p.nLevels][i], crownCenter, 'frame');
-      store.addElement(perimeter[p.nLevels][i], mastTop, 'truss');
+    for (let i = 0; i < crownRing.length; i++) {
+      store.addElement(crownRing[i], crownCenter, 'frame');
+      store.addElement(crownRing[i], mastTop, 'truss');
     }
 
     for (const nid of perimeter[0]) {

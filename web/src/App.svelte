@@ -186,6 +186,13 @@
     document.documentElement.lang = t('file.htmlLang');
   });
 
+  $effect(() => {
+    if (!showAutosaveBanner || !autosaveData) return;
+    if (modelStore.nodes.size > 0 && modelStore.model.name !== autosaveData.name) {
+      showAutosaveBanner = false;
+    }
+  });
+
   function restoreAutosave() {
     if (autosaveData) {
       modelStore.restore(autosaveData.snapshot);
