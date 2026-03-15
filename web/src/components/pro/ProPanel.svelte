@@ -360,7 +360,8 @@
     resultsStore.clear();
     resultsStore.clear3D();
     showExampleMenu = false;
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 200);
+    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
 </script>
 
