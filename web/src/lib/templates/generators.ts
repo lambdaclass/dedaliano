@@ -1124,41 +1124,30 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const concourse: number[] = [];
     const roofInner: number[] = [];
     const roofOuter: number[] = [];
-    const mastBase: number[] = [];
-    const mastTop: Array<number | null> = [];
     const roofCovered: boolean[] = [];
 
-    const lowerRiseBase = p.roofRise * 0.18;
-    const upperRiseBase = p.roofRise * 0.5;
-    const outerRiseBase = p.roofRise;
+    const lowerRiseBase = p.roofRise * 0.22;
+    const upperRiseBase = p.roofRise * 0.62;
+    const outerRiseBase = p.roofRise * 0.92;
 
     for (let i = 0; i < p.nFrames; i++) {
       const theta = (2 * Math.PI * i) / p.nFrames;
       const c = Math.cos(theta);
       const s = Math.sin(theta);
       const mainStand = Math.max(0, s);
-      const openSector = c < -0.35 && s < -0.15;
+      const openSector = s < -0.35 && Math.abs(c) < 0.72;
       roofCovered.push(!openSector);
 
-      const lowerRise = lowerRiseBase + mainStand * 2.5;
-      const upperRise = upperRiseBase + mainStand * 7.5;
-      const outerRise = outerRiseBase + mainStand * 10;
-      const outerX = (p.majorRadius + 8 + mainStand * 8) * c;
-      const outerZ = (p.minorRadius + 8 + mainStand * 5) * s;
+      const lowerRise = lowerRiseBase + mainStand * 2.2;
+      const upperRise = upperRiseBase + mainStand * 6.5;
+      const outerRise = outerRiseBase + mainStand * 5.5;
 
-      baseOuter.push(store.addNode((p.majorRadius + mainStand * 6) * c, 0, (p.minorRadius + mainStand * 3) * s));
-      lowerBowl.push(store.addNode((p.innerMajorRadius + 4) * c, lowerRise, (p.innerMinorRadius + 4) * s));
-      upperBowl.push(store.addNode((p.majorRadius - 16 + mainStand * 4) * c, upperRise, (p.minorRadius - 14 + mainStand * 3) * s));
-      concourse.push(store.addNode((p.majorRadius - 8 + mainStand * 4) * c, upperRise + 2.5, (p.minorRadius - 8 + mainStand * 3) * s));
-      roofInner.push(store.addNode((p.innerMajorRadius + 16 + mainStand * 3) * c, upperRise + 6, (p.innerMinorRadius + 14 + mainStand * 2) * s));
-      roofOuter.push(store.addNode(outerX, outerRise, outerZ));
-      mastBase.push(store.addNode((p.majorRadius + 20 + mainStand * 10) * c, 0, (p.minorRadius + 16 + mainStand * 7) * s));
-
-      if (!openSector && (i % 3 === 0 || mainStand > 0.72)) {
-        mastTop.push(store.addNode((p.majorRadius + 18 + mainStand * 8) * c, outerRise + 8 + mainStand * 6, (p.minorRadius + 14 + mainStand * 5) * s));
-      } else {
-        mastTop.push(null);
-      }
+      baseOuter.push(store.addNode((p.majorRadius + mainStand * 4) * c, 0, (p.minorRadius + mainStand * 2) * s));
+      lowerBowl.push(store.addNode((p.innerMajorRadius + 6) * c, lowerRise, (p.innerMinorRadius + 6) * s));
+      upperBowl.push(store.addNode((p.majorRadius - 18 + mainStand * 6) * c, upperRise, (p.minorRadius - 16 + mainStand * 4) * s));
+      concourse.push(store.addNode((p.majorRadius - 10 + mainStand * 5) * c, upperRise + 2.5, (p.minorRadius - 10 + mainStand * 4) * s));
+      roofInner.push(store.addNode((p.innerMajorRadius + 18 + mainStand * 4) * c, upperRise + 6, (p.innerMinorRadius + 16 + mainStand * 3) * s));
+      roofOuter.push(store.addNode((p.majorRadius + 10 + mainStand * 6) * c, outerRise, (p.minorRadius + 10 + mainStand * 4) * s));
     }
 
     for (let i = 0; i < p.nFrames; i++) {
@@ -1186,39 +1175,33 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
       store.addElement(lowerBowl[i], upperBowl[i], 'frame');
       store.addElement(upperBowl[i], concourse[i], 'frame');
       store.addElement(baseOuter[i], concourse[i], 'frame');
-      store.addElement(baseOuter[i], upperBowl[i], 'truss');
+      store.addElement(baseOuter[i], upperBowl[i], 'frame');
       store.addElement(lowerBowl[i], upperBowl[next], 'truss');
       store.addElement(lowerBowl[next], upperBowl[i], 'truss');
-      store.addElement(concourse[i], upperBowl[next], 'truss');
-      store.addElement(concourse[next], upperBowl[i], 'truss');
+      if (i % 2 === 0) {
+        store.addElement(concourse[i], upperBowl[next], 'truss');
+        store.addElement(concourse[next], upperBowl[i], 'truss');
+      }
 
       if (coveredI) {
-        // Roof cantilever and radial roof bracing
+        // Roof cantilever and cleaner radial bracing
         store.addElement(concourse[i], roofInner[i], 'frame');
         store.addElement(roofInner[i], roofOuter[i], 'frame');
         store.addElement(upperBowl[i], roofInner[i], 'truss');
-        store.addElement(lowerBowl[i], roofOuter[i], 'truss');
-
-        if (coveredNext) {
-          store.addElement(roofInner[i], roofOuter[next], 'truss');
-          store.addElement(roofOuter[i], roofInner[next], 'truss');
+        if (i % 2 === 0) {
+          store.addElement(lowerBowl[i], roofOuter[i], 'truss');
         }
-      }
 
-      // Outer support mast and backstay system
-      store.addElement(baseOuter[i], mastBase[i], 'frame');
-      if (mastTop[i] != null && coveredI) {
-        store.addElement(mastBase[i], mastTop[i]!, 'frame');
-        store.addElement(mastTop[i]!, roofOuter[i], 'truss');
-        store.addElement(mastTop[i]!, roofInner[i], 'truss');
-        store.addElement(mastTop[i]!, concourse[i], 'truss');
         if (coveredNext) {
-          store.addElement(mastTop[i]!, roofOuter[next], 'truss');
+          if (i % 2 === 0) {
+            store.addElement(roofInner[i], roofOuter[next], 'truss');
+          } else {
+            store.addElement(roofOuter[i], roofInner[next], 'truss');
+          }
         }
       }
 
       store.addSupport(baseOuter[i], 'fixed3d');
-      store.addSupport(mastBase[i], 'fixed3d');
       if (coveredI) {
         store.addNodalLoad3D(roofOuter[i], 0, -10, 0, 0, 0, 0);
       }
