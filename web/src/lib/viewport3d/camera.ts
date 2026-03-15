@@ -74,6 +74,13 @@ export function zoomToFit(
   camera.up.set(0, 1, 0); // Reset UP vector (top view sets it to (0,0,-1))
   controls.target.copy(center);
   controls.update();
+  // Adjust clip planes so large models (bridges, stadiums) aren't clipped
+  if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+    const persp = camera as THREE.PerspectiveCamera;
+    persp.near = Math.max(0.1, dist * 0.001);
+    persp.far = Math.max(1000, dist * 10);
+    persp.updateProjectionMatrix();
+  }
   if (camera === orthoCamera) {
     const containerAspect = container ? container.clientWidth / container.clientHeight : 1;
     syncOrthoFrustum(orthoCamera, camera.position, controls.target, containerAspect);
