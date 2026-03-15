@@ -1197,8 +1197,11 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const upperMid = ovalRing(fieldHalfX + 50, fieldHalfZ + 39, 27.5, 1, 4.5);
     const upperBack = ovalRing(fieldHalfX + 62, fieldHalfZ + 49, 35, 2, 6.5);
     const concourse = ovalRing(fieldHalfX + 71, fieldHalfZ + 57, 38, 1, 4);
-    const roofInner = ovalRing(fieldHalfX + 79, fieldHalfZ + 64, 43, 1, 2);
-    const roofOuter = ovalRing(fieldHalfX + 95, fieldHalfZ + 76, p.roofRise + 14, 1, 3);
+    // Roof truss: upper chord (high) + lower chord (at concourse height) = depth
+    const roofLowerInner = ovalRing(fieldHalfX + 76, fieldHalfZ + 61, 40, 0, 3);
+    const roofLowerOuter = ovalRing(fieldHalfX + 93, fieldHalfZ + 74, 39, 0, 2);
+    const roofUpperInner = ovalRing(fieldHalfX + 76, fieldHalfZ + 61, 47, 2, 4);
+    const roofUpperOuter = ovalRing(fieldHalfX + 93, fieldHalfZ + 74, p.roofRise + 18, 4, 5);
     const baseInner = ovalRing(fieldHalfX + 40, fieldHalfZ + 31, 0);
     const baseOuter = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 0);
     const facadeTop = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 12);
@@ -1219,8 +1222,10 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     addRingFrames(upperMid);
     addRingFrames(upperBack);
     addRingFrames(concourse);
-    addRingFrames(roofInner);
-    addRingFrames(roofOuter);
+    addRingFrames(roofLowerInner);
+    addRingFrames(roofLowerOuter);
+    addRingFrames(roofUpperInner);
+    addRingFrames(roofUpperOuter);
     addRingFrames(facadeTop);
 
     for (let i = 0; i < n; i++) {
@@ -1248,28 +1253,39 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         store.addElement(lowerBack[i], upperMid[next], 'truss');
       }
 
-      // Roof as a cleaner cantilever band
-      store.addElement(concourse[i], roofInner[i], 'frame');
-      store.addElement(roofInner[i], roofOuter[i], 'frame');
-      if (i % 2 === 0) {
-        store.addElement(roofInner[i], roofOuter[next], 'truss');
-      }
+      // ── Roof space truss ──
+      // Verticals: lower chord → upper chord
+      store.addElement(roofLowerInner[i], roofUpperInner[i], 'frame');
+      store.addElement(roofLowerOuter[i], roofUpperOuter[i], 'frame');
+      // Radial chords (inner → outer)
+      store.addElement(roofLowerInner[i], roofLowerOuter[i], 'frame');
+      store.addElement(roofUpperInner[i], roofUpperOuter[i], 'frame');
+      // Diagonals within truss depth (Warren pattern)
+      store.addElement(roofLowerInner[i], roofUpperOuter[i], 'truss');
+      store.addElement(roofUpperInner[i], roofLowerOuter[i], 'truss');
+      // Cross-bay diagonals on upper chord for lateral stiffness
+      store.addElement(roofUpperInner[i], roofUpperOuter[next], 'truss');
+      // Connect concourse to lower chord
+      store.addElement(concourse[i], roofLowerInner[i], 'frame');
+      // Roof loads on upper chord rings
       if (p.roofLoad !== 0) {
-        const ringA = store.addElement(roofInner[i], roofInner[next], 'frame');
-        const ringB = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+        const ringA = store.addElement(roofUpperInner[i], roofUpperInner[next], 'frame');
+        const ringB = store.addElement(roofUpperOuter[i], roofUpperOuter[next], 'frame');
         store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
         store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
       }
 
-      // Simple facade / support rhythm
+      // Facade and support structure
       store.addElement(baseInner[i], lowerBack[i], 'frame');
       store.addElement(baseOuter[i], facadeTop[i], 'frame');
       store.addElement(facadeTop[i], concourse[i], 'frame');
       if (i % 2 === 0) {
         store.addElement(baseOuter[i], concourse[i], 'frame');
       }
+      // Roof support masts every 4th bay
       if (i % 4 === 0) {
-        store.addElement(baseOuter[i], roofOuter[i], 'frame');
+        store.addElement(baseOuter[i], roofLowerOuter[i], 'frame');
+        store.addElement(facadeTop[i], roofLowerInner[i], 'truss');
       }
 
       store.addSupport(baseInner[i], 'fixed3d');
