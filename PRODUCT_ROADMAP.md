@@ -6,7 +6,7 @@ This is the product roadmap: app features, market sequencing, design/reporting l
 
 ## Vision
 
-Become the world's best structural engineering software — open-source, browser-based, combining the analytical power of OpenSees/Code_Aster/CalculiX with zero-install accessibility, explainable diagnostics, and eventually the collaboration and AI layers no competitor can match.
+Become the world's best structural engineering software — open-source, browser-based, combining the analytical power of OpenSees/Code_Aster/CalculiX with the UX of Figma. Real-time collaboration via CRDTs, AI-assisted design, and zero-install accessibility that no competitor can match.
 
 ## Competitive Moat
 
@@ -20,6 +20,120 @@ What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
 6. **Explainable diagnostics and review workflows** — warnings, provenance, result trust, comments, and guided fixes as first-class product surfaces
 7. **AI-assisted engineering UX** — guided modeling, result queries, and code/design suggestions built on structured solver outputs
 8. **CRDT collaboration** — later Figma-style real-time multi-user editing on top of a trusted structural core
+
+## Product Thesis
+
+Dedaliano should win in this order:
+
+1. structural solver trust
+2. dynamic analysis and nonlinear materials (what OpenSees is famous for)
+3. code checks and design modules
+4. automatic load generation (what every commercial tool has)
+5. reports and documentation
+6. diagnostics, review workflows, and AI-assisted guidance
+7. lightweight collaboration and shareable review flows
+8. connections and foundations
+9. construction staging, fire, progressive collapse
+10. seismic engineering workflow (end-to-end)
+11. interoperability and BIM-connected workflows
+12. optimization, full collaboration, and broader AI workflows
+13. broader material codes (timber, masonry, composite)
+
+That matches how structural firms buy software:
+
+`can it analyze -> can it handle real loads -> can it design -> can it produce deliverables -> can it fit our workflow -> can my team use it together`
+
+ROI order for users:
+1. stable analysis they can trust
+2. design outputs they can use daily
+3. reports and deliverables they can issue
+4. diagnostics, review, and guidance that reduce failure/debug time
+5. lightweight collaboration that makes review and sharing easier
+6. workflow polish and breadth after the above are solid
+
+## Users We Can Support
+
+The same solver can support different user groups, but they need different product layers:
+
+- **Structural and civil engineers** — full analysis, design, diagnostics, reports, and office workflows
+- **Engineering firms** — templates, repeatable workflows, QA, reports, and interoperability
+- **Students and professors** — onboarding, examples, benchmark explorer, and educational surfaces
+- **Earthquake engineers** — pushover, time-history, IDA, fragility, performance-based design
+- **Design-build / contractors / temporary works teams** — staged workflows, rapid reporting, and simple pass/fail communication
+- **BIM / computational design users** — interoperability, import/export, and API hooks
+- **Researchers / verification users** — benchmark visibility, solver settings, exports, and reproducibility
+- **Architects** — only as a later conceptual structural mode with strong guardrails, not as the default product surface
+
+## Product Layers By User Need
+
+- `Engineers and firms` — diagnostics, code checks, RC member design and reinforcement schedules, reports, connections, foundations, templates, interoperability, and explainable element-family defaults
+- `Earthquake engineers` — pushover analysis, time-history, ground motion library, IDA, fragility curves, performance-based assessment
+- `Education` — first-solve success, examples, benchmark explorer, explanatory views
+- `Design-build / temporary works` — staged workflows, fast results communication, deliverable generation
+- `BIM / computational design` — import/export, API packaging, geometry-model exchange
+- `Architects` — later conceptual structural mode with defaults, visual feedback, and guardrails
+
+## Current Product Surface
+
+Already present:
+
+- browser-native 2D/3D modeling and visualization
+- Rust solver in the main app flow through WASM
+- broad results, postprocessing, and design-check coverage
+- benchmark and validation story strong enough to support a product-quality narrative
+- diagnostics and solver warnings surfaced in the results flow
+- results-store support for constraint forces, assembly diagnostics, and solver diagnostics
+- results-table diagnostics sub-tab and solve-time warning toasts for important issues such as negative Jacobians
+- WASD/Arrow/QE keyboard camera navigation with Shift speed boost
+- frame vs truss color differentiation across 2D and 3D viewports
+- showcase PRO examples (suspension bridge, geodesic dome, diagrid tower, stadium, cable-stayed bridge)
+
+Still productizing:
+
+- richer diagnostics UX in the app/API
+- constraint-force presentation in the results experience
+- click-to-focus and visual highlighting for problematic elements
+- shell-family recommendation and automatic default selection in modeling workflows
+- stronger onboarding and first-solve success
+- report and deliverable workflows
+- broader workflow packaging around the full solver surface
+- deeper collaboration and firm-facing features
+- smoother interoperability and downstream integrations
+
+## Post-Core Software Stack
+
+If Dedaliano executes the core roadmap well, the next best products are not "another generic solver." They are high-value software layers built on top of the solver moat.
+
+Top opportunities:
+
+1. `RC design + reinforcement schedule + BBS studio` — analysis → required steel → selected bars → schedules → drawings
+2. `Structural report OS` — calculation books, governing-case narratives, solver diagnostics, code-check summaries, submission-grade PDFs
+3. `QA / peer-review assistant` — model-quality checks, suspicious-reaction detection, instability warnings, load-path issues, reviewer workflows
+4. `Firm workspace` — templates, office standards, reusable load packages, shared defaults, review flows, project memory
+5. `Parametric structural configurator` — high-value typology generators for towers, warehouses, pipe racks, stadiums, mat foundations, and repetitive frames
+6. `Interoperability layer` — BIM/CAD exchange, analytical-model generation, geometry cleanup, downstream drawing sync
+7. `Cloud solve + comparison platform` — batch analysis, branch comparison, model diffing, scenario sweeps, history, batch reports
+8. `Education product` — teaching-first solver experience, benchmark explorer, assignments, verification visibility, explainable methods
+9. `Desktop distribution via Tauri` — native shell around the same web app for offline use, local files, native integration, and heavier local workflows
+
+Recommended build order:
+
+1. RC design + schedule / BBS
+2. Structural report OS
+3. QA / peer-review assistant
+4. Firm workspace
+5. Parametric configurator
+6. Interoperability + cloud comparison
+7. Desktop distribution via Tauri
+
+What not to build next:
+
+- a second solver engine
+- a broad CAD clone
+- a generic project-management app without engineering depth
+- a full BIM-authoring competitor
+
+---
 
 ## The Sequence
 
@@ -40,6 +154,8 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 - Public benchmark and acceptance-model presentation
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
 
+**Goal:** Be the most accessible serious structural solver for everyday structural engineering.
+
 **Done when:** An engineer can model a structure in the browser, get trustworthy results with clear diagnostics, produce an RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
@@ -58,6 +174,8 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 - AI-powered load combination from code selection — auto-generate required combinations including accidental torsion, pattern loading, combination factors
 - Natural language result queries — "what's the max moment in beam 7?", "which column has the highest utilization?"
 
+**Goal:** Move from "can analyze" to "can support paid engineering work." AI handles the tedious parts (section sizing, load combo generation, result navigation) so engineers spend time on judgment.
+
 **Done when:** An engineer can run a design check against their national code, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
 
 ### 3. Dynamic and Nonlinear Layer
@@ -75,6 +193,8 @@ Make the browser the go-to tool for earthquake engineering, replacing OpenSees f
 - Seismic workflow end-to-end (spectra, ground motion selection, IDA)
 - AI-powered nonlinear/dynamic result interpretation — explain convergence, flag unusual hysteresis, detect soft-story mechanisms, suggest damping parameters
 - AI ground motion selection — suggest appropriate records from site parameters and target spectrum
+
+**Goal:** Make Stabileo the go-to tool for earthquake engineering — in the browser, with a visual editor, replacing OpenSees for the common 80% of work. AI makes nonlinear results accessible to engineers who aren't nonlinear specialists.
 
 **Done when:** An earthquake engineer can run a pushover analysis, select ground motions, perform IDA, and get AI-explained results — all in the browser without writing a single line of Tcl.
 
@@ -106,7 +226,7 @@ Desktop principles:
 Turn the app into a real-time collaborative platform — the Figma of structural engineering.
 
 **What:**
-- CRDT-based real-time collaboration — structural model as CRDT document (Yjs or Automerge), structural-aware merge semantics, awareness protocol (live cursors, selection highlights), WebRTC peer-to-peer sync with WebSocket relay fallback, offline-first editing with automatic merge, per-user undo, branch and merge for models, operational history and audit trail
+- CRDT-based real-time collaboration — structural model as CRDT document (Yjs or Automerge), structural-aware merge semantics (you can't delete a node someone else is loading; adding a load to a member someone else is redesigning triggers a review), awareness protocol (live cursors, selection highlights), WebRTC peer-to-peer sync with WebSocket relay fallback, offline-first editing with automatic merge, per-user undo, branch and merge for models, operational history and audit trail
 - User roles and permissions (viewer, editor, reviewer, approver)
 - Comments and annotations pinned to nodes/elements/regions
 - Visual diff between model versions
@@ -128,7 +248,7 @@ Cover the remaining 20% of specialized analysis that advanced users need.
 **What:**
 - Progressive collapse — GSA/UFC alternate path method, automatic member removal, dynamic amplification, catenary action
 - Fire design — ISO 834/ASTM E119 curves, temperature-degraded material properties (EC2/EC3/EC4), thermal analysis, fire resistance rating, parametric fire curves (EC1-1-2)
-- Performance-based seismic — IDA automation, fragility curves, FEMA P-58 loss estimation, ML-accelerated IDA surrogates, multi-stripe analysis
+- Performance-based seismic — IDA automation, fragility curves, FEMA P-58 loss estimation, ML-accelerated IDA surrogates, cloud analysis, multi-stripe analysis
 - Advanced elements — full catenary, form-finding (force density, dynamic relaxation), membrane/fabric/cable-net, tapered beams, curved beams, 3D solid elements (hex, tet)
 - Reliability and probabilistic — Monte Carlo, FORM/SORM, subset simulation, polynomial chaos expansion
 - Digital twins and SHM — sensor data ingestion API, Bayesian model updating
@@ -151,9 +271,13 @@ Turn the solver from an application into a software stack structural firms can l
 
 **Done when:** A firm can run their entire structural workflow inside the app — from parametric generation through analysis, design, QA review, and submission-grade deliverables — without switching tools.
 
+---
+
+**Post-Core Vision:** Once the solver roadmap (Steps 1-19) and the product roadmap (Steps 1-7) are complete, Stabileo is the most complete structural solver ever built — open-source or commercial. At that point the game changes from "catch up and surpass" to "define the next era." The value shifts from the solver engine to AI, collaboration, and the ecosystem built on top of it.
+
 ### 8. AI-Native Structural Engineering
 
-Ship the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution).
+Ship the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution). Many AI features ship earlier — Step 1 has AI-assisted diagnostics and review, Step 2 has section suggestion and NL result queries, Step 3 has nonlinear result interpretation. This step is for the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution) to work well.
 
 **What:**
 - Full natural language to model — complex structures with nonlinear materials, staged construction, seismic design parameters
@@ -242,8 +366,11 @@ Become the structural engineering operating system.
 - City planning — urban planning tools check structural feasibility in real-time
 - Parametric design backends — Grasshopper, Dynamo, Blender use Stabileo as the analysis engine
 - Plugin/extension marketplace — third-party developers build specialized tools on top
+- Reinforcement learning for design — RL agent learns structural design by trial and error against the solver, discovers novel structural forms
 - Foundation models for structural engineering — pre-trained on millions of analyzed structures
 - Autonomous inspection pipeline — drone damage capture, CV crack detection, Bayesian model updating, remaining life prediction
+
+**Goal:** Stabileo becomes the structural engineering operating system — the platform that every other structural tool is built on top of. Nobody can replicate a platform with a better Cholesky factorization.
 
 **Done when:** Third-party developers can build and sell specialized structural tools on a Stabileo marketplace, and insurance companies can run portfolio-scale risk assessments through the API.
 
@@ -259,10 +386,15 @@ Do not prioritize these before the core product is clearly trusted:
 - GPU sparse direct factorization (CPU sparse direct is correct for structural problem sizes)
 - Isogeometric analysis (IGA shines for automotive/aerospace, not buildings)
 - Meshfree methods (peridynamics, MPM — niche, out of scope for routine structural)
+- A second solver engine
+- A broad CAD clone
+- A generic project-management app without engineering depth
+- A full BIM-authoring competitor
 
 ## Related Docs
 
 - `README.md` — repo entry point and document map
+- `CURRENT_STATUS.md` — current snapshot
 - `SOLVER_ROADMAP.md` — solver mechanics and validation sequencing
 - `POSITIONING.md` — market framing and competitive wedge
 - `research/rc_design_and_bbs.md` — RC design and BBS research
