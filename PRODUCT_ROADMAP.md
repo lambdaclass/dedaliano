@@ -6,7 +6,7 @@ This is the product roadmap: app features, market sequencing, design/reporting l
 
 ## Vision
 
-Become the world's best structural engineering software — open-source, browser-based, combining the analytical power of OpenSees/Code_Aster/CalculiX with the UX of Figma. Real-time collaboration via CRDTs, AI-assisted design, and zero-install accessibility that no competitor can match.
+Become the world's best structural engineering software — open-source, browser-based, zero-install. First: match the analytical power of OpenSees/Code_Aster/CalculiX with an accessible visual UX. Then: add design deliverables, diagnostics, and AI-assisted guidance. Later: real-time CRDT collaboration (the Figma moment) and full AI-native design.
 
 ## Competitive Moat
 

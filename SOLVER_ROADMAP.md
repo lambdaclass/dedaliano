@@ -6,46 +6,7 @@ This is the solver roadmap for mechanics, numerical robustness, validation seque
 
 ## Where We Are
 
-The sparse shell solve viability blocker is resolved and runtime gains are measured. Dense LU fallback is eliminated on representative shell models. Sparse Cholesky delivers 22-89x factorization speedup over dense LU (22x end-to-end at 30x30 MITC4), with 0 perturbations across all tested sizes and families. Assembly and DOF numbering are deterministic. AMD beats RCM on fill for larger shell meshes. Modal, buckling, harmonic, Guyan, and Craig-Bampton all use sparse assembly, and modal/buckling/harmonic have sparse eigensolver paths for unconstrained models. Beam station extraction for RC design is done with sign-convention metadata, grouped-by-member convenience layer, and governing summaries. The shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell) is implemented and benchmarked. Modified Newton-Raphson is available for corotational and fiber nonlinear solvers.
-
-Measured runtime data (Criterion, factorization only):
-
-| Family | Mesh | nf | Dense LU | Sparse Chol | Speedup |
-|--------|------|----|----------|-------------|---------|
-| MITC4 | 6x6 | ~210 | 1.19ms | 0.88ms | 1.4x |
-| MITC4 | 10x10 | 684 | 18.8ms | 4.17ms | 4.5x |
-| MITC4 | 15x15 | ~1400 | 184ms | 16.4ms | 11x |
-| MITC4 | 20x20 | 2564 | 986ms | 43.8ms | 22x |
-| MITC4 | 30x30 | 5644 | 12.2s | 157ms | 77x |
-| Quad9 | 5x5 | ~700 | 18.9ms | 4.2ms | 4.5x |
-| Quad9 | 10x10 | ~2600 | 974ms | 56ms | 17x |
-| Quad9 | 15x15 | ~5700 | 12.5s | 141ms | 89x |
-| Curved | 8x8 | ~450 | 5.9ms | 10.1ms | 0.58x |
-| Curved | 16x16 | ~1700 | 277ms | 109ms | 2.6x |
-| Curved | 24x24 | ~3600 | 3.0s | 406ms | 7.4x |
-
-Measured parallel assembly results (Apple Silicon, release build):
-
-| Model | Elements | DOFs | Serial | Parallel | Speedup |
-|-------|----------|------|--------|----------|---------|
-| 20x20 flat plate | 400 quads | ~2.6k | 82 ms | 80 ms | 1.03x |
-| 30x30 flat plate | 900 quads | ~5.8k | 411 ms | 386 ms | 1.06x |
-| 50x50 flat plate | 2500 quads | ~15.6k | 2.96 s | 2.91 s | 1.02x |
-| 8-storey mixed | 512 quads + 32 frames | ~3.3k | 161 ms | 157 ms | 1.03x |
-
-Key observations:
-- Sparse wins on all families above ~500 DOFs; dense still wins at curved 8x8 (~450 DOFs)
-- Fill ratio grows with mesh size (not constant); AMD is the measured fill winner on larger shell meshes
-- 0 perturbations everywhere — Cholesky is clean
-- At 30x30 MITC4 (5644 DOFs), sparse assembly + solve takes 0.56s vs 12.3s dense — 22x end-to-end
-- MITC4 element stiffness is lightweight (~200 ops), so parallel assembly overhead nearly cancels speedup; Quad9 and curved-shell elements (5-10x heavier per element) will show stronger scaling
-
-Phase 3c runtime measurements (20x20 MITC4, nf=2564):
-- **Harmonic**: modal 2.4s vs direct 561s = **234x speedup** (50 freq steps)
-- **Guyan**: full solver 6.4s (interior solves 5.5s dominate: Cholesky 1.2s + 399 back-subs 4.3s)
-- **Craig-Bampton**: full solver 17.2s (constraint modes 5.7s, interior eigen 1.9s, reduced asm 4.2s)
-- **Modal**: sparse 0.25s vs dense 2.5s = **9.8x speedup** (5 modes)
-- **Buckling**: 8x8 plate 0.26s (parity within 2.6%)
+Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, and Modified Newton-Raphson are all done. The WASM path and TypeScript solver retirement are the immediate blockers. See `CURRENT_STATUS.md` for the full snapshot and measured benchmark data.
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 
@@ -895,6 +856,47 @@ Solver scales to city/portfolio-level analysis and supports climate-driven scena
 197. Implement embodied carbon computation integrated into optimization objective
 198. Add automated fragility curve generation (IDA to fragility to loss estimation pipeline)
 199. Add LiDAR/photogrammetry mesh import (point cloud to FE model)
+
+## Measured Benchmarks (Reference)
+
+Factorization speedup (Criterion, factorization only):
+
+| Family | Mesh | nf | Dense LU | Sparse Chol | Speedup |
+|--------|------|----|----------|-------------|---------|
+| MITC4 | 6x6 | ~210 | 1.19ms | 0.88ms | 1.4x |
+| MITC4 | 10x10 | 684 | 18.8ms | 4.17ms | 4.5x |
+| MITC4 | 15x15 | ~1400 | 184ms | 16.4ms | 11x |
+| MITC4 | 20x20 | 2564 | 986ms | 43.8ms | 22x |
+| MITC4 | 30x30 | 5644 | 12.2s | 157ms | 77x |
+| Quad9 | 5x5 | ~700 | 18.9ms | 4.2ms | 4.5x |
+| Quad9 | 10x10 | ~2600 | 974ms | 56ms | 17x |
+| Quad9 | 15x15 | ~5700 | 12.5s | 141ms | 89x |
+| Curved | 8x8 | ~450 | 5.9ms | 10.1ms | 0.58x |
+| Curved | 16x16 | ~1700 | 277ms | 109ms | 2.6x |
+| Curved | 24x24 | ~3600 | 3.0s | 406ms | 7.4x |
+
+Parallel assembly (Apple Silicon, release build):
+
+| Model | Elements | DOFs | Serial | Parallel | Speedup |
+|-------|----------|------|--------|----------|---------|
+| 20x20 flat plate | 400 quads | ~2.6k | 82 ms | 80 ms | 1.03x |
+| 30x30 flat plate | 900 quads | ~5.8k | 411 ms | 386 ms | 1.06x |
+| 50x50 flat plate | 2500 quads | ~15.6k | 2.96 s | 2.91 s | 1.02x |
+| 8-storey mixed | 512 quads + 32 frames | ~3.3k | 161 ms | 157 ms | 1.03x |
+
+Key observations:
+- Sparse wins on all families above ~500 DOFs; dense still wins at curved 8x8 (~450 DOFs)
+- Fill ratio grows with mesh size (not constant); AMD is the measured fill winner on larger shell meshes
+- 0 perturbations everywhere — Cholesky is clean
+- At 30x30 MITC4 (5644 DOFs), sparse assembly + solve takes 0.56s vs 12.3s dense — 22x end-to-end
+- MITC4 element stiffness is lightweight (~200 ops), so parallel assembly overhead nearly cancels speedup; Quad9 and curved-shell elements (5-10x heavier per element) will show stronger scaling
+
+Phase 3c workflow measurements (20x20 MITC4, nf=2564):
+- **Harmonic**: modal 2.4s vs direct 561s = **234x speedup** (50 freq steps)
+- **Guyan**: full solver 6.4s (interior solves 5.5s dominate: Cholesky 1.2s + 399 back-subs 4.3s)
+- **Craig-Bampton**: full solver 17.2s (constraint modes 5.7s, interior eigen 1.9s, reduced asm 4.2s)
+- **Modal**: sparse 0.25s vs dense 2.5s = **9.8x speedup** (5 modes)
+- **Buckling**: 8x8 plate 0.26s (parity within 2.6%)
 
 ## Non-Goals Right Now
 
