@@ -16,8 +16,13 @@
   // Sync rows from modelStore on mount and when nodes change
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
-    // Only sync if the store has nodes and rows are empty or stale
-    if (storeNodes.length > 0 && rows.length === 0) {
+    const storeIds = storeNodes.map(n => n.id).join(',');
+    const rowIds = rows.filter(r => r.id !== null).map(r => r.id).join(',');
+    if (storeNodes.length === 0) {
+      if (rows.length > 0) rows = [];
+      return;
+    }
+    if (storeIds !== rowIds || storeNodes.length !== rows.filter(r => r.id !== null).length) {
       rows = storeNodes.map(n => ({
         id: n.id,
         x: String(n.x),

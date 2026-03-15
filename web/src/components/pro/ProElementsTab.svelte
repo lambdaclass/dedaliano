@@ -21,7 +21,13 @@
   // Sync rows from store on mount
   $effect(() => {
     const storeElems = [...modelStore.elements.values()];
-    if (storeElems.length > 0 && rows.length === 0) {
+    const storeIds = storeElems.map(e => e.id).join(',');
+    const rowIds = rows.filter(r => r.id !== null).map(r => r.id).join(',');
+    if (storeElems.length === 0) {
+      if (rows.length > 0) rows = [];
+      return;
+    }
+    if (storeIds !== rowIds || storeElems.length !== rows.filter(r => r.id !== null).length) {
       rows = storeElems.map(e => ({
         id: e.id,
         nodeI: String(e.nodeI),

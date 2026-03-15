@@ -681,6 +681,7 @@ if (typeof localStorage !== 'undefined') {
 }
 
 const AUTOSAVE_KEY = 'stabileo-autosave';
+const WORKSPACE_KEY = 'stabileo-workspace';
 
 export function saveToLocalStorage(): void {
   try {
@@ -706,6 +707,42 @@ export function loadFromLocalStorage(): DedalFile | null {
 export function clearLocalStorage(): void {
   try {
     localStorage.removeItem(AUTOSAVE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function saveWorkspaceToLocalStorage(): void {
+  try {
+    tabManager.syncCurrentTab();
+    const session: DedalSessionFile = {
+      version: '1.0',
+      type: 'session',
+      timestamp: new Date().toISOString(),
+      activeTabId: tabManager.activeTabId ?? '',
+      tabs: $state.snapshot(tabManager.tabs),
+    };
+    localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
+  } catch {
+    // localStorage might be full or unavailable — silently ignore
+  }
+}
+
+export function loadWorkspaceFromLocalStorage(): DedalSessionFile | null {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!isSessionFile(data)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export function clearWorkspaceFromLocalStorage(): void {
+  try {
+    localStorage.removeItem(WORKSPACE_KEY);
   } catch {
     // ignore
   }

@@ -15,6 +15,7 @@
   import StepWizard from './components/dsm/StepWizard.svelte';
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
+    loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
     downloadCanvasPNG,
   } from './lib/store/file';
   import { loadFromURLHash } from './lib/utils/url-sharing';
@@ -86,6 +87,11 @@
       url.searchParams.delete('tab');
     }
     history.replaceState(null, '', `${url.pathname}${url.search}`);
+  }
+
+  function findTabBySlug(tabSlug: string | null) {
+    if (!tabSlug) return null;
+    return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
   function shouldShowLanding() {
@@ -282,16 +288,30 @@
       }
     }
 
-    // Only check autosave if no URL hash was loaded
+    // Restore full tab workspace first when available.
     if (!hashMode) {
+      const savedWorkspace = loadWorkspaceFromLocalStorage();
+      if (savedWorkspace && savedWorkspace.tabs.length > 0) {
+        tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
+        const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
+        if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
+          tabManager.switchTab(requestedTab.id);
+        }
+        currentAppMode = uiStore.appMode;
+        replaceAppUrl(currentAppMode, modelStore.model.name);
+      }
+
       autosaveData = loadFromLocalStorage();
-      if (autosaveData && autosaveData.snapshot.nodes.length > 0) {
+      if (!savedWorkspace && autosaveData && autosaveData.snapshot.nodes.length > 0) {
         showAutosaveBanner = true;
       }
     }
 
     // Setup autosave every 30s
-    autosaveInterval = setInterval(saveToLocalStorage, 30_000);
+    autosaveInterval = setInterval(() => {
+      saveToLocalStorage();
+      saveWorkspaceToLocalStorage();
+    }, 30_000);
 
     // Mobile responsive: track window width
     uiStore.windowWidth = window.innerWidth;
@@ -320,6 +340,7 @@
     window.addEventListener('stabileo-solve', handleGlobalSolve);
 
     return () => {
+      saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -336,6 +357,7 @@
   $effect(() => {
     if (showLanding || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
+    saveWorkspaceToLocalStorage();
   });
 
   // Reactive auto-clear results + live calculation on model changes
