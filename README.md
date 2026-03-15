@@ -227,8 +227,8 @@ To report a vulnerability, email security@lambdaclass.com.
 
 ## Built by
 
-- **Bautista Chesta** — Civil Engineer, Faculty of Engineering, University of Buenos Aires (FIUBA)
-- **Diego Kingston** — Ph.D. in Engineering, University of Buenos Aires (UBA)
+- **Bautista Chesta** — Civil Engineer (FIUBA), UX/UI and project management
+- **Diego Kingston** — Ph.D. in Engineering (UBA), product–solver integration
 - **Federico Carrone** — Founder of [Lambda Class](https://lambdaclass.com), solver lead
 
 With contributions from mathematicians, physicists, computer engineers, and computer scientists at [Lambda Class](https://lambdaclass.com).
