@@ -79,11 +79,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: web/package-lock.json
+
+      - name: Build WASM engine
+        working-directory: engine
+        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
 
       - name: Install dependencies
         working-directory: web

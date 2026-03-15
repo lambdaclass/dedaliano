@@ -356,8 +356,6 @@ const es: Record<string, string> = {
   'ex.3d-building.desc': 'D+L+W+E con combinaciones CIRSOC 201',
   'ex.pro-edificio-7p': 'Edificio H.A. 7 Pisos (PRO)',
   'ex.pro-edificio-7p.desc': 'Vivienda con ascensor, escalera, viento CIRSOC 102 y cargas por destino de local',
-  'ex.landmarkTower3D': 'Torre Icónica Reticulada',
-  'ex.landmarkTower3D.desc': 'Torre inspirada en la Eiffel con arriostramiento tipo celosía',
   'ex.xlDiagridTower3D': 'Torre Diagrid XL',
   'ex.xlDiagridTower3D.desc': 'Torre diagrid de gran altura con 1000+ nodos, núcleo central y niveles outrigger',
   'ex.geodesicDome3D': 'Domo Geodésico',

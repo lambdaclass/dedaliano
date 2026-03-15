@@ -141,21 +141,51 @@ async function globalSolve3D(): Promise<void> {
   const hasCombos = modelStore.model.combinations.length > 0;
   const t0 = performance.now();
 
+  const runSingleSolve = () => {
+    const r = modelStore.solve3D(uiStore.includeSelfWeight, leftHand, isPro);
+    if (typeof r === 'string') {
+      uiStore.toast(r, 'error');
+      return false;
+    }
+    if (!r) {
+      uiStore.toast(t('results.emptyModelError'), 'error');
+      return false;
+    }
+    resultsStore.setResults3D(r);
+    if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
+    const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
+    uiStore.toast(
+      `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
+      'success',
+    );
+    showSolverWarningToasts(r.solverDiagnostics);
+    return true;
+  };
+
   // When combinations exist, use parallel Web Workers for maximum performance
   if (hasCombos) {
     try {
       const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro);
       if (typeof comboResult === 'string') {
+        console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboResult);
         uiStore.toast(comboResult, 'error');
+        runSingleSolve();
         return;
       }
       if (!comboResult) {
+        console.warn('[globalSolve3D] Combination solve returned empty result, falling back to single solve');
         uiStore.toast(t('results.emptyModelError'), 'error');
+        runSingleSolve();
         return;
       }
 
       // Use first per-case result as the "single" baseline view
       const firstCaseResult = comboResult.perCase.values().next().value;
+      if (!firstCaseResult) {
+        console.warn('[globalSolve3D] Combination solve produced no baseline case, falling back to single solve');
+        runSingleSolve();
+        return;
+      }
       if (firstCaseResult) resultsStore.setResults3D(firstCaseResult);
 
       resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
@@ -173,26 +203,13 @@ async function globalSolve3D(): Promise<void> {
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
       uiStore.toast(e.message, 'error');
+      runSingleSolve();
     }
     return;
   }
 
   // No combinations — single solve only
-  const r = modelStore.solve3D(uiStore.includeSelfWeight, leftHand, isPro);
-  if (typeof r === 'string') {
-    uiStore.toast(r, 'error');
-  } else if (r) {
-    resultsStore.setResults3D(r);
-    if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
-    const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
-    uiStore.toast(
-      `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
-      'success',
-    );
-    showSolverWarningToasts(r.solverDiagnostics);
-  } else {
-    uiStore.toast(t('results.emptyModelError'), 'error');
-  }
+  runSingleSolve();
 }
 
 function globalSolve2D(): void {
