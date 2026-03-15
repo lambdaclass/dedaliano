@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from '../../lib/i18n';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../../lib/store';
   import {
@@ -87,6 +88,8 @@
   let solving = $state(false);
   let solveError = $state<string | null>(null);
   let showExampleMenu = $state(false);
+  let exampleButtonEl = $state<HTMLButtonElement | null>(null);
+  let exampleMenuStyle = $state('');
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
 
   type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
@@ -234,6 +237,24 @@
       examples: proExamples.filter(ex => ex.group === group),
     })).filter(group => group.examples.length > 0);
   });
+
+  async function toggleExampleMenu() {
+    showExampleMenu = !showExampleMenu;
+    if (showExampleMenu) {
+      await tick();
+      updateExampleMenuPosition();
+    }
+  }
+
+  function updateExampleMenuPosition() {
+    if (!showExampleMenu || !exampleButtonEl || typeof window === 'undefined') return;
+    const rect = exampleButtonEl.getBoundingClientRect();
+    const width = Math.min(720, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+    const top = Math.min(rect.bottom + 6, window.innerHeight - 120);
+    const maxHeight = Math.max(260, Math.min(560, window.innerHeight - top - 16));
+    exampleMenuStyle = `left:${left}px;top:${top}px;width:${width}px;max-height:${maxHeight}px;`;
+  }
 
   async function handleSolve() {
     solveError = null;
@@ -517,49 +538,15 @@
   }
 </script>
 
+<svelte:window onresize={updateExampleMenuPosition} onscroll={updateExampleMenuPosition} />
+
 <div class="pro-panel">
   <!-- Action bar -->
   <div class="pro-actions">
     <div class="pro-example-wrap">
-      <button class="pro-example-btn" onclick={() => showExampleMenu = !showExampleMenu} title={t('pro.exampleTitle')}>
+      <button bind:this={exampleButtonEl} class="pro-example-btn" onclick={toggleExampleMenu} title={t('pro.exampleTitle')}>
         {t('pro.exampleBtn')}
       </button>
-      {#if showExampleMenu}
-        <div class="pro-example-menu">
-          <div class="pro-example-menu-head">
-            <div class="pro-example-menu-title">{t('pro.exampleTitle')}</div>
-            <div class="pro-example-menu-subtitle">{t('pro.examples.subtitle')}</div>
-          </div>
-          {#each proExampleGroups as group}
-            <section class="pro-example-group">
-              <div class="pro-example-group-title">{group.title}</div>
-              <div class="pro-example-grid">
-                {#each group.examples as ex}
-                  <button class="pro-example-item" onclick={() => loadProExample(ex)}>
-                    <div class="pro-example-topline">
-                      <span class="pro-example-name">{t(ex.nameKey)}</span>
-                      <span class="pro-example-purpose">{t(ex.purposeKey)}</span>
-                    </div>
-                    <span class="pro-example-desc">{t(ex.descKey)}</span>
-                    <div class="pro-example-tags">
-                      {#each ex.tags as tag}
-                        <span class="pro-example-tag">{t(tag)}</span>
-                      {/each}
-                    </div>
-                    <div class="pro-example-stats">
-                      <span>{ex.stats.nodes} {t('pro.stats.nodes')}</span>
-                      <span>{ex.stats.members} {t('pro.stats.members')}</span>
-                      {#if ex.stats.shells}
-                        <span>{ex.stats.shells} {t('pro.stats.shells')}</span>
-                      {/if}
-                    </div>
-                  </button>
-                {/each}
-              </div>
-            </section>
-          {/each}
-        </div>
-      {/if}
     </div>
     <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
       {solving ? t('pro.solving') : t('pro.solve')}
@@ -642,6 +629,44 @@
   </div>
 </div>
 
+{#if showExampleMenu}
+  <div class="pro-example-backdrop" onclick={() => showExampleMenu = false}></div>
+  <div class="pro-example-menu" style={exampleMenuStyle}>
+    <div class="pro-example-menu-head">
+      <div class="pro-example-menu-title">{t('pro.exampleTitle')}</div>
+      <div class="pro-example-menu-subtitle">{t('pro.examples.subtitle')}</div>
+    </div>
+    {#each proExampleGroups as group}
+      <section class="pro-example-group">
+        <div class="pro-example-group-title">{group.title}</div>
+        <div class="pro-example-grid">
+          {#each group.examples as ex}
+            <button class="pro-example-item" onclick={() => loadProExample(ex)}>
+              <div class="pro-example-topline">
+                <span class="pro-example-name">{t(ex.nameKey)}</span>
+                <span class="pro-example-purpose">{t(ex.purposeKey)}</span>
+              </div>
+              <span class="pro-example-desc">{t(ex.descKey)}</span>
+              <div class="pro-example-tags">
+                {#each ex.tags as tag}
+                  <span class="pro-example-tag">{t(tag)}</span>
+                {/each}
+              </div>
+              <div class="pro-example-stats">
+                <span>{ex.stats.nodes} {t('pro.stats.nodes')}</span>
+                <span>{ex.stats.members} {t('pro.stats.members')}</span>
+                {#if ex.stats.shells}
+                  <span>{ex.stats.shells} {t('pro.stats.shells')}</span>
+                {/if}
+              </div>
+            </button>
+          {/each}
+        </div>
+      </section>
+    {/each}
+  </div>
+{/if}
+
 <ProReportDialog
   open={showReportDialog}
   hasResults={!!resultsStore.results3D}
@@ -695,12 +720,15 @@
   }
   .pro-example-btn:hover { background: #f0a50018; }
 
+  .pro-example-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 219;
+    background: transparent;
+  }
+
   .pro-example-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    width: min(720px, calc(100vw - 24px));
-    max-height: 560px;
+    position: fixed;
     overflow-y: auto;
     background: linear-gradient(180deg, #162746 0%, #122038 100%);
     border: 1px solid #31507c;
