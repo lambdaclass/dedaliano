@@ -902,6 +902,7 @@ export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DPar
   store.batch(() => {
     const levelH = p.H / p.nLevels;
     const ring: number[][] = [];
+    const centerline = p.baseWidth / 2;
 
     for (let lev = 0; lev <= p.nLevels; lev++) {
       const y = lev * levelH;
@@ -947,11 +948,24 @@ export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DPar
       }
     }
 
+    const deckLevel = Math.max(2, Math.floor(p.nLevels * 0.65));
+    const deck = ring[deckLevel];
+    const deckCenter = store.addNode(centerline, deckLevel * levelH, centerline);
+    for (const nid of deck) {
+      store.addElement(nid, deckCenter, 'frame');
+    }
+
     const crownBase = ring[p.nLevels];
     const topY = p.H + levelH * 0.6;
-    const crown = store.addNode(p.baseWidth / 2, topY, p.baseWidth / 2);
+    const crown = store.addNode(centerline, topY, centerline);
     for (const nid of crownBase) {
       store.addElement(nid, crown, 'frame');
+    }
+
+    const mastTop = store.addNode(centerline, topY + levelH * 0.8, centerline);
+    store.addElement(crown, mastTop, 'frame');
+    for (const nid of crownBase) {
+      store.addElement(nid, mastTop, 'truss');
     }
 
     for (const nid of ring[0]) {
@@ -1140,16 +1154,16 @@ export function getTemplateCatalog3D(): TemplateInfo3D[] {
       name: t('tmpl3d.spaceFrame'),
       desc: t('tmpl3d.spaceFrameDesc'),
       params: [
-        { key: 'nBaysX', label: t('tmpl.baysX'), unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
-        { key: 'nBaysY', label: t('tmpl.baysZ'), unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
-        { key: 'nFloors', label: t('tmpl.floors'), unit: '', default: 2, min: 1, max: 10, step: 1, integer: true },
-        { key: 'bayWidth', label: t('tmpl.bayWidth'), unit: 'm', default: 5, min: 2, max: 15, step: 0.5 },
-        { key: 'storyHeight', label: t('tmpl.floorHeight'), unit: 'm', default: 3, min: 2, max: 6, step: 0.5 },
-        { key: 'q', label: t('tmpl.beamLoad'), unit: 'kN/m', default: -10, min: -100, max: 100, step: 1 },
+        { key: 'nBaysX', label: t('tmpl.baysX'), unit: '', default: 4, min: 1, max: 6, step: 1, integer: true },
+        { key: 'nBaysY', label: t('tmpl.baysZ'), unit: '', default: 4, min: 1, max: 6, step: 1, integer: true },
+        { key: 'nFloors', label: t('tmpl.floors'), unit: '', default: 4, min: 1, max: 10, step: 1, integer: true },
+        { key: 'bayWidth', label: t('tmpl.bayWidth'), unit: 'm', default: 6, min: 2, max: 15, step: 0.5 },
+        { key: 'storyHeight', label: t('tmpl.floorHeight'), unit: 'm', default: 3.6, min: 2, max: 6, step: 0.5 },
+        { key: 'q', label: t('tmpl.beamLoad'), unit: 'kN/m', default: -16, min: -100, max: 100, step: 1 },
       ],
       generate: (s, p) => generateSpaceFrame3D(s, {
-        nBaysX: p?.nBaysX ?? 2, nBaysY: p?.nBaysY ?? 2, nFloors: p?.nFloors ?? 2,
-        bayWidth: p?.bayWidth ?? 5, storyHeight: p?.storyHeight ?? 3, q: p?.q ?? -10,
+        nBaysX: p?.nBaysX ?? 4, nBaysY: p?.nBaysY ?? 4, nFloors: p?.nFloors ?? 4,
+        bayWidth: p?.bayWidth ?? 6, storyHeight: p?.storyHeight ?? 3.6, q: p?.q ?? -16,
       }),
     },
     {
@@ -1173,15 +1187,15 @@ export function getTemplateCatalog3D(): TemplateInfo3D[] {
       name: t('tmpl3d.tower4'),
       desc: t('tmpl3d.tower4Desc'),
       params: [
-        { key: 'H', label: t('tmpl.totalHeight'), unit: 'm', default: 12, min: 4, max: 40, step: 0.5 },
-        { key: 'nLevels', label: t('tmpl.levels'), unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
-        { key: 'baseWidth', label: t('tmpl.baseWidth'), unit: 'm', default: 3, min: 1, max: 10, step: 0.5 },
-        { key: 'topWidth', label: t('tmpl.topWidth'), unit: 'm', default: 2, min: 0.5, max: 10, step: 0.5 },
-        { key: 'lateralLoad', label: t('tmpl.lateralLoad'), unit: 'kN', default: 10, min: 0, max: 100, step: 1 },
+        { key: 'H', label: t('tmpl.totalHeight'), unit: 'm', default: 24, min: 4, max: 40, step: 0.5 },
+        { key: 'nLevels', label: t('tmpl.levels'), unit: '', default: 6, min: 2, max: 10, step: 1, integer: true },
+        { key: 'baseWidth', label: t('tmpl.baseWidth'), unit: 'm', default: 6, min: 1, max: 10, step: 0.5 },
+        { key: 'topWidth', label: t('tmpl.topWidth'), unit: 'm', default: 3.5, min: 0.5, max: 10, step: 0.5 },
+        { key: 'lateralLoad', label: t('tmpl.lateralLoad'), unit: 'kN', default: 18, min: 0, max: 100, step: 1 },
       ],
       generate: (s, p) => generateTower3D(s, {
-        H: p?.H ?? 12, nLevels: p?.nLevels ?? 4, baseWidth: p?.baseWidth ?? 3,
-        topWidth: p?.topWidth ?? 2, withBracing: true, lateralLoad: p?.lateralLoad ?? 10,
+        H: p?.H ?? 24, nLevels: p?.nLevels ?? 6, baseWidth: p?.baseWidth ?? 6,
+        topWidth: p?.topWidth ?? 3.5, withBracing: true, lateralLoad: p?.lateralLoad ?? 18,
       }),
     },
   ];

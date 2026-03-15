@@ -88,9 +88,9 @@
     { nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc', load: () => modelStore.loadExample('pro-edificio-7p') },
     { nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc', load: () => modelStore.loadExample('3d-building') },
     { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
-    { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 42, nLevels: 8, baseWidth: 18, topWidth: 4, lateralLoad: 12 }) },
-    { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 72, deckWidth: 10, pylonHeight: 26, nPanels: 12, deckLoad: -18 }) },
-    { nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc', load: () => generateStadiumCanopy3D(modelStore, { span: 54, depth: 18, nFrames: 9, roofLoad: -10, columnHeight: 14 }) },
+    { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 84, nLevels: 12, baseWidth: 28, topWidth: 8, lateralLoad: 24 }) },
+    { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }) },
+    { nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc', load: () => generateStadiumCanopy3D(modelStore, { span: 96, depth: 30, nFrames: 14, roofLoad: -14, columnHeight: 22 }) },
     { nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(modelStore) },
     { nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(modelStore) },
   ];
