@@ -425,7 +425,229 @@ Concrete proof:
 - representative browser vs native parity cases are green
 - heavy-model or long-running workflow(s) have a documented native/server execution recommendation
 
+### Phase I: Dynamic Analysis Solvers
+
+Goal:
+- full dynamic time-history and pushover analysis capability, matching OpenSees on the common 80% of earthquake engineering work
+
+Solver work:
+- **Newmark-β method** — implicit unconditionally stable (β=1/4, γ=1/2), consistent and lumped mass matrix support
+- **HHT-α method** — numerical dissipation for high-frequency noise, α ∈ [-1/3, 0]
+- **Explicit dynamics** (central difference) — for impact/blast loading, conditionally stable with critical Δt
+- **Rayleigh damping** — α·M + β·K (mass + stiffness proportional)
+- **Modal damping** — per-mode damping ratios applied in modal coordinates
+- **Consistent mass matrix** — already have lumped; add consistent for Newmark accuracy
+- **Nonlinear dynamics** — Newton-Raphson within each time step, material + geometric nonlinearity
+- **Operator-splitting** — separate nonlinear solve from time integration for efficiency
+- **Energy balance check** — detect numerical instability via energy drift monitoring
+- **Adaptive time stepping** — reduce Δt on slow convergence, increase on fast convergence
+- **Restart/checkpoint** — save and resume long dynamic analyses from intermediate state
+- **Ground motion input** — acceleration time-history loading applied as base excitation
+- **Response history extraction** — displacement, velocity, acceleration at selected nodes/DOFs
+
+Finish means:
+- linear Newmark-β and HHT-α pass known analytical solutions (SDOF free vibration, step load, harmonic forcing)
+- nonlinear dynamic passes OpenSees-comparable benchmarks (RC column pushover, steel frame cyclic)
+- energy balance stays within tolerance across all dynamic benchmarks
+- adaptive stepping reduces total cost on variable-difficulty problems
+
+### Phase J: Nonlinear Material Models
+
+Goal:
+- realistic material behavior for concrete, steel, and general path-dependent materials, enabling practical RC and steel nonlinear analysis
+
+Solver work:
+
+**Material state framework:**
+- material state management — commit/revert/copy for path-dependent materials
+- fiber section with multiple materials — concrete core + cover + rebar in single section
+- 3D fiber section — biaxial bending (ε₀, κy, κz) for fiber beam-column
+- moment-curvature analysis — section-level stress-strain integration
+- M-N-V interaction — full interaction surface generation from fiber section
+
+**Concrete models:**
+- **Kent-Park / modified Kent-Park** — confined/unconfined compression with degrading stiffness
+- **Mander confined concrete** — circular/rectangular confinement, strain at peak stress function of confinement ratio
+- **Concrete02** — tension stiffening with linear tension softening
+- **Concrete damage plasticity** (CDP) — isotropic damage + plasticity (Abaqus-equivalent formulation)
+- **fib Model Code 2010** — code-compliant stress-strain curves
+- **Eurocode 2 parabola-rectangle** — design stress-strain with partial safety factors
+
+**Steel models:**
+- **Bilinear steel** — elastic-perfectly-plastic and elastic-strain-hardening
+- **Menegotto-Pinto (Steel02)** — smooth hysteretic with Bauschinger effect, isotropic hardening
+- **Giuffré-Menegotto-Pinto** — combined isotropic + kinematic hardening
+- **Steel4** — asymmetric tension/compression, ultimate stress, fracture strain
+
+**Additional materials (later):**
+- hyperelastic (Neo-Hookean, Mooney-Rivlin) — rubber bearings, seismic isolators
+- creep & shrinkage (ACI 209, fib MC 2010, CEB-FIP) — long-term time-dependent effects
+- viscoelastic (Kelvin-Voigt, Maxwell) — viscous dampers, soil
+- fatigue (Coffin-Manson, rainflow counting) — low-cycle fatigue assessment
+
+Finish means:
+- each uniaxial material passes cyclic stress-strain verification against published curves
+- fiber sections with mixed concrete+steel reproduce known moment-curvature responses
+- Mander model matches confinement-dependent peak stress and strain within 2% of analytical formulas
+- hysteretic energy dissipation matches reference solutions under cyclic loading
+
+### Phase K: Pushover Analysis
+
+Goal:
+- static pushover for seismic assessment, with capacity spectrum and performance point identification
+
+Solver work:
+- **Displacement-controlled pushover** — monotonic lateral load pattern with arc-length or displacement control
+- **Load patterns** — inverted triangular, uniform, code-specific (EC8, ASCE 7) modal-proportional
+- **Plastic hinge tracking** — monitor and record sequence of hinge formation, ductility demand per step
+- **Capacity curve extraction** — base shear vs roof displacement, bilinear idealization
+- **Capacity spectrum method** (ATC-40 / FEMA 440) — convert to ADRS format, find performance point
+- **N2 method** (Eurocode 8) — SDOF equivalent, target displacement from elastic spectrum
+- **Multi-modal pushover** (MPA) — run separate pushovers per mode, combine via SRSS
+
+Finish means:
+- pushover on known benchmark frames matches published capacity curves
+- performance point identification agrees with hand calculations on standard SDOF/MDOF cases
+- plastic hinge sequence matches expected failure mode for standard frame configurations
+
+### Phase L: Advanced Element Library
+
+Goal:
+- element families needed for specialized structural analysis beyond frames and shells
+
+Solver work:
+
+**Special structural elements:**
+- **Seismic isolator elements** — bilinear hysteretic, friction pendulum (velocity-dependent)
+- **Viscous damper elements** — velocity-dependent force (F = C·v^α)
+- **Buckling-restrained braces (BRB)** — backbone curve + hysteresis with compression overstrength
+- **Panel zone elements** — beam-column joint flexibility (Krawinkler model)
+- **Infill wall elements** — equivalent diagonal strut (Crisafulli model)
+
+**Cable & tension structures:**
+- **Full catenary element** — exact catenary stiffness matrix (not Ernst approximation)
+- **Form-finding** — force density method, dynamic relaxation for cable/membrane structures
+- **Membrane elements** — tension-only triangular membranes for fabric structures
+
+**3D solid elements (later):**
+- **8-node hex (C3D8)** — standard trilinear brick with B-bar or selective reduced integration
+- **20-node hex (C3D20)** — serendipity quadratic brick
+- **4-node tet (C3D4)** — linear tetrahedron (constant strain)
+- **10-node tet (C3D10)** — quadratic tetrahedron
+
+**Advanced beams:**
+- **Tapered elements** — variable cross-section beams with interpolated section properties
+- **Curved beams** — in-plane and out-of-plane curved beam elements
+
+Finish means:
+- isolator element reproduces published bilinear hysteresis loops within 2%
+- BRB element matches published backbone curves and cyclic energy dissipation
+- catenary element matches exact catenary solution for cable under self-weight
+- solid elements pass patch tests and converge on known elasticity benchmarks
+
+### Phase M: Fire & Progressive Collapse Analysis
+
+Goal:
+- temperature-dependent structural analysis and automated member removal for robustness checks
+
+Solver work:
+
+**Fire analysis:**
+- **Standard fire curves** — ISO 834, ASTM E119, hydrocarbon curve as time-temperature input
+- **Parametric fire curves** — Eurocode 1-1-2 compartment fire model
+- **Temperature-dependent material properties** — reduced E, fy, fc per EC2/EC3/EC4 fire parts
+- **Thermal analysis** — 1D lumped parameter or 2D FE heat transfer through sections
+- **Coupled thermo-mechanical** — sequential: solve thermal → apply degraded properties → structural solve at each time step
+
+**Progressive collapse:**
+- **Automatic member removal** — systematic removal of one vertical element at a time
+- **Dynamic amplification** — 2.0 factor for linear static per GSA/UFC 4-023-03
+- **Nonlinear static alternate path** — remove element, solve with nonlinear geometry + material
+- **Catenary action** — large-displacement analysis to capture tensile membrane resistance after member loss
+- **Acceptance criteria evaluation** — rotation limits, ductility demands per member per GSA guidelines
+
+Finish means:
+- material property reduction curves match EC2/EC3 tabulated values at standard temperatures
+- structural response under ISO 834 matches published fire analysis benchmarks
+- member removal + nonlinear re-analysis produces stable results on standard frame configurations
+- dynamic amplification factor approach matches nonlinear dynamic results within expected accuracy bounds
+
+### Phase N: Automatic Load Generation (Solver Support)
+
+Goal:
+- solver-side infrastructure for code-based automatic load generation
+
+Solver work:
+- **Wind pressure computation** — velocity pressure profiles (Kz, qz) from terrain/exposure parameters per ASCE 7 and EC1
+- **Seismic force distribution** — equivalent lateral force procedure (base shear, vertical distribution, accidental torsion) per EC8/ASCE 7/NCh 433
+- **Snow load computation** — ground-to-roof conversion with drift/sliding factors per EC1-1-3/ASCE 7
+- **Live load pattern generation** — automatic checkerboard and adjacent-span pattern combinations
+- **Surface pressure mapping** — map computed pressures to shell/plate element face loads based on surface orientation
+
+Finish means:
+- ELF base shear and vertical distribution match hand calculations for standard building configurations
+- wind pressure profiles match tabulated code values within rounding tolerance
+- pattern loading generates correct unfavorable arrangements for continuous beams
+
+### Phase O: Performance & Scale (Iterative Solvers and GPU)
+
+Goal:
+- handle 100k+ DOF models in-browser and enable topology optimization inner loops
+
+Solver work:
+- **Preconditioned CG** — Jacobi and IC(0) preconditioners for SPD systems
+- **GMRES / MINRES** — for indefinite and non-symmetric systems (contact, buckling)
+- **Hybrid direct-iterative** — direct for small/medium, iterative for large, automatic selection
+- **Block eigensolvers** — LOBPCG / block Lanczos for many-mode problems
+- **WebGPU compute shaders** — parallel element stiffness evaluation, postprocessing kernels, sparse mat-vec
+- **Web Workers** — parallel assembly across multiple cores (beyond current rayon)
+- **Sparse mass matrix** — enable fully-sparse K⁻¹Mx eigensolver paths
+- **Supernodal Cholesky** — block-column factorization for cache utilization on large models
+
+Finish means:
+- PCG converges on representative shell models with IC(0) preconditioning
+- hybrid solver automatically selects iterative above measured crossover point
+- WebGPU element evaluation shows measurable speedup on large uniform shell meshes
+- 100k DOF models solve in-browser within reasonable time (< 60s)
+
+### Phase P: Optimization Solver Support
+
+Goal:
+- solver-level infrastructure for structural optimization workflows
+
+Solver work:
+- **Sensitivity analysis** — analytical or semi-analytical design sensitivities (dK/dx, dM/dx)
+- **SIMP topology optimization** — density-based with penalization, OC or MMA update
+- **Adjoint method** — efficient gradient computation for many design variables
+- **Eigenvalue sensitivity** — for frequency-constrained optimization
+- **Stress constraints** — p-norm aggregation for global stress constraint handling
+
+Finish means:
+- analytical sensitivities match finite-difference sensitivities within 1e-4 relative error
+- SIMP on MBB beam and cantilever benchmarks converges to known topologies
+- frequency-constrained optimization shifts target modes as expected
+
+### Phase Q: Reliability & Probabilistic Analysis
+
+Goal:
+- solver support for probabilistic structural assessment
+
+Solver work:
+- **Parameterized analysis** — solver accepts parameter vectors for material/geometry/load uncertainty
+- **FORM/SORM** — first/second-order reliability methods via gradient-based search
+- **Monte Carlo** — batch solver execution with random parameter sampling
+- **Importance sampling** — variance reduction for rare failure events
+- **Subset simulation** — efficient estimation of small failure probabilities
+- **Batch execution API** — run N analyses with different parameter sets efficiently (reuse symbolic factorization)
+
+Finish means:
+- FORM reliability index matches analytical solution for known limit-state functions
+- Monte Carlo failure probability converges to FORM result with sufficient samples
+- batch execution reuses symbolic factorization across parameter variations
+
 ## Full Backlog
+
+### Phases A–H (Core Solver Quality)
 
 1. Measure buckling runtime on the sparse eigensolver path
 2. Measure Guyan runtime after factorization reuse
@@ -458,17 +680,121 @@ Concrete proof:
 29. Deepen layered/composite shell constitutive behavior
 30. Add richer prestress tendon / relaxation workflows
 31. Add bridge-specific staged / moving-load workflow depth
-32. Add fatigue workflows
-33. Add fire / temperature-dependent nonlinear workflows
-34. Add more specialized shell / continuum families only if still justified
-35. Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
-36. Add deterministic repro-bundle export for production failures
-37. Add versioned / contract-tested public solver payloads
-38. Add workflow-level timing and browser memory baselines, not only kernel microbenchmarks
-39. Add explicit TypeScript-solver deletion checklist and migration gates
-40. Add native / server execution parity and batch-run coverage
-41. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
-42. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
+32. Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
+33. Add deterministic repro-bundle export for production failures
+34. Add versioned / contract-tested public solver payloads
+35. Add workflow-level timing and browser memory baselines, not only kernel microbenchmarks
+36. Add explicit TypeScript-solver deletion checklist and migration gates
+37. Add native / server execution parity and batch-run coverage
+38. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
+39. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
+
+### Phase I (Dynamic Analysis)
+
+40. Implement Newmark-β implicit time integration (β=1/4, γ=1/2)
+41. Implement HHT-α method with numerical dissipation control
+42. Implement explicit central difference method with critical Δt calculation
+43. Add Rayleigh damping (α·M + β·K) to all dynamic solvers
+44. Add modal damping with per-mode damping ratios
+45. Implement consistent mass matrix alongside existing lumped mass
+46. Add nonlinear dynamics (Newton-Raphson within time steps)
+47. Add operator-splitting for efficiency in nonlinear dynamics
+48. Implement energy balance monitoring for numerical stability detection
+49. Add adaptive time stepping based on convergence behavior
+50. Implement checkpoint/restart for long dynamic analyses
+51. Add ground motion input as base excitation
+52. Add response history extraction at selected nodes/DOFs
+
+### Phase J (Nonlinear Materials)
+
+53. Implement material state management (commit/revert/copy) framework
+54. Implement Kent-Park / modified Kent-Park confined/unconfined concrete
+55. Implement Mander confined concrete model
+56. Implement Concrete02 with tension stiffening
+57. Implement concrete damage plasticity (CDP)
+58. Implement fib Model Code 2010 stress-strain curves
+59. Implement Eurocode 2 parabola-rectangle design curves
+60. Implement bilinear steel (elastic-perfectly-plastic, strain-hardening)
+61. Implement Menegotto-Pinto (Steel02) hysteretic model
+62. Implement Giuffré-Menegotto-Pinto combined hardening
+63. Implement Steel4 with asymmetric behavior and fracture
+64. Add fiber section with multiple materials (concrete core + cover + rebar)
+65. Add 3D fiber section (biaxial bending: ε₀, κy, κz)
+66. Add moment-curvature analysis from fiber section integration
+67. Add M-N-V interaction surface generation
+
+### Phase K (Pushover)
+
+68. Implement displacement-controlled pushover with arc-length control
+69. Add load patterns: inverted triangular, uniform, modal-proportional (EC8, ASCE 7)
+70. Add plastic hinge tracking with ductility demand per step
+71. Implement capacity curve extraction with bilinear idealization
+72. Implement capacity spectrum method (ATC-40 / FEMA 440)
+73. Implement N2 method (Eurocode 8)
+74. Implement multi-modal pushover analysis (MPA)
+
+### Phase L (Advanced Elements)
+
+75. Implement seismic isolator elements (bilinear, friction pendulum)
+76. Implement viscous damper elements (F = C·v^α)
+77. Implement BRB elements with backbone curve and hysteresis
+78. Implement panel zone elements (Krawinkler model)
+79. Implement infill wall elements (equivalent diagonal strut)
+80. Implement full catenary element (exact stiffness, not Ernst)
+81. Add form-finding (force density, dynamic relaxation)
+82. Add membrane elements for fabric structures
+83. Add tapered beam elements
+84. Add curved beam elements
+85. Add 3D solid elements (C3D8, C3D20, C3D4, C3D10) — later priority
+
+### Phase M (Fire & Progressive Collapse)
+
+86. Implement standard fire curves (ISO 834, ASTM E119, hydrocarbon)
+87. Implement parametric fire curves (EC1-1-2)
+88. Add temperature-dependent material properties per EC2/EC3/EC4
+89. Implement 1D/2D thermal analysis through sections
+90. Add coupled thermo-mechanical sequential analysis
+91. Implement automatic member removal for progressive collapse
+92. Add dynamic amplification factor per GSA/UFC
+93. Add nonlinear static alternate path analysis
+94. Add catenary action (large-displacement tensile membrane)
+95. Add acceptance criteria evaluation per GSA guidelines
+
+### Phase N (Automatic Load Generation)
+
+96. Implement wind pressure computation (ASCE 7, EC1)
+97. Implement seismic ELF distribution (EC8, ASCE 7, NCh 433)
+98. Implement snow load computation (EC1-1-3, ASCE 7)
+99. Add live load pattern generation (checkerboard, adjacent-span)
+100. Add surface pressure mapping to element face loads
+
+### Phase O (Performance & Scale)
+
+101. Implement PCG with Jacobi and IC(0) preconditioners
+102. Implement GMRES / MINRES for indefinite systems
+103. Add hybrid direct-iterative solver with automatic selection
+104. Add block eigensolvers (LOBPCG / block Lanczos)
+105. Implement WebGPU compute shaders for element stiffness and mat-vec
+106. Add Web Workers for parallel assembly
+107. Add sparse mass matrix for fully-sparse eigensolver paths
+108. Implement supernodal Cholesky for cache utilization
+
+### Phase P (Optimization)
+
+109. Implement analytical design sensitivities (dK/dx, dM/dx)
+110. Implement SIMP topology optimization with OC/MMA update
+111. Add adjoint method for efficient gradient computation
+112. Add eigenvalue sensitivity for frequency-constrained optimization
+113. Add p-norm stress constraint aggregation
+
+### Phase Q (Reliability & Probabilistic)
+
+114. Add parameterized solver for material/geometry/load uncertainty
+115. Implement FORM/SORM reliability methods
+116. Add Monte Carlo batch solver execution
+117. Add importance sampling for rare failure events
+118. Implement subset simulation
+119. Add batch execution API with symbolic factorization reuse
 
 ## Active Programs
 
@@ -544,6 +870,8 @@ Focus:
 - conditioning diagnostics
 - eigensolver debt cleanup
 - CI protection for sparse/eigensolver/reduction wins
+- iterative solvers (PCG, GMRES) for 100k+ DOF models (Phase O)
+- WebGPU compute shaders for element evaluation (Phase O)
 
 Current status:
 - **sparse shell solve viability is done**: direct left-looking symbolic Cholesky with two-tier pivot perturbation eliminates dense LU fallback on all shell families (MITC4, MITC9, curved shell)
@@ -590,6 +918,9 @@ Updated numerical-methods order:
 7. iterative refinement and Krylov solvers
 8. ~~modified Newton~~ — DONE (implemented for corotational and fiber nonlinear solvers; not a universal default)
 9. quasi-Newton variants
+10. iterative solvers (PCG + IC(0), GMRES/MINRES) — Phase O
+11. WebGPU compute shaders — Phase O
+12. supernodal Cholesky — Phase O
 
 See [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md).
 
@@ -685,6 +1016,43 @@ Focus:
 Why it matters:
 If Rust is the one solver, it should not be constrained to browser-only execution for the workloads where native execution is clearly better.
 
+### 8. Dynamic Analysis and Earthquake Engineering
+
+Focus:
+- time integration methods (Newmark-β, HHT-α, explicit central difference)
+- damping models (Rayleigh, modal)
+- nonlinear dynamics with material and geometric nonlinearity
+- ground motion input and response extraction
+- pushover analysis and capacity spectrum methods
+- seismic isolator and damper element support
+
+Why it matters:
+Dynamic and pushover analysis is what OpenSees is famous for. This is the capability that makes Dedaliano the go-to tool for earthquake engineering.
+
+### 9. Nonlinear Material Library
+
+Focus:
+- material state management framework (commit/revert/copy)
+- concrete models (Kent-Park, Mander, Concrete02, CDP, code-based)
+- steel models (bilinear, Menegotto-Pinto, Giuffré, Steel4)
+- fiber sections with mixed materials
+- moment-curvature and interaction surface generation
+
+Why it matters:
+Realistic material behavior is the foundation of all nonlinear analysis. Without it, pushover, dynamic, and design workflows are toys.
+
+### 10. Specialized Analysis Depth
+
+Focus:
+- fire analysis with temperature-dependent material degradation (Phase M)
+- progressive collapse with automated member removal (Phase M)
+- automatic load generation from building codes (Phase N)
+- topology optimization with sensitivity analysis (Phase P)
+- reliability and probabilistic assessment (Phase Q)
+
+Why it matters:
+These capabilities close the remaining gaps between Dedaliano and commercial tools like SAP2000/ETABS/RFEM, and push beyond what any open-source solver offers today.
+
 ## Exit Criteria
 
 ### Shell-family maturity
@@ -772,6 +1140,9 @@ Done means:
 - long-tail nonlinear hardening
 - solver-path consistency
 - constraint-system maturity
+- dynamic analysis (Newmark-β, HHT-α, explicit) — Phase I
+- nonlinear material models (concrete, steel, fiber sections) — Phase J
+- pushover analysis (capacity spectrum, N2, MPA) — Phase K
 
 ### Important after the core claim is secure
 
@@ -782,19 +1153,27 @@ Done means:
 - specialized shell breadth
 - deterministic-behavior and explainability refinement
 - broader native/server workflow packaging after core parity is secure
+- advanced element library (isolators, BRB, catenary, panel zones) — Phase L
+- automatic load generation (wind, seismic ELF, snow, patterns) — Phase N
+- iterative solvers and WebGPU for 100k+ DOF models — Phase O
 
 ### Later specialization
 
-- fire / fatigue / specialized lifecycle domains
+- fire and progressive collapse analysis — Phase M
+- topology optimization and sensitivity analysis — Phase P
+- reliability and probabilistic analysis (FORM/SORM, Monte Carlo) — Phase Q
+- 3D solid elements (hex, tet)
 - membranes / cable nets / specialized tensile structures
 - bridge-specific advanced workflows
 - broader domain expansion
 
 ## Non-Goals Right Now
 
-- no broad multiphysics expansion
-- no new specialty domains before shell, scale, verification, and nonlinear hardening are tighter
-- no solver-scope expansion driven by product/UI convenience
+- no broad multiphysics expansion (CFD, thermal-fluid, electromagnetics)
+- no isogeometric analysis (IGA shines for automotive/aerospace, not buildings)
+- no meshfree methods (peridynamics, MPM — niche, out of scope for routine structural)
+- no GPU sparse direct factorization (CPU sparse direct is correct for structural problem sizes)
+- no solver-scope expansion driven by product/UI convenience ahead of core quality
 - no feature-count work ahead of validation, robustness, and scale
 - no roadmap drift into a changelog or benchmark ledger
 
