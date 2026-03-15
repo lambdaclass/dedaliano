@@ -46,11 +46,46 @@
   }
 
   function isAppRoute(pathname: string) {
-    return pathname === '/app' || pathname === '/app/';
+    return pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/');
   }
 
   function isDemoRoute(pathname: string) {
     return pathname === '/demo' || pathname === '/demo/';
+  }
+
+  type AppMode = 'basico' | 'educativo' | 'pro';
+
+  function slugifyTabName(name: string) {
+    return (name || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'new-structure';
+  }
+
+  function modeToPath(mode: AppMode) {
+    if (mode === 'educativo') return '/app/education';
+    if (mode === 'pro') return '/app/pro';
+    return '/app/basic';
+  }
+
+  function pathToMode(pathname: string): AppMode {
+    if (pathname === '/app/pro' || pathname === '/app/pro/') return 'pro';
+    if (pathname === '/app/education' || pathname === '/app/education/') return 'educativo';
+    if (pathname === '/app/basic' || pathname === '/app/basic/') return 'basico';
+    return 'basico';
+  }
+
+  function replaceAppUrl(mode: AppMode, tabName?: string) {
+    const url = new URL(location.href);
+    url.pathname = modeToPath(mode);
+    if (tabName) {
+      url.searchParams.set('tab', slugifyTabName(tabName));
+    } else {
+      url.searchParams.delete('tab');
+    }
+    history.replaceState(null, '', `${url.pathname}${url.search}`);
   }
 
   function shouldShowLanding() {
@@ -63,13 +98,24 @@
 
   function enterApp() {
     if (!isAppRoute(location.pathname)) {
-      history.pushState(null, '', '/app');
+      history.pushState(null, '', modeToPath(currentAppMode));
     }
     showLanding = false;
   }
 
   function syncRouteState() {
     showLanding = shouldShowLanding();
+    if (!showLanding) {
+      const nextMode = pathToMode(location.pathname);
+      currentAppMode = nextMode;
+      if (nextMode === 'educativo') {
+        uiStore.analysisMode = 'edu';
+      } else if (nextMode === 'pro') {
+        uiStore.analysisMode = 'pro';
+      } else {
+        uiStore.analysisMode = '2d';
+      }
+    }
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
@@ -81,9 +127,8 @@
   // When switching between básico/edu/pro, save the current model and restore
   // the target mode's model (or start empty if first visit to that mode).
   import type { ModelSnapshot } from './lib/store/history.svelte';
-  type AppMode = 'basico' | 'educativo' | 'pro';
   const modeSnapshots = new Map<AppMode, ModelSnapshot>();
-  let currentAppMode: AppMode = 'basico';
+  let currentAppMode: AppMode = typeof window !== 'undefined' ? pathToMode(location.pathname) : 'basico';
 
   function switchAppMode(target: AppMode) {
     const prev = currentAppMode;
@@ -111,6 +156,7 @@
       uiStore.analysisMode = 'pro';
     }
     currentAppMode = target;
+    replaceAppUrl(target, modelStore.model.name);
   }
 
   let showTemplateDialog = $state(false);
@@ -179,6 +225,15 @@
   }
 
   onMount(() => {
+    currentAppMode = pathToMode(location.pathname);
+    if (currentAppMode === 'educativo') {
+      uiStore.analysisMode = 'edu';
+    } else if (currentAppMode === 'pro') {
+      uiStore.analysisMode = 'pro';
+    } else {
+      uiStore.analysisMode = '2d';
+    }
+
     // Initialize WASM solver (non-blocking, fallback to JS if it fails)
     import('./lib/engine/wasm-solver').then(m => m.initSolver()).catch(() => {
       console.warn('WASM solver unavailable, using JS fallback');
@@ -192,7 +247,7 @@
     window.addEventListener('popstate', onPopState);
 
     if (isDemoRoute(location.pathname)) {
-      history.replaceState(null, '', '/app');
+      history.replaceState(null, '', modeToPath(currentAppMode));
       syncRouteState();
       setTimeout(() => tourStore.start(buildTourSteps()), 600);
     }
@@ -276,6 +331,11 @@
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
       window.removeEventListener('popstate', onPopState);
     };
+  });
+
+  $effect(() => {
+    if (showLanding || typeof window === 'undefined') return;
+    replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
   // Reactive auto-clear results + live calculation on model changes
