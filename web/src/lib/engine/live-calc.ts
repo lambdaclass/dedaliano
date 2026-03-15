@@ -24,6 +24,19 @@ function hasNaN3D(displacements: { ux: number; uy: number; uz: number }[]): bool
   return displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz));
 }
 
+function formatSolveTiming(timings: any): string {
+  if (!timings) return '';
+  const totalMs =
+    typeof timings.totalMs === 'number' ? timings.totalMs :
+    typeof timings.total_us === 'number' ? timings.total_us / 1000 :
+    typeof timings.totalUs === 'number' ? timings.totalUs / 1000 :
+    null;
+  if (totalMs == null || !Number.isFinite(totalMs)) return '';
+  return totalMs >= 1000
+    ? ` (${(totalMs / 1000).toFixed(2)} s)`
+    : ` (${totalMs.toFixed(1)} ms)`;
+}
+
 const VALID_2D_DIAGRAMS = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'] as const;
 const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'] as const;
 
@@ -173,7 +186,7 @@ async function globalSolve3D(): Promise<void> {
     }
     resultsStore.setResults3D(r);
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
-    const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
+    const timeStr = formatSolveTiming(r.timings);
     uiStore.toast(
       `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
@@ -283,7 +296,7 @@ function globalSolve2D(): void {
   }
 
   if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
-  const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
+  const timeStr = formatSolveTiming(r.timings);
   uiStore.toast(
     `${t('results.calcSuccess')}${classText}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}${comboText}`,
     'success',
