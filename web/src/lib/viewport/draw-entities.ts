@@ -111,7 +111,7 @@ export function drawNode(
 // ── Element color ────────────────────────────────────────────────────
 
 export function getElementColor(
-  elem: { id: number; materialId: number; sectionId: number },
+  elem: { id: number; type?: string; materialId: number; sectionId: number },
   elementColorMode: string,
 ): string {
   if (elementColorMode === 'byMaterial') {
@@ -119,7 +119,8 @@ export function getElementColor(
   } else if (elementColorMode === 'bySection') {
     return ELEMENT_PALETTE[(elem.sectionId - 1) % ELEMENT_PALETTE.length];
   }
-  return '#4ecdc4';
+  // Default: differentiate frame vs truss by color
+  return elem.type === 'truss' ? '#e8a030' : '#4a9eff';
 }
 
 // ── Elements ─────────────────────────────────────────────────────────
