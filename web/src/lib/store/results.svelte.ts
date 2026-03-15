@@ -113,7 +113,7 @@ function createResultsStore() {
   let modalResult3D = $state<ModalResult3D | null>(null);
   let bucklingResult3D = $state<BucklingResult3D | null>(null);
   let spectralResult3D = $state<SpectralResult3D | null>(null);
-  let showReactions = $state<boolean>(true);
+  let showReactions = $state<boolean>(false);
   let showConstraintForces = $state<boolean>(false);
   let movingLoadShowEnvelope = $state<boolean>(false);
 
@@ -548,6 +548,8 @@ function createResultsStore() {
       movingLoadRunning = false;
       movingLoadProgress = null;
       movingLoadAbortController = null;
+      showReactions = false;
+      showConstraintForces = false;
       // NOTE: stressQuery is NOT cleared here — it represents user intent ("what to inspect").
       // When results disappear, Viewport effects cascade: no results → selectMode='elements' → stressQuery=null.
       // This allows the panel to survive live-calc re-solves where results are only briefly null.
@@ -571,6 +573,8 @@ function createResultsStore() {
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       results3D = r;
       singleResults3D = r;
+      showReactions = false;
+      showConstraintForces = false;
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {
@@ -610,6 +614,8 @@ function createResultsStore() {
       modalResult3D = null;
       bucklingResult3D = null;
       spectralResult3D = null;
+      showReactions = false;
+      showConstraintForces = false;
       // Reset diagram state so stale deformed/diagrams are removed from scene
       diagramType = 'none';
       animateDeformed = false;
@@ -626,6 +632,8 @@ function createResultsStore() {
       perCase3D = pc;
       perCombo3D = pco;
       envelope3D = env;
+      showReactions = false;
+      showConstraintForces = false;
       activeCaseId = null;
       activeComboId = pco.keys().next().value ?? null;
       // Default: show first combination if available (avoids nonsensical
