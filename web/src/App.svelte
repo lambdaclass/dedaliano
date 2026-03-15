@@ -299,6 +299,8 @@
         }
         currentAppMode = uiStore.appMode;
         replaceAppUrl(currentAppMode, modelStore.model.name);
+        autosaveData = null;
+        showAutosaveBanner = false;
       }
 
       autosaveData = loadFromLocalStorage();
@@ -357,7 +359,6 @@
   $effect(() => {
     if (showLanding || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
-    saveWorkspaceToLocalStorage();
   });
 
   // Reactive auto-clear results + live calculation on model changes
