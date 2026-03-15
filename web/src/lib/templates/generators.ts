@@ -1122,28 +1122,30 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const fieldWidth = 68;
     const fieldHalfX = fieldLength / 2;
     const fieldHalfZ = fieldWidth / 2;
-    const standClear = 10;
     const n = p.nFrames;
 
-    const ring = (rx: number, rz: number, y: number, scaleY = 0) => {
+    const ovalRing = (rx: number, rz: number, y: number, crown = 0) => {
       const ids: number[] = [];
       for (let i = 0; i < n; i++) {
         const theta = (2 * Math.PI * i) / n;
         const c = Math.cos(theta);
         const s = Math.sin(theta);
-        const mainStand = Math.max(0, s);
-        ids.push(store.addNode(rx * c, y + mainStand * scaleY, rz * s));
+        const crownLift = Math.max(0, Math.cos(theta * 2)) * crown;
+        ids.push(store.addNode(rx * c, y + crownLift, rz * s));
       }
       return ids;
     };
 
-    const lowerFront = ring(Math.max(p.innerMajorRadius, fieldHalfX + standClear), Math.max(p.innerMinorRadius, fieldHalfZ + standClear), 2);
-    const lowerBack = ring(p.innerMajorRadius + 18, p.innerMinorRadius + 14, 10, 2);
-    const upperFront = ring(p.innerMajorRadius + 26, p.innerMinorRadius + 22, 16, 4);
-    const upperBack = ring(p.majorRadius - 10, p.minorRadius - 8, 28, 7);
-    const roofInner = ring(p.majorRadius - 2, p.minorRadius - 2, 34, 6);
-    const roofOuter = ring(p.majorRadius + 18, p.minorRadius + 14, p.roofRise + 22, 8);
-    const baseOuter = ring(p.majorRadius + 8, p.minorRadius + 6, 0, 0);
+    const fieldEdge = ovalRing(fieldHalfX + 10, fieldHalfZ + 10, 1.5);
+    const lowerBack = ovalRing(fieldHalfX + 24, fieldHalfZ + 20, 12);
+    const upperFront = ovalRing(fieldHalfX + 30, fieldHalfZ + 26, 18);
+    const upperBack = ovalRing(fieldHalfX + 46, fieldHalfZ + 40, 30, 3);
+    const concourse = ovalRing(fieldHalfX + 54, fieldHalfZ + 46, 33, 2);
+    const roofInner = ovalRing(fieldHalfX + 60, fieldHalfZ + 52, 40, 2);
+    const roofMid = ovalRing(fieldHalfX + 74, fieldHalfZ + 66, p.roofRise + 12, 4);
+    const roofOuter = ovalRing(fieldHalfX + 88, fieldHalfZ + 80, p.roofRise + 20, 6);
+    const baseOuter = ovalRing(fieldHalfX + 58, fieldHalfZ + 50, 0);
+    const podium = ovalRing(fieldHalfX + 74, fieldHalfZ + 64, 0);
 
     const addRingFrames = (nodes: number[], type: 'frame' | 'truss' = 'frame') => {
       for (let i = 0; i < n; i++) {
@@ -1151,50 +1153,69 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
       }
     };
 
+    addRingFrames(podium);
     addRingFrames(baseOuter);
-    addRingFrames(lowerFront);
+    addRingFrames(fieldEdge);
     addRingFrames(lowerBack);
     addRingFrames(upperFront);
     addRingFrames(upperBack);
+    addRingFrames(concourse);
     addRingFrames(roofInner);
+    addRingFrames(roofMid);
     addRingFrames(roofOuter);
 
     for (let i = 0; i < n; i++) {
       const next = (i + 1) % n;
 
       // Tier surfaces
-      store.addQuad([lowerFront[i], lowerFront[next], lowerBack[next], lowerBack[i]], 1, 0.22);
+      store.addQuad([fieldEdge[i], fieldEdge[next], lowerBack[next], lowerBack[i]], 1, 0.24);
       store.addQuad([upperFront[i], upperFront[next], upperBack[next], upperBack[i]], 1, 0.22);
+      store.addQuad([lowerBack[i], lowerBack[next], upperFront[next], upperFront[i]], 1, 0.20);
 
       // Tier rakers and supports
-      store.addElement(lowerFront[i], lowerBack[i], 'frame');
+      store.addElement(fieldEdge[i], lowerBack[i], 'frame');
       store.addElement(lowerBack[i], upperFront[i], 'frame');
       store.addElement(upperFront[i], upperBack[i], 'frame');
+      store.addElement(upperBack[i], concourse[i], 'frame');
       store.addElement(baseOuter[i], upperBack[i], 'frame');
+      store.addElement(baseOuter[i], podium[i], 'frame');
       if (i % 2 === 0) {
-        store.addElement(lowerFront[i], lowerBack[next], 'truss');
+        store.addElement(fieldEdge[i], lowerBack[next], 'truss');
         store.addElement(upperFront[i], upperBack[next], 'truss');
+        store.addElement(podium[i], baseOuter[next], 'truss');
       }
 
-      // Roof over the stands, open above the pitch centerline band on one side
-      const theta = (2 * Math.PI * i) / n;
-      const c = Math.cos(theta);
-      const s = Math.sin(theta);
-      const openSector = s < -0.25 && Math.abs(c) < 0.85;
-      if (!openSector) {
-        store.addElement(upperBack[i], roofInner[i], 'frame');
-        store.addElement(roofInner[i], roofOuter[i], 'frame');
-        if (i % 2 === 0) {
-          store.addElement(upperBack[i], roofOuter[i], 'truss');
-          store.addElement(roofInner[i], roofOuter[next], 'truss');
-        } else {
-          store.addElement(upperBack[next], roofInner[i], 'truss');
-          store.addElement(roofOuter[i], roofInner[next], 'truss');
-        }
-        store.addNodalLoad3D(roofOuter[i], 0, -10, 0, 0, 0, 0);
+      // Continuous roof lattice like the reference image
+      store.addElement(concourse[i], roofInner[i], 'frame');
+      store.addElement(roofInner[i], roofMid[i], 'frame');
+      store.addElement(roofMid[i], roofOuter[i], 'frame');
+      if (i % 2 === 0) {
+        store.addElement(upperBack[i], roofInner[i], 'truss');
+        store.addElement(roofInner[i], roofMid[next], 'truss');
+        store.addElement(roofMid[i], roofOuter[next], 'truss');
+      } else {
+        store.addElement(upperBack[next], roofInner[i], 'truss');
+        store.addElement(roofMid[next], roofInner[i], 'truss');
+        store.addElement(roofOuter[i], roofMid[next], 'truss');
+      }
+      if (p.roofLoad !== 0) {
+        const ringA = store.addElement(roofInner[i], roofInner[next], 'frame');
+        const ringB = store.addElement(roofMid[i], roofMid[next], 'frame');
+        const ringC = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+        store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
+        store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
+        store.addDistributedLoad3D(ringC, 0, p.roofLoad, 0, p.roofLoad);
+      }
+
+      // Outer colonnade
+      if (i % 2 === 0) {
+        store.addElement(podium[i], roofOuter[i], 'frame');
       }
 
       store.addSupport(baseOuter[i], 'fixed3d');
+      if (i % 2 === 0) {
+        store.addSupport(podium[i], 'fixed3d');
+      }
     }
 
     // Soccer field as shell quads
