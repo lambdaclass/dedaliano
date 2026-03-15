@@ -1100,6 +1100,81 @@ export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DPar
 }
 
 // -------------------------------------------------------------------
+// 8. Full stadium — bowl + perimeter roof ring
+// -------------------------------------------------------------------
+
+export interface FullStadium3DParams {
+  majorRadius: number;
+  minorRadius: number;
+  innerMajorRadius: number;
+  innerMinorRadius: number;
+  roofRise: number;
+  nFrames: number;
+  roofLoad: number;
+}
+
+export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams): void {
+  store.clear();
+  store.model.name = t('ex.fullStadium3D');
+
+  store.batch(() => {
+    const baseOuter: number[] = [];
+    const concourse: number[] = [];
+    const innerBowl: number[] = [];
+    const roofInner: number[] = [];
+    const roofOuter: number[] = [];
+
+    const innerRise = p.roofRise * 0.35;
+    const outerRise = p.roofRise;
+
+    for (let i = 0; i < p.nFrames; i++) {
+      const theta = (2 * Math.PI * i) / p.nFrames;
+      const c = Math.cos(theta);
+      const s = Math.sin(theta);
+
+      baseOuter.push(store.addNode(p.majorRadius * c, 0, p.minorRadius * s));
+      concourse.push(store.addNode((p.majorRadius - 6) * c, innerRise * 0.35, (p.minorRadius - 6) * s));
+      innerBowl.push(store.addNode(p.innerMajorRadius * c, innerRise, p.innerMinorRadius * s));
+      roofInner.push(store.addNode((p.innerMajorRadius + 6) * c, innerRise + 4, (p.innerMinorRadius + 6) * s));
+      roofOuter.push(store.addNode((p.majorRadius + 8) * c, outerRise, (p.minorRadius + 8) * s));
+    }
+
+    for (let i = 0; i < p.nFrames; i++) {
+      const next = (i + 1) % p.nFrames;
+
+      // Ring beams
+      store.addElement(baseOuter[i], baseOuter[next], 'frame');
+      store.addElement(concourse[i], concourse[next], 'frame');
+      store.addElement(innerBowl[i], innerBowl[next], 'frame');
+      const innerRoofRing = store.addElement(roofInner[i], roofInner[next], 'frame');
+      const outerRoofRing = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+
+      if (p.roofLoad !== 0) {
+        store.addDistributedLoad3D(innerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
+        store.addDistributedLoad3D(outerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
+      }
+
+      // Rakers / columns / roof cantilevers
+      store.addElement(baseOuter[i], concourse[i], 'frame');
+      store.addElement(concourse[i], innerBowl[i], 'frame');
+      store.addElement(concourse[i], roofOuter[i], 'frame');
+      store.addElement(innerBowl[i], roofInner[i], 'frame');
+      store.addElement(roofInner[i], roofOuter[i], 'frame');
+
+      // Radial roof and bowl bracing
+      store.addElement(innerBowl[i], roofOuter[i], 'truss');
+      store.addElement(roofInner[i], roofOuter[next], 'truss');
+      store.addElement(roofOuter[i], roofInner[next], 'truss');
+      store.addElement(concourse[i], innerBowl[next], 'truss');
+      store.addElement(innerBowl[i], concourse[next], 'truss');
+
+      store.addSupport(baseOuter[i], 'fixed3d');
+      store.addNodalLoad3D(roofOuter[i], 0, -10, 0, 0, 0, 0);
+    }
+  });
+}
+
+// -------------------------------------------------------------------
 // 3D Template catalog (for UI registration)
 // -------------------------------------------------------------------
 

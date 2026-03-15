@@ -360,6 +360,8 @@ const en: Record<string, string> = {
   'ex.landmarkTower3D.desc': 'Eiffel-inspired tapered tower with lattice bracing',
   'ex.cableStayedBridge3D': 'Cable-Stayed Bridge',
   'ex.cableStayedBridge3D.desc': 'Single-pylon bridge with stayed deck and transverse floorbeams',
+  'ex.fullStadium3D': 'Full Stadium',
+  'ex.fullStadium3D.desc': 'Complete bowl stadium with perimeter roof ring and radial framing',
   'ex.stadiumCanopy3D': 'Stadium Canopy',
   'ex.stadiumCanopy3D.desc': 'Long-span cantilever roof with front-edge girder',
 

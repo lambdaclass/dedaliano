@@ -3,6 +3,7 @@
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
   import {
     generateCableStayedBridge3D,
+    generateFullStadium3D,
     generateLandmarkTower3D,
     generateStadiumCanopy3D,
     getTemplateCatalog3D,
@@ -90,6 +91,7 @@
     { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
     { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 84, nLevels: 12, baseWidth: 28, topWidth: 8, lateralLoad: 24 }) },
     { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }) },
+    { nameKey: 'ex.fullStadium3D', descKey: 'ex.fullStadium3D.desc', load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }) },
     { nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc', load: () => generateStadiumCanopy3D(modelStore, { span: 96, depth: 30, nFrames: 14, roofLoad: -14, columnHeight: 22 }) },
     { nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(modelStore) },
     { nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(modelStore) },
