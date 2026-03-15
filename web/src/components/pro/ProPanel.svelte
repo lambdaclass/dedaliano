@@ -725,6 +725,8 @@
     inset: 0;
     z-index: 219;
     background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .pro-example-menu {
