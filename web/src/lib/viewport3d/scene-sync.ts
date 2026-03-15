@@ -399,10 +399,15 @@ export function syncSelection(ctx: SceneSyncContext): void {
   }
 
   // Elements
+  const wireframe = uiStore.renderMode3D === 'wireframe';
   for (const [id, group] of ctx.elementGroups) {
     const selected = uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
-    const baseColor = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
+    const isTruss = elem?.type === 'truss';
+    // Use brightened colors in wireframe mode for grid contrast
+    const baseColor = wireframe
+      ? (isTruss ? 0xf0b848 : 0x6cb4ff)
+      : (isTruss ? COLORS.truss : COLORS.frame);
     const color = selected ? COLORS.elementSelected : baseColor;
     setGroupColor(group, color);
   }

@@ -64,9 +64,9 @@ export function createElementGroup(
 
   const mode = opts.renderMode ?? 'solid';
 
-  // In wireframe mode, brighten colors to distinguish from the grid
+  // In wireframe mode, brighten the base colors to distinguish from the grid
   if (mode === 'wireframe' && !opts.selected && !opts.hovered) {
-    baseColor = opts.elementType === 'frame' ? 0xaaccee : 0xbbddaa;
+    baseColor = opts.elementType === 'frame' ? 0x6cb4ff : 0xf0b848;
   }
 
   if (mode === 'wireframe') {
