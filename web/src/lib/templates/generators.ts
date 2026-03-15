@@ -923,30 +923,16 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     const coreWidthX = Math.max(10, p.baseRadiusX * 0.32);
     const coreWidthZ = Math.max(10, p.baseRadiusZ * 0.32);
 
-    // Gherkin-like profile: flared lobby → bulge at ~30% → taper → pinched crown
+    // Gherkin-like profile: subtle swell at ~25% height, smooth taper to crown
     const radiusAt = (base: number, top: number, alpha: number) => {
-      const bulge = base * 1.18;   // 18% wider than base at belly
-      const waist = top * 1.15;    // slight widening before final pinch
-      if (alpha < 0.06) {
-        // Flared base/lobby: widens slightly from ground
-        return base + (alpha / 0.06) * (base * 1.06 - base);
-      }
-      if (alpha < 0.30) {
-        // Swell to maximum bulge
-        const t = (alpha - 0.06) / 0.24;
-        const smooth = t * t * (3 - 2 * t); // smoothstep
-        return base * 1.06 + smooth * (bulge - base * 1.06);
-      }
-      if (alpha < 0.70) {
-        // Long taper from bulge down to waist
-        const t = (alpha - 0.30) / 0.40;
-        const smooth = t * t * (3 - 2 * t);
-        return bulge + smooth * (waist - bulge);
-      }
-      // Final pinch to crown
-      const t = (alpha - 0.70) / 0.30;
-      const smooth = t * t * (3 - 2 * t);
-      return waist + smooth * (top * 0.55 - waist);
+      // Sinusoidal swell: peaks at ~25% height, 6% wider than base
+      const swell = 1 + 0.06 * Math.sin(Math.PI * Math.min(alpha / 0.5, 1));
+      // Smooth taper envelope from base to top
+      const smooth = alpha * alpha * (3 - 2 * alpha); // smoothstep
+      const envelope = base + smooth * (top - base);
+      // Sharper pinch in the top 10%
+      const pinch = alpha > 0.90 ? 1 - 0.25 * ((alpha - 0.90) / 0.10) : 1;
+      return envelope * swell * pinch;
     };
 
     for (let lev = 0; lev <= p.nLevels; lev++) {
