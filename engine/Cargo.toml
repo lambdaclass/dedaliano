@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["console_error_panic_hook"]
 parallel = ["rayon"]
+manual-bench-phases = []
 
 [dependencies]
 wasm-bindgen = "0.2"

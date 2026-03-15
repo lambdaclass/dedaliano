@@ -74,7 +74,7 @@ It should capture what changed, not what should be built next.
 - fill ratio grows from 2.6× (10×10) to 7.0× (50×50) under RCM ordering — not constant as previously estimated
 - extended `bench_solve_3d_shell` to 20×20 and 30×30 mesh sizes
 - added `bench_solve_3d_quad9` (5×5 to 15×15), `bench_solve_3d_curved` (8×8 to 24×24), and `bench_full_solve_3d_families` criterion benchmarks
-- added `sparse_vs_dense_comparison` test in `bench_phases.rs` printing formatted speedup table
+- added `sparse_vs_dense_comparison` in opt-in `bench_phases.rs` profiling test target, now gated behind `--features manual-bench-phases`
 
 #### Sparse shell solve viability and deterministic assembly
 
