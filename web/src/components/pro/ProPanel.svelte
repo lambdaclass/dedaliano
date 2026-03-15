@@ -5,6 +5,10 @@
     generateCableStayedBridge3D,
     generateFullStadium3D,
     generateGeodesicDome3D,
+    generateIrregularSetbackTower3D,
+    generateMatFoundation3D,
+    generatePipeRack3D,
+    generateRcDesignFrame3D,
     generateSuspensionBridge3D,
     generateXLDiagridTower3D,
   } from '../../lib/templates/generators';
@@ -85,15 +89,151 @@
   let showExampleMenu = $state(false);
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
 
-  const proExamples: Array<{ nameKey: string; descKey: string; load: () => void }> = [
-    { nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc', load: () => modelStore.loadExample('pro-edificio-7p') },
-    { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
-    { nameKey: 'ex.xlDiagridTower3D', descKey: 'ex.xlDiagridTower3D.desc', load: () => generateXLDiagridTower3D(modelStore, { H: 228, nLevels: 42, nSides: 20, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 22, topRadiusZ: 16, lateralLoad: 18 }) },
-    { nameKey: 'ex.suspensionBridge3D', descKey: 'ex.suspensionBridge3D.desc', load: () => generateSuspensionBridge3D(modelStore, { mainSpan: 480, sideSpan: 120, deckWidth: 22, towerHeight: 90, sag: 45, nPanelsMain: 40, nPanelsSide: 10, trussDepth: 8, deckLoad: -32 }) },
-    { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }) },
-    { nameKey: 'ex.fullStadium3D', descKey: 'ex.fullStadium3D.desc', load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }) },
-    { nameKey: 'ex.geodesicDome3D', descKey: 'ex.geodesicDome3D.desc', load: () => generateGeodesicDome3D(modelStore, { radius: 40, frequency: 8, hemisphere: true, selfWeightLoad: -5 }) },
+  type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
+  type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
+  interface ProExample {
+    nameKey: string;
+    descKey: string;
+    purposeKey: string;
+    groupKey: string;
+    group: ExampleGroup;
+    tags: string[];
+    stats: { nodes: string; members: string; shells?: string };
+    preset?: ExamplePreset;
+    load: () => void;
+  }
+
+  const proExamples: ProExample[] = [
+    {
+      group: 'buildings',
+      groupKey: 'pro.examples.groupBuildings',
+      nameKey: 'ex.pro-edificio-7p',
+      descKey: 'ex.pro-edificio-7p.desc',
+      purposeKey: 'ex.pro-edificio-7p.purpose',
+      tags: ['pro.tagRC', 'pro.tagCodes'],
+      stats: { nodes: '141', members: '203', shells: '120' },
+      preset: 'clean-shell',
+      load: () => modelStore.loadExample('pro-edificio-7p'),
+    },
+    {
+      group: 'buildings',
+      groupKey: 'pro.examples.groupBuildings',
+      nameKey: 'ex.irregularSetbackTower3D',
+      descKey: 'ex.irregularSetbackTower3D.desc',
+      purposeKey: 'ex.irregularSetbackTower3D.purpose',
+      tags: ['pro.tagDrift', 'pro.tagTorsion'],
+      stats: { nodes: '420', members: '1180' },
+      preset: 'default',
+      load: () => generateIrregularSetbackTower3D(modelStore, { storyH: 3.8, levels: 18, baysX: 6, baysZ: 5, bayX: 8, bayZ: 7, setbackAt: [8, 13], windLoad: 18 }),
+    },
+    {
+      group: 'buildings',
+      groupKey: 'pro.examples.groupBuildings',
+      nameKey: 'ex.rcDesignFrame3D',
+      descKey: 'ex.rcDesignFrame3D.desc',
+      purposeKey: 'ex.rcDesignFrame3D.purpose',
+      tags: ['pro.tagDesign', 'pro.tagRC'],
+      stats: { nodes: '180', members: '344' },
+      preset: 'default',
+      load: () => generateRcDesignFrame3D(modelStore, { baysX: 4, baysZ: 3, bayX: 7.5, bayZ: 6.5, stories: 8, storyH: 3.4, windLoad: 12 }),
+    },
+    {
+      group: 'industrial',
+      groupKey: 'pro.examples.groupIndustrial',
+      nameKey: 'ex.3d-nave-industrial',
+      descKey: 'ex.3d-nave-industrial.desc',
+      purposeKey: 'ex.3d-nave-industrial.purpose',
+      tags: ['pro.tagSteel', 'pro.tagCrane'],
+      stats: { nodes: '232', members: '633' },
+      preset: 'default',
+      load: () => modelStore.loadExample('3d-nave-industrial'),
+    },
+    {
+      group: 'industrial',
+      groupKey: 'pro.examples.groupIndustrial',
+      nameKey: 'ex.pipeRack3D',
+      descKey: 'ex.pipeRack3D.desc',
+      purposeKey: 'ex.pipeRack3D.purpose',
+      tags: ['pro.tagIndustrial', 'pro.tagSteel'],
+      stats: { nodes: '90', members: '173' },
+      preset: 'default',
+      load: () => generatePipeRack3D(modelStore, { bays: 7, bayLength: 9, width: 10, levels: 3, levelHeight: 4.5, lateralLoad: 9 }),
+    },
+    {
+      group: 'foundations',
+      groupKey: 'pro.examples.groupFoundations',
+      nameKey: 'ex.matFoundation3D',
+      descKey: 'ex.matFoundation3D.desc',
+      purposeKey: 'ex.matFoundation3D.purpose',
+      tags: ['pro.tagFoundation', 'pro.tagSoil'],
+      stats: { nodes: '99', members: '180', shells: '80' },
+      preset: 'clean-shell',
+      load: () => generateMatFoundation3D(modelStore, { Lx: 36, Lz: 28, nX: 8, nZ: 7, subgradeKy: 90000 }),
+    },
+    {
+      group: 'longspan',
+      groupKey: 'pro.examples.groupLongSpan',
+      nameKey: 'ex.suspensionBridge3D',
+      descKey: 'ex.suspensionBridge3D.desc',
+      purposeKey: 'ex.suspensionBridge3D.purpose',
+      tags: ['pro.tagCables', 'pro.tagLongSpan'],
+      stats: { nodes: '430', members: '980' },
+      preset: 'bridge',
+      load: () => generateSuspensionBridge3D(modelStore, { mainSpan: 480, sideSpan: 120, deckWidth: 22, towerHeight: 90, sag: 45, nPanelsMain: 40, nPanelsSide: 10, trussDepth: 8, deckLoad: -32 }),
+    },
+    {
+      group: 'longspan',
+      groupKey: 'pro.examples.groupLongSpan',
+      nameKey: 'ex.cableStayedBridge3D',
+      descKey: 'ex.cableStayedBridge3D.desc',
+      purposeKey: 'ex.cableStayedBridge3D.purpose',
+      tags: ['pro.tagCables', 'pro.tagBridge'],
+      stats: { nodes: '45', members: '102' },
+      preset: 'bridge',
+      load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }),
+    },
+    {
+      group: 'longspan',
+      groupKey: 'pro.examples.groupLongSpan',
+      nameKey: 'ex.fullStadium3D',
+      descKey: 'ex.fullStadium3D.desc',
+      purposeKey: 'ex.fullStadium3D.purpose',
+      tags: ['pro.tagRoof', 'pro.tagBowl'],
+      stats: { nodes: '312', members: '690', shells: '48' },
+      preset: 'clean-shell',
+      load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }),
+    },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.xlDiagridTower3D',
+      descKey: 'ex.xlDiagridTower3D.desc',
+      purposeKey: 'ex.xlDiagridTower3D.purpose',
+      tags: ['pro.tagScale', 'pro.tagDrift'],
+      stats: { nodes: '1262', members: '5013' },
+      preset: 'xl',
+      load: () => generateXLDiagridTower3D(modelStore, { H: 228, nLevels: 42, nSides: 20, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 22, topRadiusZ: 16, lateralLoad: 18 }),
+    },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.geodesicDome3D',
+      descKey: 'ex.geodesicDome3D.desc',
+      purposeKey: 'ex.geodesicDome3D.purpose',
+      tags: ['pro.tagShells', 'pro.tagScale'],
+      stats: { nodes: '641', members: '1920' },
+      preset: 'xl',
+      load: () => generateGeodesicDome3D(modelStore, { radius: 40, frequency: 8, hemisphere: true, selfWeightLoad: -5 }),
+    },
   ];
+  const proExampleGroups = $derived.by(() => {
+    const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];
+    return order.map(group => ({
+      group,
+      title: t(proExamples.find(ex => ex.group === group)?.groupKey ?? ''),
+      examples: proExamples.filter(ex => ex.group === group),
+    })).filter(group => group.examples.length > 0);
+  });
 
   async function handleSolve() {
     solveError = null;
@@ -346,16 +486,28 @@
     }
   }
 
-  function loadProExample(ex: { nameKey: string; descKey: string; load: () => void }) {
-    ex.load();
-    uiStore.includeSelfWeight = true;
+  function applyExamplePreset(preset: ExamplePreset = 'default') {
     uiStore.showGrid3D = false;
     uiStore.showAxes3D = false;
-    if (ex.nameKey === 'ex.xlDiagridTower3D' || ex.nameKey === 'ex.geodesicDome3D' || ex.nameKey === 'ex.suspensionBridge3D') {
-      uiStore.showNodeLabels3D = false;
+    uiStore.showLengths3D = false;
+    uiStore.showNodeLabels3D = false;
+    uiStore.showElementLabels3D = false;
+    if (preset === 'default') {
       uiStore.showElementLabels3D = false;
-      uiStore.showLengths3D = false;
+    } else if (preset === 'clean-shell') {
+      uiStore.showGrid3D = false;
+    } else if (preset === 'bridge') {
+      uiStore.showAxes3D = false;
+    } else if (preset === 'xl') {
+      uiStore.showGrid3D = false;
+      uiStore.showAxes3D = false;
     }
+  }
+
+  function loadProExample(ex: ProExample) {
+    ex.load();
+    uiStore.includeSelfWeight = true;
+    applyExamplePreset(ex.preset);
     tabManager.syncActiveTabName();
     resultsStore.clear();
     resultsStore.clear3D();
@@ -376,16 +528,36 @@
         <div class="pro-example-menu">
           <div class="pro-example-menu-head">
             <div class="pro-example-menu-title">{t('pro.exampleTitle')}</div>
-            <div class="pro-example-menu-subtitle">PRO models and showcase structures</div>
+            <div class="pro-example-menu-subtitle">{t('pro.examples.subtitle')}</div>
           </div>
-          <div class="pro-example-grid">
-            {#each proExamples as ex}
-              <button class="pro-example-item" onclick={() => loadProExample(ex)}>
-                <span class="pro-example-name">{t(ex.nameKey)}</span>
-                <span class="pro-example-desc">{t(ex.descKey)}</span>
-              </button>
-            {/each}
-          </div>
+          {#each proExampleGroups as group}
+            <section class="pro-example-group">
+              <div class="pro-example-group-title">{group.title}</div>
+              <div class="pro-example-grid">
+                {#each group.examples as ex}
+                  <button class="pro-example-item" onclick={() => loadProExample(ex)}>
+                    <div class="pro-example-topline">
+                      <span class="pro-example-name">{t(ex.nameKey)}</span>
+                      <span class="pro-example-purpose">{t(ex.purposeKey)}</span>
+                    </div>
+                    <span class="pro-example-desc">{t(ex.descKey)}</span>
+                    <div class="pro-example-tags">
+                      {#each ex.tags as tag}
+                        <span class="pro-example-tag">{t(tag)}</span>
+                      {/each}
+                    </div>
+                    <div class="pro-example-stats">
+                      <span>{ex.stats.nodes} {t('pro.stats.nodes')}</span>
+                      <span>{ex.stats.members} {t('pro.stats.members')}</span>
+                      {#if ex.stats.shells}
+                        <span>{ex.stats.shells} {t('pro.stats.shells')}</span>
+                      {/if}
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/each}
         </div>
       {/if}
     </div>
@@ -523,8 +695,8 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    width: min(320px, calc(100vw - 24px));
-    max-height: 380px;
+    width: min(720px, calc(100vw - 24px));
+    max-height: 560px;
     overflow-y: auto;
     background: linear-gradient(180deg, #162746 0%, #122038 100%);
     border: 1px solid #31507c;
@@ -555,10 +727,28 @@
     letter-spacing: 0.02em;
   }
 
+  .pro-example-group {
+    padding: 0 6px 10px;
+  }
+
+  .pro-example-group + .pro-example-group {
+    border-top: 1px solid #223b60;
+    padding-top: 10px;
+  }
+
+  .pro-example-group-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7891b9;
+    padding: 0 2px 8px;
+  }
+
   .pro-example-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .pro-example-item {
@@ -566,7 +756,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 6px;
     padding: 10px 11px;
     background: rgba(18, 42, 74, 0.72);
     border: 1px solid #29456d;
@@ -574,7 +764,7 @@
     color: #dbe5ff;
     cursor: pointer;
     text-align: left;
-    min-height: 68px;
+    min-height: 124px;
     transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
   }
 
@@ -584,16 +774,58 @@
     transform: translateY(-1px);
   }
 
+  .pro-example-topline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .pro-example-name {
     font-size: 0.77rem;
     font-weight: 700;
     color: #f7f9ff;
   }
 
+  .pro-example-purpose {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #f0a500;
+  }
+
   .pro-example-desc {
     font-size: 0.66rem;
     color: #90a4c6;
     line-height: 1.3;
+  }
+
+  .pro-example-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .pro-example-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(240, 165, 0, 0.12);
+    border: 1px solid rgba(240, 165, 0, 0.18);
+    color: #ffd27a;
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .pro-example-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    font-size: 0.58rem;
+    color: #7f97bc;
   }
 
   .pro-solve-btn {
@@ -621,6 +853,15 @@
   }
   .pro-report-btn:hover { background: linear-gradient(135deg, #ff5a75, #e94560); }
   .pro-report-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  @media (max-width: 720px) {
+    .pro-example-menu {
+      width: min(420px, calc(100vw - 16px));
+    }
+    .pro-example-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 
   .pro-solve-error {
     padding: 4px 10px;

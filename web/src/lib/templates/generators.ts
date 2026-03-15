@@ -898,7 +898,348 @@ export function generate3DHingedArch(store: ModelStore, p: HingedArch3DParams): 
 }
 
 // -------------------------------------------------------------------
-// 5. XL Diagrid Tower — high-node-count perimeter diagrid tower
+// 5. Irregular setback tower — torsion / drift / outrigger showcase
+// -------------------------------------------------------------------
+
+export interface IrregularSetbackTower3DParams {
+  storyH: number;
+  levels: number;
+  baysX: number;
+  baysZ: number;
+  bayX: number;
+  bayZ: number;
+  setbackAt: number[];
+  windLoad: number;
+}
+
+export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularSetbackTower3DParams): void {
+  store.clear();
+  store.model.name = t('ex.irregularSetbackTower3D');
+
+  store.batch(() => {
+    const floors: number[][][] = []; // floors[level][iz][ix]
+    const maxX = p.baysX * p.bayX;
+    const maxZ = p.baysZ * p.bayZ;
+
+    const insetAt = (lev: number) => {
+      let inset = 0;
+      for (const trigger of p.setbackAt) {
+        if (lev >= trigger) inset += 1;
+      }
+      return Math.min(inset, Math.floor(Math.min(p.baysX, p.baysZ) / 3));
+    };
+
+    for (let lev = 0; lev <= p.levels; lev++) {
+      const inset = insetAt(lev);
+      const y = lev * p.storyH;
+      floors[lev] = [];
+      for (let iz = inset; iz <= p.baysZ - inset; iz++) {
+        const row: number[] = [];
+        for (let ix = inset; ix <= p.baysX - inset; ix++) {
+          const skew = lev > p.levels * 0.45 ? (lev - p.levels * 0.45) * 0.07 : 0;
+          row.push(store.addNode(ix * p.bayX + skew * (iz / Math.max(1, p.baysZ)), y, iz * p.bayZ));
+        }
+        floors[lev].push(row);
+      }
+    }
+
+    const levelInset = (lev: number) => insetAt(lev);
+    const nodeAt = (lev: number, ix: number, iz: number) => {
+      const inset = levelInset(lev);
+      if (ix < inset || ix > p.baysX - inset || iz < inset || iz > p.baysZ - inset) return null;
+      return floors[lev][iz - inset]?.[ix - inset] ?? null;
+    };
+
+    for (let lev = 0; lev < p.levels; lev++) {
+      const inset = levelInset(lev);
+      const nextInset = levelInset(lev + 1);
+
+      for (let iz = inset; iz <= p.baysZ - inset; iz++) {
+        for (let ix = inset; ix <= p.baysX - inset; ix++) {
+          const a = nodeAt(lev, ix, iz);
+          const b = nodeAt(lev + 1, ix, iz);
+          if (a && b) store.addElement(a, b, 'frame');
+        }
+      }
+
+      for (let iz = nextInset; iz <= p.baysZ - nextInset; iz++) {
+        for (let ix = nextInset; ix < p.baysX - nextInset; ix++) {
+          const a = nodeAt(lev + 1, ix, iz);
+          const b = nodeAt(lev + 1, ix + 1, iz);
+          if (a && b) {
+            const eid = store.addElement(a, b, 'frame');
+            store.addDistributedLoad3D(eid, 0, 0, -18, -18, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, 0, 0, -10, -10, undefined, undefined, 2);
+          }
+        }
+      }
+      for (let ix = nextInset; ix <= p.baysX - nextInset; ix++) {
+        for (let iz = nextInset; iz < p.baysZ - nextInset; iz++) {
+          const a = nodeAt(lev + 1, ix, iz);
+          const b = nodeAt(lev + 1, ix, iz + 1);
+          if (a && b) {
+            const eid = store.addElement(a, b, 'frame');
+            store.addDistributedLoad3D(eid, 0, 0, -16, -16, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
+          }
+        }
+      }
+
+      const facadeInset = Math.max(inset, nextInset);
+      for (let iz = facadeInset; iz < p.baysZ - facadeInset; iz++) {
+        const leftA = nodeAt(lev, facadeInset, iz);
+        const leftB = nodeAt(lev + 1, facadeInset, iz + 1);
+        const rightA = nodeAt(lev, p.baysX - facadeInset, iz);
+        const rightB = nodeAt(lev + 1, p.baysX - facadeInset, iz + 1);
+        if (leftA && leftB && (lev + iz) % 2 === 0) store.addElement(leftA, leftB, 'truss');
+        if (rightA && rightB && (lev + iz) % 2 === 1) store.addElement(rightA, rightB, 'truss');
+      }
+
+      if ((lev + 1) % 6 === 0) {
+        const cx0 = Math.floor((p.baysX + facadeInset) / 2);
+        const cz0 = Math.floor((p.baysZ + facadeInset) / 2);
+        const anchorPairs: Array<[number, number]> = [
+          [facadeInset, cz0],
+          [p.baysX - facadeInset, cz0],
+          [cx0, facadeInset],
+          [cx0, p.baysZ - facadeInset],
+        ];
+        for (const [ix, iz] of anchorPairs) {
+          const core = nodeAt(lev + 1, cx0, cz0);
+          const edge = nodeAt(lev + 1, ix, iz);
+          if (core && edge && core !== edge) store.addElement(core, edge, 'truss');
+        }
+      }
+    }
+
+    for (let iz = 0; iz < floors[0].length; iz++) {
+      for (let ix = 0; ix < floors[0][iz].length; ix++) {
+        store.addSupport(floors[0][iz][ix], 'fixed3d');
+      }
+    }
+
+    const roof = floors[p.levels];
+    for (let iz = 0; iz < roof.length; iz++) {
+      for (let ix = 0; ix < roof[iz].length; ix++) {
+        const node = roof[iz][ix];
+        const torsionFactor = ix < roof[iz].length / 2 ? 1.15 : 0.85;
+        store.addNodalLoad3D(node, p.windLoad * torsionFactor, 0, p.windLoad * 0.28, 0, 0, 0, 3);
+      }
+    }
+  });
+}
+
+// -------------------------------------------------------------------
+// 6. Mat foundation grillage — soil / foundation showcase
+// -------------------------------------------------------------------
+
+export interface MatFoundation3DParams {
+  Lx: number;
+  Lz: number;
+  nX: number;
+  nZ: number;
+  subgradeKy: number;
+}
+
+export function generateMatFoundation3D(store: ModelStore, p: MatFoundation3DParams): void {
+  store.clear();
+  store.model.name = t('ex.matFoundation3D');
+
+  store.batch(() => {
+    const dx = p.Lx / p.nX;
+    const dz = p.Lz / p.nZ;
+    const nodes: number[][] = [];
+
+    for (let iz = 0; iz <= p.nZ; iz++) {
+      nodes[iz] = [];
+      for (let ix = 0; ix <= p.nX; ix++) {
+        const nid = store.addNode(ix * dx, 0, iz * dz);
+        nodes[iz][ix] = nid;
+        store.addSupport(nid, 'spring3d', {
+          kx: p.subgradeKy * 0.08,
+          ky: p.subgradeKy,
+          kz: p.subgradeKy * 0.08,
+          krx: p.subgradeKy * 0.02,
+          kry: p.subgradeKy * 0.02,
+          krz: p.subgradeKy * 0.02,
+        });
+      }
+    }
+
+    for (let iz = 0; iz <= p.nZ; iz++) {
+      for (let ix = 0; ix < p.nX; ix++) {
+        store.addElement(nodes[iz][ix], nodes[iz][ix + 1], 'frame');
+      }
+    }
+    for (let ix = 0; ix <= p.nX; ix++) {
+      for (let iz = 0; iz < p.nZ; iz++) {
+        store.addElement(nodes[iz][ix], nodes[iz + 1][ix], 'frame');
+      }
+    }
+
+    for (let iz = 0; iz < p.nZ; iz++) {
+      for (let ix = 0; ix < p.nX; ix++) {
+        store.addQuad([nodes[iz][ix], nodes[iz][ix + 1], nodes[iz + 1][ix + 1], nodes[iz + 1][ix]], 1, 0.55);
+      }
+    }
+
+    const pedestalLoads: Array<[number, number, number]> = [
+      [2, 2, -1800],
+      [p.nX - 2, 2, -1500],
+      [2, p.nZ - 2, -1500],
+      [p.nX - 2, p.nZ - 2, -1800],
+      [Math.floor(p.nX / 2), Math.floor(p.nZ / 2), -2400],
+    ];
+    for (const [ix, iz, fy] of pedestalLoads) {
+      store.addNodalLoad3D(nodes[iz][ix], 0, fy, 0, 0, 0, 0, 1);
+    }
+  });
+}
+
+// -------------------------------------------------------------------
+// 7. Pipe rack — industrial repetitive frame / bracing showcase
+// -------------------------------------------------------------------
+
+export interface PipeRack3DParams {
+  bays: number;
+  bayLength: number;
+  width: number;
+  levels: number;
+  levelHeight: number;
+  lateralLoad: number;
+}
+
+export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void {
+  store.clear();
+  store.model.name = t('ex.pipeRack3D');
+
+  store.batch(() => {
+    const frames: number[][][] = []; // bay station -> level -> side
+    for (let bay = 0; bay <= p.bays; bay++) {
+      frames[bay] = [];
+      const x = bay * p.bayLength;
+      for (let lev = 0; lev <= p.levels; lev++) {
+        const y = lev * p.levelHeight;
+        frames[bay][lev] = [
+          store.addNode(x, y, 0),
+          store.addNode(x, y, p.width),
+        ];
+      }
+    }
+
+    for (let bay = 0; bay <= p.bays; bay++) {
+      for (let lev = 0; lev < p.levels; lev++) {
+        store.addElement(frames[bay][lev][0], frames[bay][lev + 1][0], 'frame');
+        store.addElement(frames[bay][lev][1], frames[bay][lev + 1][1], 'frame');
+      }
+      store.addSupport(frames[bay][0][0], 'fixed3d');
+      store.addSupport(frames[bay][0][1], 'fixed3d');
+    }
+
+    for (let bay = 0; bay < p.bays; bay++) {
+      for (let lev = 1; lev <= p.levels; lev++) {
+        const left = store.addElement(frames[bay][lev][0], frames[bay + 1][lev][0], 'frame');
+        const right = store.addElement(frames[bay][lev][1], frames[bay + 1][lev][1], 'frame');
+        store.addElement(frames[bay][lev][0], frames[bay][lev][1], 'frame');
+        store.addElement(frames[bay + 1][lev][0], frames[bay + 1][lev][1], 'frame');
+        store.addDistributedLoad3D(left, 0, 0, -10, -10, undefined, undefined, 1);
+        store.addDistributedLoad3D(right, 0, 0, -10, -10, undefined, undefined, 1);
+      }
+
+      if (bay % 2 === 0) {
+        for (let lev = 0; lev < p.levels; lev++) {
+          store.addElement(frames[bay][lev][0], frames[bay + 1][lev + 1][0], 'truss');
+          store.addElement(frames[bay][lev][1], frames[bay + 1][lev + 1][1], 'truss');
+        }
+      }
+    }
+
+    for (let bay = 0; bay <= p.bays; bay++) {
+      for (let lev = 1; lev <= p.levels; lev++) {
+        const left = frames[bay][lev][0];
+        const right = frames[bay][lev][1];
+        store.addNodalLoad3D(left, p.lateralLoad, 0, 0, 0, 0, 0, 3);
+        store.addNodalLoad3D(right, p.lateralLoad, 0, 0, 0, 0, 0, 3);
+      }
+    }
+  });
+}
+
+// -------------------------------------------------------------------
+// 8. RC design frame — regular frame prepared for design extraction
+// -------------------------------------------------------------------
+
+export interface RcDesignFrame3DParams {
+  baysX: number;
+  baysZ: number;
+  bayX: number;
+  bayZ: number;
+  stories: number;
+  storyH: number;
+  windLoad: number;
+}
+
+export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DParams): void {
+  store.clear();
+  store.model.name = t('ex.rcDesignFrame3D');
+
+  store.batch(() => {
+    const grid: number[][][] = [];
+    for (let lev = 0; lev <= p.stories; lev++) {
+      grid[lev] = [];
+      for (let iz = 0; iz <= p.baysZ; iz++) {
+        const row: number[] = [];
+        for (let ix = 0; ix <= p.baysX; ix++) {
+          row.push(store.addNode(ix * p.bayX, lev * p.storyH, iz * p.bayZ));
+        }
+        grid[lev].push(row);
+      }
+    }
+
+    for (let lev = 0; lev < p.stories; lev++) {
+      for (let iz = 0; iz <= p.baysZ; iz++) {
+        for (let ix = 0; ix <= p.baysX; ix++) {
+          store.addElement(grid[lev][iz][ix], grid[lev + 1][iz][ix], 'frame');
+        }
+      }
+    }
+
+    for (let lev = 1; lev <= p.stories; lev++) {
+      for (let iz = 0; iz <= p.baysZ; iz++) {
+        for (let ix = 0; ix < p.baysX; ix++) {
+          const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz][ix + 1], 'frame');
+          store.addDistributedLoad3D(eid, 0, 0, -14, -14, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
+        }
+      }
+      for (let ix = 0; ix <= p.baysX; ix++) {
+        for (let iz = 0; iz < p.baysZ; iz++) {
+          const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz + 1][ix], 'frame');
+          store.addDistributedLoad3D(eid, 0, 0, -12, -12, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, 0, 0, -6, -6, undefined, undefined, 2);
+        }
+      }
+    }
+
+    for (let iz = 0; iz <= p.baysZ; iz++) {
+      for (let ix = 0; ix <= p.baysX; ix++) {
+        store.addSupport(grid[0][iz][ix], 'fixed3d');
+      }
+    }
+
+    for (let lev = 1; lev <= p.stories; lev++) {
+      for (let iz = 0; iz <= p.baysZ; iz++) {
+        for (let ix = 0; ix <= p.baysX; ix++) {
+          const torsion = iz < p.baysZ / 2 ? 1.15 : 0.85;
+          store.addNodalLoad3D(grid[lev][iz][ix], p.windLoad * torsion, 0, 0, 0, 0, 0, 3);
+        }
+      }
+    }
+  });
+}
+
+// -------------------------------------------------------------------
+// 9. XL Diagrid Tower — high-node-count perimeter diagrid tower
 // -------------------------------------------------------------------
 
 export interface XLDiagridTower3DParams {
