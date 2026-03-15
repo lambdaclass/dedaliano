@@ -230,3 +230,5 @@ To report a vulnerability, email security@lambdaclass.com.
 - **Bautista Chesta** — Civil Engineer, Faculty of Engineering, University of Buenos Aires (FIUBA)
 - **Diego Kingston** — Ph.D. in Engineering, University of Buenos Aires (UBA)
 - **Federico Carrone**
+
+With contributions from mathematicians, physicists, computer engineers, and computer scientists at [Lambda Class](https://lambdaclass.com).
