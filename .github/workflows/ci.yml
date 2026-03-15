@@ -21,6 +21,9 @@ jobs:
       - name: Install mold linker
         run: sudo apt-get install -y mold
 
+      - name: Install mold linker
+        run: sudo apt-get update && sudo apt-get install -y mold
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
@@ -40,6 +43,9 @@ jobs:
 
       - name: Install mold linker
         run: sudo apt-get install -y mold
+
+      - name: Install mold linker
+        run: sudo apt-get update && sudo apt-get install -y mold
 
       - uses: Swatinem/rust-cache@v2
         with:
