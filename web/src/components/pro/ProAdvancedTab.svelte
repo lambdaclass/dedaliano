@@ -30,15 +30,9 @@
     solveConstrained2D,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
-  // JS fallback solvers for when WASM is not available
-  import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
-  import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
-  import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
-  import { solveSpectral3D as jsSpectral3D } from '../../lib/engine/spectral-3d';
-  import type { SpectralConfig3D } from '../../lib/engine/spectral-3d';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
-  import { cirsoc103Spectrum } from '../../lib/engine/spectral';
-  import type { DesignSpectrum } from '../../lib/engine/spectral';
+  import { cirsoc103Spectrum } from '../../lib/engine/result-types';
+  import type { DesignSpectrum } from '../../lib/engine/result-types';
   import { applyRigidDiaphragm, detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
@@ -125,7 +119,7 @@
       input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
-      try { res = wasmPDelta3D(input); } catch { res = jsPDelta3D(input); }
+      res = wasmPDelta3D(input);
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `P-Delta: ${res}`; solving = false; return; }
       pdeltaElapsed = elapsed;
@@ -166,7 +160,7 @@
       const densities = getMaterialDensities(input);
       let res: any;
       const t0 = performance.now();
-      try { res = wasmModal3D(input, densities, numModes); } catch { res = jsModal3D(input, densities, numModes); }
+      res = wasmModal3D(input, densities, numModes);
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
       modalElapsed = elapsed;
@@ -208,8 +202,7 @@
       const densities = getMaterialDensities(input);
       const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
       let res: any;
-      try {
-        res = wasmSpectral3D({
+      res = wasmSpectral3D({
           solver: input,
           densities,
           spectrum,
@@ -217,25 +210,6 @@
           combination: spectralCombination,
           numModes,
         });
-      } catch {
-        // JS fallback: solveSpectral3D(input, modalResult, densities, config) per direction
-        const config: SpectralConfig3D = {
-          direction: 'X',
-          spectrum,
-          rule: spectralCombination,
-        };
-        const resX = jsSpectral3D(input, modalResult, densities, { ...config, direction: 'X' });
-        const resY = jsSpectral3D(input, modalResult, densities, { ...config, direction: 'Y' });
-        if (typeof resX === 'string') { solveError = `Espectral: ${resX}`; solving = false; return; }
-        if (typeof resY === 'string') { solveError = `Espectral: ${resY}`; solving = false; return; }
-        res = {
-          baseShearX: resX.baseShear,
-          baseShearY: resY.baseShear,
-          results: resX.results,
-          perModeX: resX.perMode,
-          perModeY: resY.perMode,
-        };
-      }
       if (typeof res === 'string') { solveError = `Espectral: ${res}`; solving = false; return; }
       spectralResult = res;
       advancedResults = { ...advancedResults, spectral: { baseShearX: res.baseShearX ?? res.baseShear, baseShearY: res.baseShearY, baseShearZ: res.baseShearZ } };
@@ -259,7 +233,7 @@
       input = maybeApplyDiaphragm(input);
       let res: any;
       const t0 = performance.now();
-      try { res = wasmBuckling3D(input, numBucklingModes); } catch { res = jsBuckling3D(input, numBucklingModes); }
+      res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { solveError = `Buckling: ${res}`; solving = false; return; }
       bucklingElapsed = elapsed;

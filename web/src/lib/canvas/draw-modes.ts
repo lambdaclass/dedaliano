@@ -1,8 +1,6 @@
 // Drawing mode shapes (modal analysis) and buckling modes on the canvas
 
-import type { ModeShape } from '../engine/modal';
-import type { BucklingMode } from '../engine/buckling';
-import type { PlasticResult } from '../engine/plastic';
+import type { ModeShape, BucklingMode, PlasticResult } from '../engine/result-types';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;

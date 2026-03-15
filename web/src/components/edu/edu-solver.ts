@@ -9,7 +9,7 @@
 import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { t } from '../../lib/i18n';
 import { eduStore } from './edu-store.svelte';
-import { solvePDelta } from '../../lib/engine/pdelta';
+import { solvePDelta } from '../../lib/engine/wasm-solver';
 
 /**
  * Solve the current model silently for educational mode.

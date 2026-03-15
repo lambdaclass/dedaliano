@@ -4,15 +4,7 @@ import type { AnalysisResults, InfluenceLineResult, Section, Material } from './
 import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
-import type { PDeltaResult } from '../engine/pdelta';
-import type { PDeltaResult3D } from '../engine/pdelta-3d';
-import type { ModalResult } from '../engine/modal';
-import type { ModalResult3D } from '../engine/modal-3d';
-import type { BucklingResult } from '../engine/buckling';
-import type { BucklingResult3D } from '../engine/buckling-3d';
-import type { PlasticResult } from '../engine/plastic';
-import type { SpectralResult } from '../engine/spectral';
-import type { SpectralResult3D } from '../engine/spectral-3d';
+import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types

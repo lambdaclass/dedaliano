@@ -1,13 +1,8 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
-  import { solvePlastic as solvePlasticJS } from '../../lib/engine/plastic';
-  import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
-  import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
-  import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
-  import { solveSpectral3D as jsSpectral3D } from '../../lib/engine/spectral-3d';
-  import { cirsoc103Spectrum } from '../../lib/engine/spectral';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { cirsoc103Spectrum } from '../../lib/engine/result-types';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
@@ -195,7 +190,7 @@
     }
     try {
       const t0 = performance.now();
-      const result = solvePlasticJS(input, sections, materials);
+      const result = solvePlastic({ solver: input, sections, materials });
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPlasticResult(result);
@@ -282,7 +277,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      try { result = wasmPDelta3D(input); } catch { result = jsPDelta3D(input); }
+      result = wasmPDelta3D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult3D(result);
@@ -305,7 +300,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      try { result = wasmModal3D(input, densities); } catch { result = jsModal3D(input, densities); }
+      result = wasmModal3D(input, densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setModalResult3D(result);
@@ -322,7 +317,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      try { result = wasmBuckling3D(input); } catch { result = jsBuckling3D(input); }
+      result = wasmBuckling3D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setBucklingResult3D(result);
@@ -348,18 +343,10 @@
     try {
       const spectrum = cirsoc103Spectrum(4, 'II');
       const t0 = performance.now();
-      let result: any;
-      try {
-        result = wasmSpectral3D({
+      const result = wasmSpectral3D({
           solver: input, densities, spectrum, directions: ['X', 'Y'],
           combination: 'CQC',
         });
-      } catch {
-        // JS fallback: single-direction analysis (X is primary seismic direction)
-        result = jsSpectral3D(input, resultsStore.modalResult3D!, densities, {
-          direction: 'X', spectrum, rule: 'CQC',
-        });
-      }
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       const dt = performance.now() - t0;
       resultsStore.setSpectralResult3D(result);
