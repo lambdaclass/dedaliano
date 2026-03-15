@@ -1124,28 +1124,31 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const fieldHalfZ = fieldWidth / 2;
     const n = p.nFrames;
 
-    const ovalRing = (rx: number, rz: number, y: number, crown = 0) => {
+    const ovalRing = (rx: number, rz: number, y: number, crown = 0, bias = 0) => {
       const ids: number[] = [];
       for (let i = 0; i < n; i++) {
         const theta = (2 * Math.PI * i) / n;
         const c = Math.cos(theta);
         const s = Math.sin(theta);
         const crownLift = Math.max(0, Math.cos(theta * 2)) * crown;
-        ids.push(store.addNode(rx * c, y + crownLift, rz * s));
+        const mainStandBias = Math.max(0, s) * bias;
+        ids.push(store.addNode(rx * c, y + crownLift + mainStandBias, rz * s));
       }
       return ids;
     };
 
-    const fieldEdge = ovalRing(fieldHalfX + 10, fieldHalfZ + 10, 1.5);
-    const lowerBack = ovalRing(fieldHalfX + 24, fieldHalfZ + 20, 12);
-    const upperFront = ovalRing(fieldHalfX + 30, fieldHalfZ + 26, 18);
-    const upperBack = ovalRing(fieldHalfX + 46, fieldHalfZ + 40, 30, 3);
-    const concourse = ovalRing(fieldHalfX + 54, fieldHalfZ + 46, 33, 2);
-    const roofInner = ovalRing(fieldHalfX + 60, fieldHalfZ + 52, 40, 2);
-    const roofMid = ovalRing(fieldHalfX + 74, fieldHalfZ + 66, p.roofRise + 12, 4);
-    const roofOuter = ovalRing(fieldHalfX + 88, fieldHalfZ + 80, p.roofRise + 20, 6);
-    const baseOuter = ovalRing(fieldHalfX + 58, fieldHalfZ + 50, 0);
-    const podium = ovalRing(fieldHalfX + 74, fieldHalfZ + 64, 0);
+    const fieldEdge = ovalRing(fieldHalfX + 7, fieldHalfZ + 6, 0.8);
+    const lowerFront = ovalRing(fieldHalfX + 14, fieldHalfZ + 11, 5.5);
+    const lowerMid = ovalRing(fieldHalfX + 24, fieldHalfZ + 18, 11.5);
+    const lowerBack = ovalRing(fieldHalfX + 34, fieldHalfZ + 27, 16.5, 0, 1.5);
+    const upperFront = ovalRing(fieldHalfX + 39, fieldHalfZ + 31, 20.5, 0, 2.5);
+    const upperMid = ovalRing(fieldHalfX + 50, fieldHalfZ + 39, 27.5, 1, 4.5);
+    const upperBack = ovalRing(fieldHalfX + 62, fieldHalfZ + 49, 35, 2, 6.5);
+    const concourse = ovalRing(fieldHalfX + 71, fieldHalfZ + 57, 38, 1, 4);
+    const roofInner = ovalRing(fieldHalfX + 77, fieldHalfZ + 62, 43, 1, 3);
+    const roofOuter = ovalRing(fieldHalfX + 95, fieldHalfZ + 76, p.roofRise + 16, 2, 4);
+    const baseInner = ovalRing(fieldHalfX + 40, fieldHalfZ + 31, 0);
+    const baseOuter = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 0);
 
     const addRingFrames = (nodes: number[], type: 'frame' | 'truss' = 'frame') => {
       for (let i = 0; i < n; i++) {
@@ -1153,69 +1156,71 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
       }
     };
 
-    addRingFrames(podium);
+    addRingFrames(baseInner);
     addRingFrames(baseOuter);
     addRingFrames(fieldEdge);
+    addRingFrames(lowerFront);
+    addRingFrames(lowerMid);
     addRingFrames(lowerBack);
     addRingFrames(upperFront);
+    addRingFrames(upperMid);
     addRingFrames(upperBack);
     addRingFrames(concourse);
     addRingFrames(roofInner);
-    addRingFrames(roofMid);
     addRingFrames(roofOuter);
 
     for (let i = 0; i < n; i++) {
       const next = (i + 1) % n;
 
-      // Tier surfaces
-      store.addQuad([fieldEdge[i], fieldEdge[next], lowerBack[next], lowerBack[i]], 1, 0.24);
-      store.addQuad([upperFront[i], upperFront[next], upperBack[next], upperBack[i]], 1, 0.22);
-      store.addQuad([lowerBack[i], lowerBack[next], upperFront[next], upperFront[i]], 1, 0.20);
+      // Tier shells for a readable bowl
+      store.addQuad([fieldEdge[i], fieldEdge[next], lowerFront[next], lowerFront[i]], 1, 0.18);
+      store.addQuad([lowerFront[i], lowerFront[next], lowerMid[next], lowerMid[i]], 1, 0.18);
+      store.addQuad([lowerMid[i], lowerMid[next], lowerBack[next], lowerBack[i]], 1, 0.18);
+      store.addQuad([lowerBack[i], lowerBack[next], upperFront[next], upperFront[i]], 1, 0.16);
+      store.addQuad([upperFront[i], upperFront[next], upperMid[next], upperMid[i]], 1, 0.16);
+      store.addQuad([upperMid[i], upperMid[next], upperBack[next], upperBack[i]], 1, 0.16);
 
-      // Tier rakers and supports
-      store.addElement(fieldEdge[i], lowerBack[i], 'frame');
+      // Bowl framing kept regular and legible
+      store.addElement(fieldEdge[i], lowerFront[i], 'frame');
+      store.addElement(lowerFront[i], lowerMid[i], 'frame');
+      store.addElement(lowerMid[i], lowerBack[i], 'frame');
       store.addElement(lowerBack[i], upperFront[i], 'frame');
-      store.addElement(upperFront[i], upperBack[i], 'frame');
+      store.addElement(upperFront[i], upperMid[i], 'frame');
+      store.addElement(upperMid[i], upperBack[i], 'frame');
       store.addElement(upperBack[i], concourse[i], 'frame');
-      store.addElement(baseOuter[i], upperBack[i], 'frame');
-      store.addElement(baseOuter[i], podium[i], 'frame');
-      if (i % 2 === 0) {
-        store.addElement(fieldEdge[i], lowerBack[next], 'truss');
+
+      if (i % 3 === 0) {
+        store.addElement(fieldEdge[i], lowerMid[next], 'truss');
+        store.addElement(lowerBack[i], upperMid[next], 'truss');
         store.addElement(upperFront[i], upperBack[next], 'truss');
-        store.addElement(podium[i], baseOuter[next], 'truss');
       }
 
-      // Continuous roof lattice like the reference image
+      // Roof kept as a clean cantilever band instead of a dense mesh
       store.addElement(concourse[i], roofInner[i], 'frame');
-      store.addElement(roofInner[i], roofMid[i], 'frame');
-      store.addElement(roofMid[i], roofOuter[i], 'frame');
+      store.addElement(roofInner[i], roofOuter[i], 'frame');
+      store.addElement(concourse[i], roofOuter[next], 'truss');
       if (i % 2 === 0) {
-        store.addElement(upperBack[i], roofInner[i], 'truss');
-        store.addElement(roofInner[i], roofMid[next], 'truss');
-        store.addElement(roofMid[i], roofOuter[next], 'truss');
-      } else {
-        store.addElement(upperBack[next], roofInner[i], 'truss');
-        store.addElement(roofMid[next], roofInner[i], 'truss');
-        store.addElement(roofOuter[i], roofMid[next], 'truss');
+        store.addElement(roofInner[i], roofOuter[next], 'truss');
       }
       if (p.roofLoad !== 0) {
         const ringA = store.addElement(roofInner[i], roofInner[next], 'frame');
-        const ringB = store.addElement(roofMid[i], roofMid[next], 'frame');
-        const ringC = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+        const ringB = store.addElement(roofOuter[i], roofOuter[next], 'frame');
         store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
         store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
-        store.addDistributedLoad3D(ringC, 0, p.roofLoad, 0, p.roofLoad);
       }
 
-      // Outer colonnade
+      // Fewer, stronger perimeter supports
+      store.addElement(baseInner[i], lowerBack[i], 'frame');
       if (i % 2 === 0) {
-        store.addElement(podium[i], roofOuter[i], 'frame');
+        store.addElement(baseOuter[i], concourse[i], 'frame');
+      }
+      if (i % 3 === 0) {
+        store.addElement(baseOuter[i], roofOuter[i], 'frame');
+        store.addElement(baseOuter[i], roofInner[i], 'truss');
       }
 
+      store.addSupport(baseInner[i], 'fixed3d');
       store.addSupport(baseOuter[i], 'fixed3d');
-      if (i % 2 === 0) {
-        store.addSupport(podium[i], 'fixed3d');
-      }
     }
 
     // Soccer field as shell quads
