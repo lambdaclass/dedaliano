@@ -127,10 +127,20 @@ In practice, that means the main multipliers are:
 
 If the goal is `best open structural solver`, the current priority order is:
 
-1. `Runtime and scale dominance`
+1. `Phase A: WASM path reliability and single-solver convergence`
+   This is now the highest priority ahead of further solver-method depth.
+   The immediate goal is to make Rust/WASM the trustworthy main execution path in the product, fix the frontend/WASM boundary completely, and remove the need for the TypeScript solver as a runtime backup. That means:
+   - prove deploy/build consistency between JS glue and `.wasm`
+   - verify production is serving the expected branch and commit
+   - harden main-thread solve, worker solve, and multi-case/combo solve paths
+   - eliminate branch-specific or deploy-specific WASM traps
+   - add enough diagnostics to localize failures at the JS/WASM boundary
+   - retire the JS solver only after the WASM path is stable end-to-end
+
+2. `Runtime and scale dominance`
    Sparse shell viability, deterministic assembly, sparse modal/buckling/harmonic depth, and reduction factorization reuse are now real. The next step is to turn those improvements into a clearly dominant runtime story across the remaining measured bottlenecks.
 
-2. `Verification moat expansion`
+3. `Verification moat expansion`
    The next decisive advantage is stronger proof:
    - reference benchmarks
    - acceptance models
@@ -138,7 +148,7 @@ If the goal is `best open structural solver`, the current priority order is:
    - determinism and parity gates
    - invariant, property-based, and fuzz coverage
 
-3. `Verification hardening around the new sparse path`
+4. `Verification hardening around the new sparse path`
    The sparse path is now live and deterministic. Lock it in with:
    - determinism gates (sorted assembly, merged DOF numbering)
    - residual-based parity gates (sparse vs dense solutions verified via residual norm)
@@ -155,33 +165,33 @@ If the goal is `best open structural solver`, the current priority order is:
    - broader invariant, property-based, and fuzzing coverage around sparse/shell paths
    - signal-driven benchmark growth: add tests that improve proof, regression protection, performance confidence, or edge-case coverage
 
-4. `Design-grade result extraction for downstream RC workflows`
+5. `Design-grade result extraction for downstream RC workflows`
    Beam station extraction is now implemented with full API safety: `extract_beam_stations` / `extract_beam_stations_3d` (flat), `extract_beam_stations_grouped` / `extract_beam_stations_grouped_3d` (grouped-by-member with member-level governing summaries). Features: configurable stations per member, per-combo forces via diagram evaluation, governing pos/neg tracking with combo provenance (Optional — no phantom infinities), combo_name propagation, sign-convention metadata embedded in output, section/material metadata, WASM-exported, snapshot-tested. Remaining work:
    - 3D integration test coverage (currently 2D-only in integration tests)
    - design-ready metadata for cover assumptions once RC design integration begins
 
-5. `Long-tail nonlinear hardening`
+6. `Long-tail nonlinear hardening`
    Now that the linear/shell sparse base is healthier, mixed nonlinear cases become more worth attacking:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-6. `Solver-path consistency`
+7. `Solver-path consistency`
    Keep dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows converging to the same behavior.
 
-7. `Product surfacing`
+8. `Product surfacing`
    Deterministic diagnostics and solve timings are now much more valuable in the app:
    - expose pivot perturbation counts and fill ratios in the UI
    - surface solve phase breakdowns for user visibility
    - make solver-path selection and fallback behavior transparent
 
-8. `Constraint-system maturity`
+9. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-9. `Advanced contact maturity`
+10. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-10. `Reference benchmark expansion`
+11. `Reference benchmark expansion`
     Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
     Prefer:
     - reference cases that close real proof gaps
@@ -190,53 +200,175 @@ If the goal is `best open structural solver`, the current priority order is:
     - performance gates that protect runtime, fill, and no-fallback expectations
     Avoid low-signal count inflation.
 
-11. `Shell-family workflow maturity`
+12. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
 
-12. `Shell-family automatic selection policy`
+13. `Shell-family automatic selection policy`
     Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
 
-13. `Shell-adjacent workflow breadth competitors still expose clearly`
+14. `Shell-adjacent workflow breadth competitors still expose clearly`
     Add the highest-value missing shell-related workflow classes:
     - layered / laminated shell workflows
     - axisymmetric workflows
     - deeper nonlinear / corotational shell depth
 
-14. `Reduction, staged/PT coupling, and other second-tier depth`
+15. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
 
 The current near-term sequence is:
 
-1. `Runtime and scale`
+1. `Phase A: fix the WASM/frontend connection`
+   Before more solver backlog depth, make the Rust/WASM path fully reliable in production:
+   - one trusted deploy path
+   - one trusted WASM artifact set
+   - reliable 3D solve in main thread and workers
+   - reliable combinations / multi-case execution
+   - diagnostics strong enough to root-cause any remaining trap instead of masking it
+   - remove the TypeScript solver from runtime use once this is stable
+
+2. `Runtime and scale`
    Keep eliminating the remaining measured bottlenecks in harmonic, reduction, and sparse eigensolver/reduction internals.
 
-2. `Design-grade RC extraction`
+3. `Design-grade RC extraction`
    Beam station extraction, grouped-by-member convenience layer, sign-convention metadata, and governing summaries are done. Remaining:
    - 3D integration test depth
    - design-ready metadata for cover assumptions and bar schedules once RC design integration begins
 
-3. `Verification moat`
+4. `Verification moat`
    Keep turning major solver gains into release-gated, benchmarked, acceptance-covered proof.
 
-4. `Long-tail nonlinear hardening`
+5. `Long-tail nonlinear hardening`
    Focus on ugly mixed cases where mature solvers still win.
 
-5. `Solver-path consistency`
+6. `Solver-path consistency`
    Keep dense vs sparse and mixed-family workflows aligned.
 
-6. `Product surfacing`
+7. `Product surfacing`
    Expose timings, diagnostics, fill, fallback behavior, and shell-family guidance clearly.
 
-7. `Shell-family workflow guidance and frontier tracking`
+8. `Shell-family workflow guidance and frontier tracking`
    Keep the multi-family shell stack well-guided and benchmarked.
 
-8. `Shell-family automatic selection policy`
+9. `Shell-family automatic selection policy`
    Turn guidance into real default-selection logic.
 
-9. `Shell-adjacent workflow breadth`
+10. `Shell-adjacent workflow breadth`
    Add layered shells, axisymmetric workflows, and deeper nonlinear shell depth.
+
+## Phases And Finish Criteria
+
+### Phase A: WASM Path Reliability And Single-Solver Convergence
+
+Goal:
+- Rust/WASM becomes the trusted primary solver path in production
+- the frontend/WASM boundary is stable enough that the TypeScript solver is no longer needed at runtime
+
+Finish means:
+- production is confirmed to serve the intended branch and commit
+- JS glue and `.wasm` artifacts are always built and deployed together in the same pipeline
+- representative 2D and 3D example solves succeed through the WASM path in production
+- worker-based and main-thread solve paths both succeed on representative 3D models
+- combinations / multi-case execution succeeds through the WASM path on representative models
+- the production app no longer shows raw WASM trap messages such as `unreachable`
+- runtime fallback to the TypeScript solver is removed from the shipped app
+
+Concrete proof:
+- one named CI/deploy check that verifies the built commit SHA is the one served by the app
+- one representative 2D solve and one representative 3D solve exercised through the browser-facing WASM entry points
+- one representative worker/combo solve exercised through the production code path
+- zero known production-only WASM trap regressions open
+
+### Phase B: Runtime And Scale Dominance
+
+Goal:
+- sparse/direct and eigensolver paths decisively win on the large-model workflows that matter
+
+Finish means:
+- buckling runtime is measured on the sparse eigensolver path
+- Guyan and Craig-Bampton runtime is measured after factorization reuse
+- remaining harmonic bottlenecks are measured after modal-response acceleration
+- reduction internals no longer densify the important `K_ff` paths unnecessarily
+- CI tracks representative runtime/fill behavior on the main sparse workflows
+
+Concrete proof:
+- runtime tables exist for modal, buckling, harmonic, Guyan, and Craig-Bampton on representative models
+- sparse path wins are recorded on the target model sizes, not just factorization microbenchmarks
+- no-`k_full`-overbuild expectations are enforced where applicable
+- fill-ratio, no-dense-fallback, and residual-parity gates stay green in CI
+
+### Phase C: Verification Moat Expansion
+
+Goal:
+- major solver paths are protected by visible, release-grade proof
+
+Finish means:
+- acceptance models cover the hardest production-style linear, shell, constrained, and mixed workflows
+- sparse vs dense parity is covered on representative models
+- determinism gates exist where assembly / numbering / ordering should be deterministic
+- invariant, property-based, and fuzz coverage exists around the sparse/shell/contact/constraint frontier
+- benchmark growth stays signal-driven instead of count-driven
+
+Concrete proof:
+- explicit CI gates exist for sparse shells, sparse modal/buckling/harmonic, and reduction workflows
+- representative reference models exist for contact, fiber 3D, SSI, creep/shrinkage, and shell workflows
+- parity and residual thresholds are written down and enforced
+- doctests and release-mode smoke tests are part of CI, not local-only habits
+
+### Phase D: Design-Grade Extraction For RC Workflows
+
+Goal:
+- solver outputs are complete and stable enough for RC design, schedules, and later BBS work
+
+Finish means:
+- beam station extraction is stable in 2D and 3D through the WASM surface
+- grouped-by-member convenience outputs are stable enough for product use
+- governing metadata, sign conventions, and provenance are explicit and documented
+- integration coverage exists for the 3D extraction path
+- remaining metadata needed by RC design is explicit once cover/bar-detail assumptions begin
+
+Concrete proof:
+- contract/snapshot tests protect the serialized payload shape
+- 2D and 3D integration tests exercise full solve-to-extraction paths
+- governing outputs never emit phantom combos or sentinel infinities
+- product code can consume station data without reconstructing solver semantics from raw arrays
+
+### Phase E: Long-Tail Nonlinear Hardening And Solver-Path Consistency
+
+Goal:
+- ugly mixed workflows stop being the place where mature solvers obviously outperform Dedaliano
+
+Finish means:
+- mixed shell + nonlinear regressions exist and stay green
+- contact + nonlinear + staging regressions exist and stay green
+- difficult convergence cases have predictable behavior and clearer failure modes
+- dense vs sparse, constrained vs unconstrained, and mixed frame/shell workflows stay aligned
+
+Concrete proof:
+- named regressions exist for the hard mixed workflows above
+- parity expectations are encoded for representative dense vs sparse and constrained vs unconstrained cases
+- solver-path-specific result divergences are treated as regressions, not expected quirks
+- known nonlinear edge cases have acceptance coverage instead of only anecdotal reproduction
+
+### Phase F: Shell Workflow Maturity And Breadth
+
+Goal:
+- the multi-family shell stack is not only broad, but guided, benchmarked, and hard to misuse
+
+Finish means:
+- shell-family guidance is explicit enough for automatic defaults and explainable override behavior
+- frontier-gate shell benchmarks stay current across the active families
+- the highest-value remaining shell-adjacent workflow gaps are closed:
+  - layered / laminated shells
+  - axisymmetric workflows
+  - deeper nonlinear / corotational shell depth
+
+Concrete proof:
+- shell-family selection rules are written and exercised in the product/model layer
+- frontier benchmarks exist for the active shell families on the workflows they are meant to cover
+- layered, axisymmetric, and deeper nonlinear shell workflows each have at least one reference/acceptance case
+- shell-family expansion is not reopened unless the current stack fails on practical workflows
 
 ## Full Backlog
 

@@ -98,20 +98,31 @@ Still productizing:
 
 ## Near-Term Product Priorities
 
+### Phase A: Trusted WASM Runtime
+
+Before pushing more product breadth, the browser app needs one trusted solver runtime:
+
+- make Rust/WASM the reliable primary execution path in production
+- verify the deployed branch/build/artifacts match what the team thinks is live
+- harden 3D solve, worker solve, and combinations/multi-case execution in the shipped app
+- fix frontend/WASM boundary issues before removing the TypeScript solver runtime backup
+- once stable, converge to a single production solver path instead of maintaining JS/WASM ambiguity
+
 ### 0-3 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 1 | Onboarding and first-solve success | The fastest way to grow usage is to make the first successful solve easy, obvious, and low-friction. |
-| 2 | Richer diagnostics UX | Diagnostics are now in the app flow; the next step is better grouping, filtering, and visibility rather than first-time surfacing. |
-| 3 | RC beam design and reinforcement schedule | This is one of the clearest analysis-to-deliverable loops for daily structural work: turn envelopes into required steel, selected bars, stirrups, and schedule-ready output. |
-| 4 | Shell-family recommendation and automatic defaults | The solver now has multiple shell families; the product should recommend `MITC4`, `MITC9`, `SHB8-ANS`, or triangular shells automatically, explain why, and allow safe override. |
-| 5 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
-| 6 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
-| 7 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
-| 8 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
-| 9 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
-| 10 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
+| 1 | WASM path reliability in production | The app needs a single trusted solver path before more breadth work. Fix build/deploy/runtime mismatches, worker issues, and 3D solve traps so the shipped product is stable. |
+| 2 | Onboarding and first-solve success | The fastest way to grow usage is to make the first successful solve easy, obvious, and low-friction. |
+| 3 | Richer diagnostics UX | Diagnostics are now in the app flow; the next step is better grouping, filtering, and visibility rather than first-time surfacing. |
+| 4 | RC beam design and reinforcement schedule | This is one of the clearest analysis-to-deliverable loops for daily structural work: turn envelopes into required steel, selected bars, stirrups, and schedule-ready output. |
+| 5 | Shell-family recommendation and automatic defaults | The solver now has multiple shell families; the product should recommend `MITC4`, `MITC9`, `SHB8-ANS`, or triangular shells automatically, explain why, and allow safe override. |
+| 6 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
+| 7 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
+| 8 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
+| 9 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
+| 10 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
+| 11 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
 
 ### 3-6 months
 
