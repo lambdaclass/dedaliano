@@ -4,6 +4,20 @@ use crate::element;
 use super::dof::DofNumbering;
 use super::assembly::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+#[inline]
+fn now_micros() -> u64 {
+    use std::time::Instant;
+    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    START.get_or_init(Instant::now).elapsed().as_micros() as u64
+}
+
+#[cfg(target_arch = "wasm32")]
+#[inline]
+fn now_micros() -> u64 {
+    0
+}
+
 /// Maps 12-DOF element indices to 14-DOF positions, skipping warping DOFs 6 and 13.
 const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
@@ -185,18 +199,17 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
     if nf >= SPARSE_THRESHOLD {
         // ── Sparse path: O(nnz) assembly, no dense n×n matrix ──
-        use std::time::Instant;
-        let t_total = Instant::now();
+        let t_total = now_micros();
 
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let asm = super::sparse_assembly::assemble_sparse_3d_parallel(input, &dof_num, true);
-        let assembly_us = t0.elapsed().as_micros() as u64;
+        let assembly_us = now_micros().saturating_sub(t0);
 
         let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
         let mut dense_fb_us: u64 = 0;
 
         // Sparse diagonal conditioning check
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let cond = sparse_diagonal_conditioning(&asm.k_ff);
         if cond > 1e12 {
             solver_diags.push(SolverDiagnostic {
@@ -211,7 +224,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 severity: "warning".into(),
             });
         }
-        let conditioning_us = t0.elapsed().as_micros() as u64;
+        let conditioning_us = now_micros().saturating_sub(t0);
 
         // F_f modified for prescribed displacements: F_f -= K_fr * u_r
         let mut f_f: Vec<f64> = asm.f[..nf].to_vec();
@@ -236,17 +249,17 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         };
 
         // Solve Kff * u_f = f_f (split into symbolic → numeric → solve)
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let sym = symbolic_cholesky(&asm.k_ff);
-        let symbolic_us = t0.elapsed().as_micros() as u64;
+        let symbolic_us = now_micros().saturating_sub(t0);
         let nnz_kff = asm.k_ff.col_ptr[nf]; // total nnz in lower triangle
         let nnz_l = sym.l_nnz;
 
         // Try strict Cholesky first; if it fails (shell drilling DOFs),
         // regularize K_ff with a diagonal shift and retry.
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let num_result = numeric_cholesky(&sym, &asm.k_ff);
-        let numeric_us = t0.elapsed().as_micros() as u64;
+        let numeric_us = now_micros().saturating_sub(t0);
 
         let mut pivot_perturbations = 0usize;
         let mut max_perturbation_val = 0.0f64;
@@ -296,11 +309,11 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         message: "Sparse Cholesky failed even with regularization, fell back to dense LU".into(),
                         severity: "warning".into(),
                     });
-                    let t0 = Instant::now();
+                    let t0 = now_micros();
                     let u_fb = dense_lu_fallback()?;
-                    dense_fb_us = t0.elapsed().as_micros() as u64;
+                    dense_fb_us = now_micros().saturating_sub(t0);
                     // Jump to timings construction
-                    let total_us = t_total.elapsed().as_micros() as u64;
+                    let total_us = now_micros().saturating_sub(t_total);
                     let timings = SolveTimings {
                         assembly_us, conditioning_us, symbolic_us, numeric_us,
                         solve_us: 0, residual_us: 0, dense_fallback_us: dense_fb_us,
@@ -338,7 +351,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             }
         };
 
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let mut u = sparse_cholesky_solve(&num, &f_f);
 
         // Iterative refinement against the ORIGINAL K_ff to correct for
@@ -363,10 +376,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 }
             }
         }
-        let s_us = t0.elapsed().as_micros() as u64;
+        let s_us = now_micros().saturating_sub(t0);
 
         // Verify final solution quality via residual check.
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let ku = asm.k_ff.sym_mat_vec(&u);
         let mut res_norm2 = 0.0f64;
         let mut f_norm2 = 0.0f64;
@@ -375,7 +388,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             f_norm2 += f_f[i].powi(2);
         }
         let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
-        let r_us = t0.elapsed().as_micros() as u64;
+        let r_us = now_micros().saturating_sub(t0);
 
         let (u_f, solve_us, residual_us) = if rel_residual < 1e-6 {
             solver_diags.push(SolverDiagnostic {
@@ -393,9 +406,9 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 ),
                 severity: "warning".into(),
             });
-            let t0 = Instant::now();
+            let t0 = now_micros();
             let u_fb = dense_lu_fallback()?;
-            dense_fb_us = t0.elapsed().as_micros() as u64;
+            dense_fb_us = now_micros().saturating_sub(t0);
             (u_fb, s_us, r_us)
         };
 
@@ -405,7 +418,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
         // Reactions via full-K sym_mat_vec: R[i] = (K*u)[i] - F[i] for restrained DOFs
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let ku = asm.k_full.as_ref().unwrap().sym_mat_vec(&u_full);
         let mut reactions_vec = vec![0.0; nr];
         let f_r: Vec<f64> = asm.f[nf..].to_vec();
@@ -425,14 +438,14 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
-        let reactions_us = t0.elapsed().as_micros() as u64;
+        let reactions_us = now_micros().saturating_sub(t0);
 
-        let t0 = Instant::now();
+        let t0 = now_micros();
         let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
         let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
-        let stress_recovery_us = t0.elapsed().as_micros() as u64;
+        let stress_recovery_us = now_micros().saturating_sub(t0);
 
-        let total_us = t_total.elapsed().as_micros() as u64;
+        let total_us = now_micros().saturating_sub(t_total);
 
         let timings = SolveTimings {
             assembly_us,
