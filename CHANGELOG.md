@@ -9,6 +9,25 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
+### Changed
+
+#### WASM-first with TS fallback across engine modules
+
+- rewired kinematic analysis (2D/3D) to delegate to WASM when available, falling back to full TS LU rank analysis when not
+- deduplicated diagram code: diagrams-3d.ts `computeDiagram3D` now calls `evaluateDiagramAt` instead of duplicating 140-line switch/case; diagrams.ts uses shared `buildDiagram` helper
+- added TS fallback for `computeDeformedShape` (was WASM-only, broke tests)
+- restored TS fallback for `analyzeSectionStress` (2D), `analyzeSectionStress3D`, and `analyzeSectionStressFromForces` — all had been migrated to WASM-only without fallback
+- rewired `moving-loads.ts` to use TS solver when WASM unavailable
+- net reduction of ~240 LOC across migrated files
+
+### Fixed
+
+#### Test infrastructure: localStorage and WASM fallback
+
+- fixed `i18n/store.svelte.ts` localStorage crash in vitest: `typeof localStorage !== 'undefined'` passes in Node but `.getItem` is not a function; added `hasLocalStorage()` guard
+- fixed test imports in `inclined-supports.test.ts` and `kinematic-analysis.test.ts` to import kinematic functions from `kinematic-2d` instead of `solver-js`
+- test suite went from 122 passing / 3 failing / 31 suites crashing to 1625 passing / 0 failing / 35 suites green
+
 ### Added
 
 #### Design-grade beam station extraction
