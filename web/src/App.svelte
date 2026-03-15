@@ -802,6 +802,9 @@
     width: 540px;
     min-width: 540px;
     max-width: 540px;
+    overflow: visible;
+    position: relative;
+    z-index: 40;
   }
 
   .edu-sidebar {

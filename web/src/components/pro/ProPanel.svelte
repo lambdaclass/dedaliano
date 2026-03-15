@@ -661,6 +661,7 @@
     height: 100%;
     background: #16213e;
     color: #ddd;
+    overflow: visible;
   }
 
   /* ─── Action bar ─── */
@@ -673,10 +674,13 @@
     flex-shrink: 0;
     justify-content: flex-end;
     position: relative;
+    overflow: visible;
+    z-index: 2;
   }
 
   .pro-example-wrap {
     position: relative;
+    overflow: visible;
   }
 
   .pro-example-btn {
@@ -703,7 +707,7 @@
     border-radius: 10px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
     padding: 8px;
-    z-index: 30;
+    z-index: 220;
   }
 
   .pro-example-menu-head {
