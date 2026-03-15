@@ -739,12 +739,14 @@ Finish means:
 - SIMP on MBB beam and cantilever benchmarks converges to known topologies
 - frequency-constrained optimization shifts target modes as expected
 
-### Phase Q: Reliability & Probabilistic Analysis
+### Phase Q: Reliability, Probabilistic & Bayesian Model Updating
 
 Goal:
-- solver support for probabilistic structural assessment
+- solver support for probabilistic structural assessment, uncertainty quantification, and digital twin model calibration from real-world sensor data
 
 Solver work:
+
+**Reliability methods:**
 - **Parameterized analysis** — solver accepts parameter vectors for material/geometry/load uncertainty
 - **FORM/SORM** — first/second-order reliability methods via gradient-based search
 - **Monte Carlo** — batch solver execution with random parameter sampling
@@ -752,10 +754,29 @@ Solver work:
 - **Subset simulation** — efficient estimation of small failure probabilities
 - **Batch execution API** — run N analyses with different parameter sets efficiently (reuse symbolic factorization)
 
+**Bayesian model updating & digital twins:**
+- **Bayesian parameter estimation** — update material properties (E, fy, fc), boundary stiffnesses, and connection rigidities from measured response data (displacements, accelerations, strains, natural frequencies)
+- **Likelihood function from FE model** — compute model prediction error against sensor measurements for any parameter set, supporting Gaussian and non-Gaussian error models
+- **Markov Chain Monte Carlo (MCMC)** — Metropolis-Hastings and Hamiltonian Monte Carlo for posterior sampling of model parameters
+- **Transitional MCMC (TMCMC)** — sequential tempering for multi-modal posteriors common in structural identification
+- **Modal-based updating** — objective function from natural frequency and mode shape residuals (MAC-based), efficient for vibration-based SHM
+- **Sensor data ingestion API** — accept time-series acceleration, strain, displacement data from SHM systems; preprocessing (filtering, decimation, windowing) built in
+- **Damage detection** — detect stiffness changes between baseline and damaged states via Bayesian hypothesis testing on updated parameters
+- **Predictive posterior** — propagate parameter uncertainty through FE model to get probabilistic predictions of remaining capacity, fatigue life, or failure probability
+
+**Uncertainty quantification (UQ):**
+- **Polynomial chaos expansion (PCE)** — spectral UQ for efficient uncertainty propagation when Monte Carlo is too expensive
+- **Stochastic FEM (SFEM)** — random field discretization of spatially varying material properties (e.g., concrete strength variability across a slab)
+- **Sensitivity indices (Sobol)** — global sensitivity analysis to identify which uncertain parameters dominate structural response
+
 Finish means:
 - FORM reliability index matches analytical solution for known limit-state functions
 - Monte Carlo failure probability converges to FORM result with sufficient samples
 - batch execution reuses symbolic factorization across parameter variations
+- MCMC posterior on a simple beam (E, I uncertain, measured deflection) matches analytical Bayesian solution
+- modal-based updating recovers known stiffness reduction (simulated damage) from noisy frequency measurements
+- PCE uncertainty bounds match Monte Carlo within 5% at 100× lower cost
+- Sobol indices correctly rank parameter importance on standard benchmark problems
 
 ### Phase R: Contact, Interface & Constraint Depth
 
@@ -970,7 +991,7 @@ Finish means:
 112. Add eigenvalue sensitivity for frequency-constrained optimization
 113. Add p-norm stress constraint aggregation
 
-### Phase Q (Reliability & Probabilistic)
+### Phase Q (Reliability, Probabilistic & Bayesian)
 
 114. Add parameterized solver for material/geometry/load uncertainty
 115. Implement FORM/SORM reliability methods
@@ -978,68 +999,77 @@ Finish means:
 117. Add importance sampling for rare failure events
 118. Implement subset simulation
 119. Add batch execution API with symbolic factorization reuse
+120. Implement Bayesian parameter estimation with likelihood from FE model
+121. Add MCMC sampling (Metropolis-Hastings, Hamiltonian MC, Transitional MCMC)
+122. Implement modal-based model updating (frequency + mode shape residuals, MAC-based)
+123. Add sensor data ingestion API (acceleration, strain, displacement time-series)
+124. Implement Bayesian damage detection via stiffness change hypothesis testing
+125. Add predictive posterior propagation for remaining capacity / fatigue life
+126. Implement polynomial chaos expansion (PCE) for efficient UQ
+127. Add stochastic FEM with random field discretization
+128. Implement Sobol global sensitivity indices
 
 ### Phase R (Contact, Interface & Constraints)
 
-120. Implement augmented Lagrangian contact enforcement
-121. Implement mortar contact for non-matching meshes
-122. Add Coulomb friction with proper slip/stick detection
-123. Add self-contact for large deformation (pipe buckling, shell folding)
-124. Implement cohesive zone elements (traction-separation for delamination/debonding)
-125. Add tie constraints for multi-part assemblies with non-matching meshes
-126. Implement shell-to-solid coupling constraints
-127. Add beam-to-shell connection with offset
-128. Implement embedded elements (rebar in concrete solids/shells)
-129. Add distributed coupling (RBE3-equivalent)
-130. Add kinematic coupling with DOF selection
-131. Add general linear MPC equations (u_i = Σ(a_j · u_j) + b)
-132. Implement periodic boundary conditions for RVE homogenization
-133. Add automatic symmetry/antisymmetry constraints on cut planes
+129. Implement augmented Lagrangian contact enforcement
+130. Implement mortar contact for non-matching meshes
+131. Add Coulomb friction with proper slip/stick detection
+132. Add self-contact for large deformation (pipe buckling, shell folding)
+133. Implement cohesive zone elements (traction-separation for delamination/debonding)
+134. Add tie constraints for multi-part assemblies with non-matching meshes
+135. Implement shell-to-solid coupling constraints
+136. Add beam-to-shell connection with offset
+137. Implement embedded elements (rebar in concrete solids/shells)
+138. Add distributed coupling (RBE3-equivalent)
+139. Add kinematic coupling with DOF selection
+140. Add general linear MPC equations (u_i = Σ(a_j · u_j) + b)
+141. Implement periodic boundary conditions for RVE homogenization
+142. Add automatic symmetry/antisymmetry constraints on cut planes
 
 ### Phase S (Design-Oriented Post-Processing)
 
-134. Implement Wood-Armer moments for RC slab design from shell results
-135. Add nodal force summation / section cuts through shell/solid models
-136. Implement shell result envelopes across load combinations
-137. Add design-oriented result transformation to reinforcement/principal/user directions
-138. Add influence surface generation for slabs under moving loads
-139. Implement crack width estimation from shell reinforcement strains (EC2/ACI 318)
-140. Add automatic punching shear perimeter detection and code-check
-141. Implement stress linearization (membrane+bending+peak per ASME/EN 13445)
-142. Add result smoothing/averaging control by material, type, and angle threshold
-143. Implement superconvergent patch recovery (SPR / Zienkiewicz-Zhu)
-144. Add submodeling / global-local analysis workflow
-145. Add nonlinear post-buckling workflow (imperfection seeding, arc-length, knockdown)
-146. Add construction sequence with creep/shrinkage/relaxation interaction between stages
-147. Implement ZZ error estimator for mesh adequacy guidance
-148. Add h-refinement indicators from element-level error estimates
+143. Implement Wood-Armer moments for RC slab design from shell results
+144. Add nodal force summation / section cuts through shell/solid models
+145. Implement shell result envelopes across load combinations
+146. Add design-oriented result transformation to reinforcement/principal/user directions
+147. Add influence surface generation for slabs under moving loads
+148. Implement crack width estimation from shell reinforcement strains (EC2/ACI 318)
+149. Add automatic punching shear perimeter detection and code-check
+150. Implement stress linearization (membrane+bending+peak per ASME/EN 13445)
+151. Add result smoothing/averaging control by material, type, and angle threshold
+152. Implement superconvergent patch recovery (SPR / Zienkiewicz-Zhu)
+153. Add submodeling / global-local analysis workflow
+154. Add nonlinear post-buckling workflow (imperfection seeding, arc-length, knockdown)
+155. Add construction sequence with creep/shrinkage/relaxation interaction between stages
+156. Implement ZZ error estimator for mesh adequacy guidance
+157. Add h-refinement indicators from element-level error estimates
 
 ### Cross-Phase Items
 
-149. Implement general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
-150. Add Caughey damping (generalized Rayleigh for more than 2 target frequencies)
-151. Add frequency-dependent and non-proportional damping with complex eigenvalue analysis
-152. Add random vibration / PSD analysis (wind/wave/traffic excitation)
-153. Add response spectrum CQC3, GMC, Gupta methods and missing mass correction
-154. Implement force-based beam-column element (OpenSees-equivalent)
-155. Add Timoshenko beam with warping DOF (7-DOF) for open thin-walled sections
-156. Add full shell triangle (MITC3/DSG3 with membrane+bending+drilling)
-157. Add 6-node triangular shell (MITC6/STRI65)
-158. Implement composite laminate failure criteria (Tsai-Wu, Tsai-Hill, Hashin, Puck)
-159. Add UMAT-equivalent user-defined material interface
-160. Implement Drucker-Prager and Mohr-Coulomb plasticity for geotechnical analysis
-161. Implement Modified Cam-Clay for clay soils
-162. Add orthotropic/anisotropic elasticity for timber, masonry, composites
-163. Implement Total Lagrangian and Updated Lagrangian large-strain formulations
-164. Add multi-frontal solver with nested dissection ordering
-165. Implement AMG preconditioner for million-DOF models
-166. Add domain decomposition (FETI) for distributed parallelism
-167. Add smeared/rotating crack and damage mechanics models (Mazars, Lemaitre)
-168. Implement Gauss-point substepping for material integration robustness
-169. Add dissipation-based stabilization for shell buckling and concrete cracking
-170. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
-171. Add fatigue cycle counting (rainflow) and S-N damage accumulation
-172. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
+158. Implement general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
+159. Add Caughey damping (generalized Rayleigh for more than 2 target frequencies)
+160. Add frequency-dependent and non-proportional damping with complex eigenvalue analysis
+161. Add random vibration / PSD analysis (wind/wave/traffic excitation)
+162. Add response spectrum CQC3, GMC, Gupta methods and missing mass correction
+163. Implement force-based beam-column element (OpenSees-equivalent)
+164. Add Timoshenko beam with warping DOF (7-DOF) for open thin-walled sections
+165. Add full shell triangle (MITC3/DSG3 with membrane+bending+drilling)
+166. Add 6-node triangular shell (MITC6/STRI65)
+167. Implement composite laminate failure criteria (Tsai-Wu, Tsai-Hill, Hashin, Puck)
+168. Add UMAT-equivalent user-defined material interface
+169. Implement Drucker-Prager and Mohr-Coulomb plasticity for geotechnical analysis
+170. Implement Modified Cam-Clay for clay soils
+171. Add orthotropic/anisotropic elasticity for timber, masonry, composites
+172. Implement Total Lagrangian and Updated Lagrangian large-strain formulations
+173. Add multi-frontal solver with nested dissection ordering
+174. Implement AMG preconditioner for million-DOF models
+175. Add domain decomposition (FETI) for distributed parallelism
+176. Add smeared/rotating crack and damage mechanics models (Mazars, Lemaitre)
+177. Implement Gauss-point substepping for material integration robustness
+178. Add dissipation-based stabilization for shell buckling and concrete cracking
+179. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
+180. Add fatigue cycle counting (rainflow) and S-N damage accumulation
+181. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
 
 ## Active Programs
 
@@ -1532,6 +1562,8 @@ Done means:
 - progressive collapse (GSA/UFC alternate path) — Phase M
 - topology optimization and sensitivity analysis — Phase P
 - reliability and probabilistic analysis (FORM/SORM, Monte Carlo) — Phase Q
+- Bayesian model updating and digital twin calibration (MCMC, sensor data, damage detection) — Phase Q
+- uncertainty quantification (PCE, stochastic FEM, Sobol sensitivity) — Phase Q
 - domain decomposition (FETI) for distributed parallelism — Phase O
 - WebGPU compute shaders — Phase O
 - 3D solid elements (C3D8, C3D20, C3D4, C3D10) — Phase L
