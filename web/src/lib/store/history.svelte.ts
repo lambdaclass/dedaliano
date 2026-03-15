@@ -77,8 +77,11 @@ function createHistoryStore() {
     },
   };
 
-  // Wire into model store so mutations auto-push undo state
-  modelStore._setHistoryPush(() => store.pushState());
+  // Wire into model store after module initialization settles so this store
+  // can survive circular imports in tests/SSR.
+  queueMicrotask(() => {
+    modelStore?._setHistoryPush?.(() => store.pushState());
+  });
 
   return store;
 }

@@ -41,6 +41,7 @@ if (hasLocalStorage()) {
 }
 
 function createUIStore() {
+  const initialWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   let currentTool = $state<Tool>('pan');
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
@@ -187,7 +188,7 @@ function createUIStore() {
   let showKinematicPanel = $state<boolean>(false);
 
   // Mobile responsive
-  let windowWidth = $state(window.innerWidth);
+  let windowWidth = $state(initialWindowWidth);
   let leftDrawerOpen = $state(false);
   let rightDrawerOpen = $state(false);
   let mobileResultsPanelOpen = $state(false);
