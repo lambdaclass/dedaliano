@@ -140,14 +140,20 @@ The most important enabling capabilities are:
 3. `Report-grade provenance and diagnostics`
    Report OS and QA layers need solver-path, warnings, timings, residuals, and governing-result provenance in a form suitable for users and documents.
 
-4. `Headless and native execution`
+4. `Machine-readable warnings and review signals`
+   Earlier AI-assisted UX and lightweight collaboration need diagnostics that are not just human-readable, but structured enough for comments, review flows, and assistant suggestions.
+
+5. `Headless and native execution`
    Firm workflows, cloud comparison, batch runs, and heavier report jobs need native/server execution in addition to browser WASM.
 
-5. `Reproducibility`
+6. `Reproducibility`
    QA/review and collaboration products need deterministic replay, build IDs, and captured solver-run artifacts.
 
-6. `Model quality gates`
+7. `Model quality gates`
    Review and peer-check layers work much better when the solver catches instability, disconnected subgraphs, shell pathologies, and bad support conditions before solve.
+
+8. `Web/desktop runtime parity`
+   If the product ships as both browser and Tauri desktop, the solver contracts, diagnostics, and major workflows need parity across WASM-in-browser and native/local execution surfaces.
 
 ## Ranked Priorities
 
@@ -220,13 +226,20 @@ If the goal is `best open structural solver`, the current priority order is:
    - governing-result provenance
    - explainable solver-path and warning outputs suitable for reports and QA
 
-10. `Constraint-system maturity`
+10. `AI- and review-ready diagnostics contracts`
+    Earlier AI assistance and lightweight collaboration require stable, structured diagnostics:
+    - machine-readable warning codes
+    - stable severity levels
+    - element/member references for annotation
+    - reproducible provenance suitable for comments, diffs, and assistant suggestions
+
+11. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-11. `Advanced contact maturity`
+12. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-12. `Reference benchmark expansion`
+13. `Reference benchmark expansion`
     Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
     Prefer:
     - reference cases that close real proof gaps
@@ -235,22 +248,23 @@ If the goal is `best open structural solver`, the current priority order is:
     - performance gates that protect runtime, fill, and no-fallback expectations
     Avoid low-signal count inflation.
 
-13. `Shell-family workflow maturity`
+14. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
 
-14. `Shell-family automatic selection policy`
+15. `Shell-family automatic selection policy`
     Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
 
-15. `Shell-adjacent workflow breadth competitors still expose clearly`
+16. `Shell-adjacent workflow breadth competitors still expose clearly`
     Add the highest-value missing shell-related workflow classes:
     - layered / laminated shell workflows
     - axisymmetric workflows
     - deeper nonlinear / corotational shell depth
 
-16. `Native / server execution maturity`
+17. `Native / server execution maturity`
     If Rust is the one solver, browser WASM is not enough. Native/server execution should become first-class for heavy runs, enterprise workflows, and reproducible batch analysis.
+    This also enables a clean Tauri desktop story without inventing a second solver path.
 
-17. `Reduction, staged/PT coupling, and other second-tier depth`
+18. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
@@ -276,25 +290,28 @@ The current near-term sequence is:
 3. `Result trust and product-facing diagnostics`
    Expose timings, diagnostics, fill, provenance, constraint/governing outputs, and trust signals clearly enough that users can rely on and explain the solver.
 
-4. `Runtime and scale`
+4. `AI- and review-ready diagnostics`
+   Add stable warning codes, annotation-ready references, severity levels, and structured diagnostics so lightweight collaboration and AI guidance can be shipped without brittle UI-side guessing.
+
+5. `Runtime and scale`
    Keep eliminating the remaining measured bottlenecks in harmonic, reduction, and sparse eigensolver/reduction internals.
 
-5. `Verification moat`
+6. `Verification moat`
    Keep turning major solver gains into release-gated, benchmarked, acceptance-covered proof.
 
-6. `Long-tail nonlinear hardening`
+7. `Long-tail nonlinear hardening`
    Focus on ugly mixed cases where mature solvers still win.
 
-7. `Solver-path consistency`
+8. `Solver-path consistency`
    Keep dense vs sparse and mixed-family workflows aligned.
 
-8. `Shell-family workflow guidance and frontier tracking`
+9. `Shell-family workflow guidance and frontier tracking`
    Keep the multi-family shell stack well-guided and benchmarked.
 
-9. `Shell-family automatic selection policy`
+10. `Shell-family automatic selection policy`
    Turn guidance into real default-selection logic.
 
-10. `Shell-adjacent workflow breadth`
+11. `Shell-adjacent workflow breadth`
    Add layered shells, axisymmetric workflows, and deeper nonlinear shell depth.
 
 ## Phases And Finish Criteria
@@ -402,20 +419,41 @@ Concrete proof:
 - solver-path-specific result divergences are treated as regressions, not expected quirks
 - known nonlinear edge cases have acceptance coverage instead of only anecdotal reproduction
 
-### Phase F: Result Trust, Auditability, And Model Quality Gates
+### Phase F: Result Trust, Structured Diagnostics, And Model Quality Gates
 
 Goal:
 - the solver becomes easier to trust before and after a run, not only numerically stronger internally
+- diagnostics are structured enough to power AI-assisted review, lightweight collaboration (comments, annotations, diffs), and automated guidance — not just human-readable text
+
+Solver work:
+
+**Pre-solve model quality gates:**
+- disconnected subgraph detection, instability risk, poor/conflicting constraints
+- duplicate/near-duplicate nodes, shell distortion / Jacobian risk, suspicious local-axis setups
+
+**Structured diagnostics for AI and review:**
+- **Machine-readable warning codes** — stable enum-based codes that AI and review UIs can match on without brittle string parsing
+- **Stable severity levels** — error / warning / info with consistent semantics across all solver paths
+- **Element/member/node references in every diagnostic** — annotation-ready references so warnings can be pinned to elements in comments, review flows, and AI suggestions
+- **Provenance metadata** — every diagnostic carries the solver path, phase, and combination that produced it
+- **Deterministic solver-run artifacts** — build SHA, solver path, ordering, key diagnostics, and enough input/output state to replay any issue locally
+
+**Post-solve trust signals:**
+- equilibrium / residual / conditioning summaries in result payloads
+- governing-result provenance (which combination, which station, which check)
 
 Finish means:
 - bad models are caught earlier with clear pre-solve diagnostics
-- result outputs expose enough equilibrium / residual / provenance information for QA and reporting
-- user-visible warnings are tied to actual solver evidence rather than generic failure text
+- every warning has a stable code, severity, and element reference
+- result outputs expose enough provenance for QA, reporting, and AI consumption
+- AI-assisted review can be built on structured codes, not string parsing
 
 Concrete proof:
-- pre-solve checks exist for disconnected subgraphs, instability risk, poor constraints, duplicate/near-duplicate nodes, shell distortion / Jacobian risk, and suspicious local-axis setups
+- pre-solve checks exist for all model quality gates listed above
+- diagnostic payloads have a stable schema with code, severity, element_ids, and provenance fields
 - result payloads expose equilibrium/residual/conditioning summaries on representative workflows
-- solver-run artifacts can be attached to bug reports and reviewed by engineering without manual reconstruction
+- solver-run artifacts can be attached to bug reports and replayed locally
+- at least one AI/review consumer uses structured codes, not string parsing
 
 ### Phase G: Shell Workflow Maturity And Breadth
 
