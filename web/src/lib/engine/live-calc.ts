@@ -145,11 +145,11 @@ async function globalSolve3D(): Promise<void> {
     const r = modelStore.solve3D(uiStore.includeSelfWeight, leftHand, isPro);
     if (typeof r === 'string') {
       uiStore.toast(r, 'error');
-      return false;
+      return null;
     }
     if (!r) {
       uiStore.toast(t('results.emptyModelError'), 'error');
-      return false;
+      return null;
     }
     resultsStore.setResults3D(r);
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
@@ -159,47 +159,62 @@ async function globalSolve3D(): Promise<void> {
       'success',
     );
     showSolverWarningToasts(r.solverDiagnostics);
-    return true;
+    return r;
+  };
+
+  const runComboSolve = async () => {
+    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro);
+    if (typeof comboResult === 'string') return comboResult;
+    if (!comboResult) return t('results.emptyModelError');
+
+    // Use first per-case result as the "single" baseline view
+    const firstCaseResult = comboResult.perCase.values().next().value;
+    if (!firstCaseResult) return t('results.emptyModelError');
+
+    resultsStore.setResults3D(firstCaseResult);
+    resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
+
+    if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
+    const elapsed = performance.now() - t0;
+    const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';
+    const nBars = firstCaseResult?.elementForces.length ?? 0;
+    const nReac = firstCaseResult?.reactions.length ?? 0;
+    uiStore.toast(
+      `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
+      'success',
+    );
+    showSolverWarningToasts(firstCaseResult.solverDiagnostics);
+    return null;
   };
 
   // When combinations exist, use parallel Web Workers for maximum performance
   if (hasCombos) {
+    if (isPro) {
+      // In PRO, always establish a baseline solved state first so the user
+      // still gets usable results even if the combination path fails.
+      const baseline = runSingleSolve();
+      if (!baseline) return;
+      try {
+        const comboError = await runComboSolve();
+        if (comboError) {
+          console.warn('[globalSolve3D] Combination solve returned error in PRO, keeping single-solve results:', comboError);
+          uiStore.toast(comboError, 'info');
+        }
+      } catch (e: any) {
+        console.error('[globalSolve3D] Combination solving failed in PRO, keeping single-solve results:', e.message);
+        uiStore.toast(e.message, 'info');
+      }
+      return;
+    }
+
     try {
-      const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro);
-      if (typeof comboResult === 'string') {
-        console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboResult);
-        uiStore.toast(comboResult, 'error');
+      const comboError = await runComboSolve();
+      if (comboError) {
+        console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboError);
+        uiStore.toast(comboError, 'error');
         runSingleSolve();
         return;
       }
-      if (!comboResult) {
-        console.warn('[globalSolve3D] Combination solve returned empty result, falling back to single solve');
-        uiStore.toast(t('results.emptyModelError'), 'error');
-        runSingleSolve();
-        return;
-      }
-
-      // Use first per-case result as the "single" baseline view
-      const firstCaseResult = comboResult.perCase.values().next().value;
-      if (!firstCaseResult) {
-        console.warn('[globalSolve3D] Combination solve produced no baseline case, falling back to single solve');
-        runSingleSolve();
-        return;
-      }
-      if (firstCaseResult) resultsStore.setResults3D(firstCaseResult);
-
-      resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-
-      if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
-      const elapsed = performance.now() - t0;
-      const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';
-      const nBars = firstCaseResult?.elementForces.length ?? 0;
-      const nReac = firstCaseResult?.reactions.length ?? 0;
-      uiStore.toast(
-        `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
-        'success',
-      );
-      if (firstCaseResult) showSolverWarningToasts(firstCaseResult.solverDiagnostics);
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
       uiStore.toast(e.message, 'error');
