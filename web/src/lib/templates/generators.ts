@@ -980,7 +980,7 @@ export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DPar
 }
 
 // -------------------------------------------------------------------
-// 6. Cable-stayed bridge — single-pylon showcase bridge
+// 6. Cable-stayed bridge — dual-pylon with harp cables
 // -------------------------------------------------------------------
 
 export interface CableStayedBridge3DParams {
@@ -996,54 +996,121 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
   store.model.name = t('ex.cableStayedBridge3D');
 
   store.batch(() => {
-    const dx = p.span / p.nPanels;
+    const n = p.nPanels;
+    const dx = p.span / n;
     const zL = -p.deckWidth / 2;
     const zR = p.deckWidth / 2;
+    const deckY = p.pylonHeight * 0.15; // deck elevated slightly
+    const backSpan = p.span * 0.25; // back-span beyond pylons
+
+    // ── Deck girders (left + right edge beams) ──
+    // Back-span | main span | back-span
     const left: number[] = [];
     const right: number[] = [];
+    const nBack = Math.max(2, Math.round(n * 0.2)); // panels in each back-span
+    const dxBack = backSpan / nBack;
+    const totalPanels = nBack + n + nBack;
 
-    for (let i = 0; i <= p.nPanels; i++) {
-      const x = i * dx;
-      left.push(store.addNode(x, 0, zL));
-      right.push(store.addNode(x, 0, zR));
+    for (let i = 0; i <= totalPanels; i++) {
+      let x: number;
+      if (i <= nBack) x = -backSpan + i * dxBack;
+      else if (i <= nBack + n) x = (i - nBack) * dx;
+      else x = p.span + (i - nBack - n) * dxBack;
+      left.push(store.addNode(x, deckY, zL));
+      right.push(store.addNode(x, deckY, zR));
     }
 
-    for (let i = 0; i < p.nPanels; i++) {
+    // Deck edge beams + cross beams + loads
+    for (let i = 0; i < totalPanels; i++) {
       const e1 = store.addElement(left[i], left[i + 1], 'frame');
       const e2 = store.addElement(right[i], right[i + 1], 'frame');
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(e1, 0, 0, p.deckLoad, p.deckLoad);
-        store.addDistributedLoad3D(e2, 0, 0, p.deckLoad, p.deckLoad);
+        store.addDistributedLoad3D(e1, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(e2, 0, p.deckLoad, 0, p.deckLoad);
       }
     }
-    for (let i = 0; i <= p.nPanels; i++) {
+    // Cross beams at every panel point
+    for (let i = 0; i <= totalPanels; i++) {
       store.addElement(left[i], right[i], 'frame');
     }
 
-    const mid = Math.floor(p.nPanels / 2);
-    const pylonBaseL = store.addNode(mid * dx, 0, zL * 0.35);
-    const pylonBaseR = store.addNode(mid * dx, 0, zR * 0.35);
-    const pylonTop = store.addNode(mid * dx, p.pylonHeight, 0);
-    store.addElement(pylonBaseL, pylonTop, 'frame');
-    store.addElement(pylonBaseR, pylonTop, 'frame');
-    store.addElement(pylonBaseL, pylonBaseR, 'frame');
-    store.addElement(pylonBaseL, left[mid], 'frame');
-    store.addElement(pylonBaseR, right[mid], 'frame');
+    // ── Pylon positions ──
+    const pylonIdx1 = nBack; // left pylon at x=0
+    const pylonIdx2 = nBack + n; // right pylon at x=span
 
-    for (let i = 1; i < p.nPanels; i++) {
-      if (i === mid) continue;
-      store.addElement(pylonTop, left[i], 'truss');
-      store.addElement(pylonTop, right[i], 'truss');
+    // ── A-frame pylons ──
+    // Each pylon: two inclined legs from deck level to a single top node
+    const buildPylon = (deckIdx: number, x: number) => {
+      const legSpread = p.deckWidth * 0.6;
+      const baseL = store.addNode(x, 0, -legSpread / 2);
+      const baseR = store.addNode(x, 0, legSpread / 2);
+      const top = store.addNode(x, p.pylonHeight, 0);
+      // Pylon legs
+      store.addElement(baseL, top, 'frame');
+      store.addElement(baseR, top, 'frame');
+      // Cross-beam at deck level tying legs to deck
+      store.addElement(baseL, baseR, 'frame');
+      store.addElement(baseL, left[deckIdx], 'frame');
+      store.addElement(baseR, right[deckIdx], 'frame');
+      // Supports at pylon feet
+      store.addSupport(baseL, 'fixed3d');
+      store.addSupport(baseR, 'fixed3d');
+      return top;
+    };
+
+    const pylonTop1 = buildPylon(pylonIdx1, 0);
+    const pylonTop2 = buildPylon(pylonIdx2, p.span);
+
+    // ── Harp-pattern cables (semi-fan) ──
+    // Cables attach at evenly spaced heights on the pylon
+    const nCables = Math.floor(n / 2) - 1; // cables per side per pylon
+    if (nCables > 0) {
+      const hMin = p.pylonHeight * 0.4;
+      const hMax = p.pylonHeight * 0.95;
+
+      for (let c = 0; c < nCables; c++) {
+        const hFrac = (c + 1) / (nCables + 1);
+        const h = hMin + hFrac * (hMax - hMin);
+
+        // Anchor nodes at different heights on each pylon
+        const anch1 = store.addNode(0, h, 0);
+        const anch2 = store.addNode(p.span, h, 0);
+
+        // Pylon 1: cables to main span (right side) + back-span (left side)
+        const mainIdx = pylonIdx1 + (c + 1) * 2; // every 2 panels into main span
+        const backIdx = pylonIdx1 - (c + 1); // into back-span
+        if (mainIdx <= pylonIdx2 && mainIdx > pylonIdx1) {
+          store.addElement(anch1, left[mainIdx], 'truss');
+          store.addElement(anch1, right[mainIdx], 'truss');
+        }
+        if (backIdx >= 0) {
+          store.addElement(anch1, left[backIdx], 'truss');
+          store.addElement(anch1, right[backIdx], 'truss');
+        }
+
+        // Pylon 2: cables to main span (left side) + back-span (right side)
+        const mainIdx2 = pylonIdx2 - (c + 1) * 2;
+        const backIdx2 = pylonIdx2 + (c + 1);
+        if (mainIdx2 >= pylonIdx1 && mainIdx2 < pylonIdx2) {
+          store.addElement(anch2, left[mainIdx2], 'truss');
+          store.addElement(anch2, right[mainIdx2], 'truss');
+        }
+        if (backIdx2 <= totalPanels) {
+          store.addElement(anch2, left[backIdx2], 'truss');
+          store.addElement(anch2, right[backIdx2], 'truss');
+        }
+
+        // Connect anchor nodes to pylon shaft
+        store.addElement(anch1, pylonTop1, 'frame');
+        store.addElement(anch2, pylonTop2, 'frame');
+      }
     }
 
-    store.addSupport(left[0], 'fixed3d');
-    store.addSupport(right[0], 'fixed3d');
-    store.addSupport(left[p.nPanels], 'fixed3d');
-    store.addSupport(right[p.nPanels], 'fixed3d');
-    store.addSupport(pylonBaseL, 'fixed3d');
-    store.addSupport(pylonBaseR, 'fixed3d');
-
-    store.addNodalLoad3D(pylonTop, 8, -25, 0, 0, 0, 0);
+    // ── Abutment supports ──
+    store.addSupport(left[0], 'pinned3d');
+    store.addSupport(right[0], 'pinned3d');
+    store.addSupport(left[totalPanels], 'pinned3d');
+    store.addSupport(right[totalPanels], 'pinned3d');
   });
 }
 
@@ -1145,12 +1212,11 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const upperMid = ovalRing(fieldHalfX + 50, fieldHalfZ + 39, 27.5, 1, 4.5);
     const upperBack = ovalRing(fieldHalfX + 62, fieldHalfZ + 49, 35, 2, 6.5);
     const concourse = ovalRing(fieldHalfX + 71, fieldHalfZ + 57, 38, 1, 4);
-    const tensionRing = ovalRing(fieldHalfX + 72, fieldHalfZ + 58, 40, 0, 2);
-    const roofInner = ovalRing(fieldHalfX + 77, fieldHalfZ + 62, 43, 1, 2);
-    const roofMid = ovalRing(fieldHalfX + 86, fieldHalfZ + 69, p.roofRise + 10, 1, 2.5);
-    const roofOuter = ovalRing(fieldHalfX + 95, fieldHalfZ + 76, p.roofRise + 15, 1, 3);
+    const roofInner = ovalRing(fieldHalfX + 79, fieldHalfZ + 64, 43, 1, 2);
+    const roofOuter = ovalRing(fieldHalfX + 95, fieldHalfZ + 76, p.roofRise + 14, 1, 3);
     const baseInner = ovalRing(fieldHalfX + 40, fieldHalfZ + 31, 0);
     const baseOuter = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 0);
+    const facadeTop = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 12);
 
     const addRingFrames = (nodes: number[], type: 'frame' | 'truss' = 'frame') => {
       for (let i = 0; i < n; i++) {
@@ -1168,10 +1234,9 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     addRingFrames(upperMid);
     addRingFrames(upperBack);
     addRingFrames(concourse);
-    addRingFrames(tensionRing, 'truss');
     addRingFrames(roofInner);
-    addRingFrames(roofMid);
     addRingFrames(roofOuter);
+    addRingFrames(facadeTop);
 
     for (let i = 0; i < n; i++) {
       const next = (i + 1) % n;
@@ -1193,42 +1258,33 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
       store.addElement(upperMid[i], upperBack[i], 'frame');
       store.addElement(upperBack[i], concourse[i], 'frame');
 
-      store.addElement(fieldEdge[i], lowerMid[next], 'truss');
-      store.addElement(lowerBack[i], upperMid[next], 'truss');
-      if (i % 2 === 0) {
-        store.addElement(lowerFront[i], lowerBack[next], 'truss');
-        store.addElement(upperFront[i], upperBack[next], 'truss');
-      } else {
-        store.addElement(lowerFront[next], lowerBack[i], 'truss');
-        store.addElement(upperFront[next], upperBack[i], 'truss');
+      if (i % 4 === 0) {
+        store.addElement(fieldEdge[i], lowerMid[next], 'truss');
+        store.addElement(lowerBack[i], upperMid[next], 'truss');
       }
 
-      // Roof system with a clearer cantilever/tension-ring structure
+      // Roof as a cleaner cantilever band
       store.addElement(concourse[i], roofInner[i], 'frame');
-      store.addElement(tensionRing[i], roofInner[i], 'truss');
-      store.addElement(roofInner[i], roofMid[i], 'frame');
-      store.addElement(roofMid[i], roofOuter[i], 'frame');
-      store.addElement(tensionRing[i], roofMid[next], 'truss');
-      store.addElement(roofInner[i], roofOuter[next], 'truss');
+      store.addElement(roofInner[i], roofOuter[i], 'frame');
       if (i % 2 === 0) {
-        store.addElement(roofMid[i], roofOuter[next], 'truss');
-      } else {
-        store.addElement(roofMid[next], roofOuter[i], 'truss');
+        store.addElement(roofInner[i], roofOuter[next], 'truss');
       }
       if (p.roofLoad !== 0) {
         const ringA = store.addElement(roofInner[i], roofInner[next], 'frame');
-        const ringB = store.addElement(roofMid[i], roofMid[next], 'frame');
-        const ringC = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+        const ringB = store.addElement(roofOuter[i], roofOuter[next], 'frame');
         store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
         store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
-        store.addDistributedLoad3D(ringC, 0, p.roofLoad, 0, p.roofLoad);
       }
 
-      // Consistent perimeter support rhythm
+      // Simple facade / support rhythm
       store.addElement(baseInner[i], lowerBack[i], 'frame');
-      store.addElement(baseOuter[i], concourse[i], 'frame');
+      store.addElement(baseOuter[i], facadeTop[i], 'frame');
+      store.addElement(facadeTop[i], concourse[i], 'frame');
       if (i % 2 === 0) {
-        store.addElement(baseOuter[i], roofMid[i], 'truss');
+        store.addElement(baseOuter[i], concourse[i], 'frame');
+      }
+      if (i % 4 === 0) {
+        store.addElement(baseOuter[i], roofOuter[i], 'frame');
       }
 
       store.addSupport(baseInner[i], 'fixed3d');
