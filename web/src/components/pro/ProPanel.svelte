@@ -518,8 +518,8 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    width: 460px;
-    max-height: 420px;
+    width: min(320px, calc(100vw - 24px));
+    max-height: 380px;
     overflow-y: auto;
     background: linear-gradient(180deg, #162746 0%, #122038 100%);
     border: 1px solid #31507c;
@@ -552,8 +552,8 @@
 
   .pro-example-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
   }
 
   .pro-example-item {
@@ -569,7 +569,7 @@
     color: #dbe5ff;
     cursor: pointer;
     text-align: left;
-    min-height: 82px;
+    min-height: 68px;
     transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
   }
 
