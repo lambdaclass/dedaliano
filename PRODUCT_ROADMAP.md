@@ -19,6 +19,7 @@ It is for:
 - product packaging
 - design/reporting/interoperability layers
 - collaboration and distribution priorities
+- web and desktop delivery strategy
 
 It is not the solver mechanics roadmap.
 For that, see [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md).
@@ -39,13 +40,14 @@ Dedaliano should win in this order:
 3. code checks and design modules
 4. automatic load generation (what every commercial tool has)
 5. reports and documentation
-6. connections and foundations
-7. construction staging, fire, progressive collapse
-8. seismic engineering workflow (end-to-end)
-9. interoperability and BIM-connected workflows
-10. optimization and AI-assisted workflows
-11. real-time collaboration (CRDT-based)
-12. broader material codes (timber, masonry, composite)
+6. diagnostics, review workflows, and AI-assisted guidance
+7. lightweight collaboration and shareable review flows
+8. connections and foundations
+9. construction staging, fire, progressive collapse
+10. seismic engineering workflow (end-to-end)
+11. interoperability and BIM-connected workflows
+12. optimization, full collaboration, and broader AI workflows
+13. broader material codes (timber, masonry, composite)
 
 That matches how structural firms buy software:
 
@@ -157,6 +159,9 @@ Top opportunities:
 8. `Education product`
    teaching-first solver experience, benchmark explorer, assignments, verification visibility, explainable methods
 
+9. `Desktop distribution via Tauri`
+   native shell around the same web app for offline use, local files, native integration, and heavier local workflows
+
 Recommended build order after the current core roadmap:
 
 1. `RC design + schedule / BBS`
@@ -165,6 +170,7 @@ Recommended build order after the current core roadmap:
 4. `Firm workspace`
 5. `Parametric configurator`
 6. `Interoperability + cloud comparison`
+7. `Desktop distribution via Tauri`
 
 What not to build next:
 
@@ -181,8 +187,9 @@ ROI order for users:
 1. stable analysis they can trust
 2. design outputs they can use daily
 3. reports and deliverables they can issue
-4. diagnostics that reduce failure/debug time
-5. workflow polish and breadth after the above are solid
+4. diagnostics, review, and guidance that reduce failure/debug time
+5. lightweight collaboration that makes review and sharing easier
+6. workflow polish and breadth after the above are solid
 
 ### Phase 1: Solver-Led Product
 
@@ -192,6 +199,8 @@ Focus:
 - **Report and calculation-document foundations** — solver trust converts to paid usage when firms can produce deliverables
 - **Onboarding and first-solve success** — fastest way to grow usage
 - **Richer diagnostics UX** — grouping, filtering, provenance, click-to-focus highlighting for problematic elements
+- **AI-assisted modeling and review** — explain warnings, suggest missing supports/loads, flag suspicious modeling patterns, and guide first-fix actions
+- **Lightweight collaboration** — comments, pinned annotations, shared links, model/version diff, and reviewer-focused read-only flows
 - **Constraint-force and governing-result presentation** — coherent reactions, provenance, governing outputs
 - **Shell-family recommendation and automatic defaults** — recommend MITC4/MITC9/SHB8-ANS automatically, explain why, allow safe override
 - **Public benchmark and acceptance-model presentation** — make the trust story legible
@@ -210,9 +219,12 @@ Focus:
 - **Reports and calculation packages** — PDF with LaTeX equations, project info, design checks, diagrams
 - **Interoperability and import/export** — full IFC import/export, DXF 3D, lower switching friction
 - **Project and template support** — reusable workflows, firm standardization
+- **AI-powered section suggestion** — given utilization ratios from design checks, suggest optimal steel sections from catalog or concrete dimensions; explain the suggestion with code references
+- **AI-powered load combination from code selection** — select a building code and AI generates the required load combinations automatically, including accidental torsion, pattern loading, and combination factors
+- **Natural language result queries** — "what's the max moment in beam 7?", "which column has the highest utilization?", "show me all elements over 80% utilization" — answered from the result store
 
 Goal:
-Move from "can analyze" to "can support paid engineering work."
+Move from "can analyze" to "can support paid engineering work." AI handles the tedious parts (section sizing, load combo generation, result navigation) so engineers spend time on judgment.
 
 ### Phase 3: Dynamic & Nonlinear Layer (OpenSees Killer)
 
@@ -225,9 +237,11 @@ Focus:
 - cyclic material testing with hysteresis visualization
 - construction staging UI
 - seismic workflow end-to-end (spectra, ground motion selection, IDA)
+- **AI-powered result interpretation for nonlinear/dynamic** — explain convergence behavior, flag unusual hysteresis, detect soft-story mechanisms, suggest damping parameters, explain pushover results in plain language
+- **AI ground motion selection** — given site parameters and target spectrum, AI suggests appropriate ground motion records from a library and explains the selection rationale
 
 Goal:
-Make Stabileo the go-to tool for earthquake engineering — in the browser, with a visual editor, replacing OpenSees for the common 80% of work.
+Make Stabileo the go-to tool for earthquake engineering — in the browser, with a visual editor, replacing OpenSees for the common 80% of work. AI makes nonlinear results accessible to engineers who aren't nonlinear specialists.
 
 ### Phase 4: Workflow & Ecosystem Layer
 
@@ -236,6 +250,7 @@ Focus:
 - **OpenSees import** — .tcl script parser (subset) for migration
 - **Python scripting API** — Pyodide-based in-browser scripting for batch runs, parametric studies
 - **REST API** — headless solver for CI integration, automated analysis
+- **Tauri desktop packaging** — same product surface delivered as a local desktop app for firms that need offline use, local files, native menus, and stronger OS integration
 - **Education and benchmark explorer** — university course integration, homework templates, interactive benchmark viewer
 - **Additional design codes** — timber (EC5/NDS, CLT, glulam), masonry (EC6/TMS 402, confined masonry), composite (EC4/AISC, metal deck, headed studs, precast)
 - **Slab & floor design** — punching shear (EC2/ACI), flat slab strips, post-tensioned slab tendon layout, waffle/ribbed slabs
@@ -244,10 +259,16 @@ Focus:
 Goal:
 Fit into real firm workflows, broaden adoption, and open adjacent surfaces carefully.
 
+Desktop principles:
+- web remains the primary product surface
+- desktop is a shared shell, not a forked product
+- local file access, offline use, and native integration are the main value
+- auto-update should come from signed GitHub releases or an equivalent signed update feed, not ad hoc website downloads
+
 ### Phase 5: Platform Layer (CRDT-First Collaboration)
 
 Focus:
-- **CRDT-based real-time collaboration** — the core differentiator
+- **CRDT-based real-time collaboration** — full multi-user editing after the lighter review/share layer is already working
   - structural model as CRDT document (Yjs or Automerge)
   - structural-aware merge semantics (node deletion cascades to elements)
   - awareness protocol (live cursors, selection highlights, who-is-editing)
@@ -264,7 +285,8 @@ Focus:
 - **Cost estimation** — material quantities → cost (steel tonnage, concrete volume, rebar weight, formwork)
 - **Enterprise controls** — permissions, audit trail, administration
 - **Optimization & parametric design** — size/shape/topology optimization (SIMP), parametric modeling with parameter sweeps, multi-objective Pareto, code-constrained optimization
-- **AI-assisted design** — natural language to model, design suggestions based on utilization, anomaly detection, auto-load combination from code selection, intelligent section defaults
+- **Natural language to model** — "8-storey RC frame, seismic zone 4, soft soil" generates a complete structural model (needs dynamic/nonlinear solver depth from Phase 3)
+- **Automated design iteration** — AI runs hundreds of variants, presents Pareto-optimal designs (cost vs weight vs drift vs carbon) — needs batch parametric runner from solver Phase U
 - **GNN/neural operator surrogates** — train on solver output for 1000× parametric speedup (design exploration, IDA acceleration, topology optimization)
 - **PWA & offline** — installable Progressive Web App, works offline via service worker, mobile-optimized 3D viewer, offline sync via CRDTs
 
@@ -305,16 +327,18 @@ Turn the solver from a great application into a software stack structural firms 
 
 Once the solver roadmap (Phases A–S) and the product roadmap (Phases 1–7) are complete, Stabileo is the most complete structural solver ever built — open-source or commercial. At that point the game changes from "catch up and surpass" to "define the next era." The value shifts from the solver engine to AI, collaboration, and the ecosystem built on top of it.
 
-### Phase 8: AI-Native Structural Engineering
+### Phase 8: AI-Native Structural Engineering (Full Scale)
+
+Note: many AI features ship earlier — Phase 1 has AI-assisted diagnostics and review, Phase 2 has section suggestion and NL result queries, Phase 3 has nonlinear result interpretation. This phase is for the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution) to work well.
 
 Focus:
-- **Natural language to model** — "8-storey RC frame, seismic zone 4, soft soil" generates a complete structural model with appropriate sections, materials, loads, and code selections
-- **AI design assistant** — watches you model and suggests fixes in real-time ("this column is undersized for the axial load", "you forgot accidental torsion per EC8", "this beam-column joint needs confinement")
-- **Automated design iteration** — AI runs hundreds of design variants and presents Pareto-optimal designs (cost vs weight vs drift vs carbon)
-- **GNN surrogates** — neural operators trained on Stabileo solver output for 1000× parametric speedup (design exploration, IDA acceleration, topology optimization inner loops)
-- **LLM-powered code compliance** — "does this design satisfy EC8 for ductility class high?" answered by an AI that reads the model, checks the results, and references the specific code clauses
-- **Intelligent section selection** — AI proposes optimal sections from steel catalogs or concrete dimensions based on utilization, constructability, and cost
-- **Anomaly detection** — flag suspicious results, unusual force distributions, unrealistic deflections before the engineer even looks at the output
+- **Full natural language to model** — complex structures with nonlinear materials, staged construction, seismic design parameters — not just simple frames (simple NL-to-model ships in Phase 5)
+- **AI design assistant at scale** — watches you model and suggests fixes across hundreds of members in real-time, understands nonlinear behavior, suggests retrofit strategies
+- **Automated design iteration with Pareto** — AI runs hundreds of variants using batch parametric runner, presents Pareto-optimal designs (cost vs weight vs drift vs carbon vs constructability)
+- **GNN surrogates in production** — neural operators trained on Stabileo solver output replacing full solves in design exploration, IDA acceleration, and topology optimization inner loops
+- **LLM-powered code compliance** — "does this design satisfy EC8 for ductility class high?" answered by an AI that reads the full nonlinear model, checks dynamic results, and references specific code clauses
+- **Anomaly detection at depth** — detect soft-story mechanisms, torsional irregularities, connection inadequacy, progressive collapse vulnerability from analysis results
+- **Reinforcement learning for design** — RL agent learns structural design by trial and error against the solver, discovers novel structural forms
 
 Goal:
 Make structural engineering 10× faster by having AI handle the repetitive design iteration while the engineer focuses on judgment and creativity.
