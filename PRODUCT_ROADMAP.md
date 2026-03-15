@@ -10,6 +10,7 @@ Read next:
 - market framing: [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
 - RC design/BBS research: [`research/rc_design_and_bbs.md`](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
 - beyond-roadmap opportunities: [`research/beyond_roadmap_opportunities.md`](/Users/unbalancedparen/projects/dedaliano/research/beyond_roadmap_opportunities.md)
+- platform adjacencies after roadmap execution: [`research/post_roadmap_software_stack.md`](/Users/unbalancedparen/projects/dedaliano/research/post_roadmap_software_stack.md)
 - CYPECAD parity: [`research/cypecad_parity_roadmap.md`](/Users/unbalancedparen/projects/dedaliano/research/cypecad_parity_roadmap.md)
 
 It is for:
@@ -125,6 +126,53 @@ Still productizing:
 - `Architects`
   later conceptual structural mode with defaults, visual feedback, and guardrails
 
+## Post-Core Software Stack
+
+If Dedaliano executes the core roadmap well, the next best products are not "another generic solver".
+They are high-value software layers built on top of the solver moat.
+
+Top opportunities:
+
+1. `RC design + reinforcement schedule + BBS studio`
+   analysis -> required steel -> selected bars -> schedules -> drawings
+
+2. `Structural report OS`
+   calculation books, governing-case narratives, solver diagnostics, code-check summaries, submission-grade PDFs
+
+3. `QA / peer-review assistant`
+   model-quality checks, suspicious-reaction detection, instability warnings, load-path issues, reviewer workflows
+
+4. `Firm workspace`
+   templates, office standards, reusable load packages, shared defaults, review flows, project memory
+
+5. `Parametric structural configurator`
+   high-value typology generators for towers, warehouses, pipe racks, stadiums, mat foundations, and repetitive frames
+
+6. `Interoperability layer`
+   BIM/CAD exchange, analytical-model generation, geometry cleanup, downstream drawing sync
+
+7. `Cloud solve + comparison platform`
+   batch analysis, branch comparison, model diffing, scenario sweeps, history, batch reports
+
+8. `Education product`
+   teaching-first solver experience, benchmark explorer, assignments, verification visibility, explainable methods
+
+Recommended build order after the current core roadmap:
+
+1. `RC design + schedule / BBS`
+2. `Structural report OS`
+3. `QA / peer-review assistant`
+4. `Firm workspace`
+5. `Parametric configurator`
+6. `Interoperability + cloud comparison`
+
+What not to build next:
+
+- a second solver engine
+- a broad CAD clone
+- a generic project-management app without engineering depth
+- a full BIM-authoring competitor
+
 ---
 
 ## Delivery Phases
@@ -237,6 +285,19 @@ Focus:
 
 Goal:
 Cover the remaining 20% of specialized analysis that advanced users need, and scale to the largest models.
+
+### Phase 7: Software Built On The Solver
+
+Focus:
+- `RC design + BBS studio` — the strongest adjacent product once analysis and extraction are mature
+- `Structural report OS` — report-grade outputs, submission documents, and issue-ready calculation books
+- `QA / peer-review assistant` — structural review workflows, suspicious-result detection, and model-quality review
+- `Firm workspace` — standards, templates, reusable office defaults, collaboration, and project memory
+- `Parametric configurator` — building, industrial, and foundation generators
+- `Interoperability + cloud comparison` — shared workspaces, batch runs, model diffing, scenario comparisons
+
+Goal:
+Turn the solver from a great application into a software stack structural firms can live inside.
 
 ---
 

@@ -12,6 +12,7 @@ Read next:
 - competitor shell-family comparison: [`research/competitor_element_families.md`](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md)
 - numerical-methods gap analysis: [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
 - RC design/BBS research: [`research/rc_design_and_bbs.md`](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
+- post-core software stack: [`research/post_roadmap_software_stack.md`](/Users/unbalancedparen/projects/dedaliano/research/post_roadmap_software_stack.md)
 
 It is for:
 - solver mechanics
@@ -122,6 +123,31 @@ In practice, that means the main multipliers are:
 
 5. `Shell workflow maturity`
    The advantage is now the multi-family shell stack used correctly, not raw shell-family count.
+
+## What The Solver Must Enable Beyond The Core App
+
+If the product roadmap succeeds, the solver becomes the foundation for more software than the main app itself.
+The solver roadmap should only carry the enabling work, not the downstream product definitions.
+
+The most important enabling capabilities are:
+
+1. `Stable runtime and API/WASM contracts`
+   Product layers like RC design, reports, QA, and configurators need long-lived contracts, not shifting payload shapes.
+
+2. `Design-grade extraction`
+   Downstream software depends on trustworthy stations, envelopes, governing cases, provenance, and deterministic metadata.
+
+3. `Report-grade provenance and diagnostics`
+   Report OS and QA layers need solver-path, warnings, timings, residuals, and governing-result provenance in a form suitable for users and documents.
+
+4. `Headless and native execution`
+   Firm workflows, cloud comparison, batch runs, and heavier report jobs need native/server execution in addition to browser WASM.
+
+5. `Reproducibility`
+   QA/review and collaboration products need deterministic replay, build IDs, and captured solver-run artifacts.
+
+6. `Model quality gates`
+   Review and peer-check layers work much better when the solver catches instability, disconnected subgraphs, shell pathologies, and bad support conditions before solve.
 
 ## Ranked Priorities
 

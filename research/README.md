@@ -24,3 +24,5 @@ Current documents:
   Corrected CYPECAD-vs-Dedaliano gap analysis, separating engine capability from workflow/product, design automation, and report/export gaps.
 - [beyond_roadmap_opportunities.md](/Users/unbalancedparen/projects/dedaliano/research/beyond_roadmap_opportunities.md)
   Research-backed opportunities beyond the solver roadmap: code checking, ML surrogates, FEMA P-58, topology optimization, BIM-IFC, CLT, seismic automation, generative design, and a nuanced WebGPU assessment (GPU helps visualization/postprocessing/topology, but sparse direct stays on CPU).
+- [post_roadmap_software_stack.md](/Users/unbalancedparen/projects/dedaliano/research/post_roadmap_software_stack.md)
+  Best software products to build once the core roadmap lands: RC design/BBS studio, report OS, QA/review assistant, firm workspace, parametric configurators, interoperability, cloud comparison, and education.
